@@ -1,0 +1,13 @@
+0002_src_signal_x86_64_sigsetjmp.s_00 src/signal/x86_64/sigsetjmp.s
+0002_src_signal_x86_64_sigsetjmp.s_01 src/signal/x86_64/sigsetjmp.s
+0006_src_internal_syscall.h_00 src/internal/syscall.h
+0006_src_network_lookup.h_00 src/network/lookup.h
+0006_src_network_lookup_ipliteral.c_00 src/network/lookup_ipliteral.c
+0006_src_network_lookup_name.c_00 src/network/lookup_name.c
+0006_src_network_lookup_name.c_01 src/network/lookup_name.c
+0006_src_network_lookup_name.c_02 src/network/lookup_name.c
+0006_src_network_lookup_name.c_03 src/network/lookup_name.c
+0006_src_network_lookup_name.c_04 src/network/lookup_name.c
+0006_src_network_lookup_serv.c_00 src/network/lookup_serv.c
+0030_arch_x86_64_syscall_arch.h_00 arch/x86_64/syscall_arch.h
+0040_include_stdarg.h_00 include/stdarg.h

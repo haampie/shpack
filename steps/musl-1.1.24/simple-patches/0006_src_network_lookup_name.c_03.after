@@ -1,0 +1,7 @@
+	return EAI_FAIL;
+}
+
+static int name_from_dns_search(struct address buf[], char canon[], const char *name, int family)
+{
+	char search[256];
+	struct resolvconf conf;

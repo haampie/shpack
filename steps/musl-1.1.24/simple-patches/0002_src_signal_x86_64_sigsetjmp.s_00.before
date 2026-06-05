@@ -1,0 +1,7 @@
+	mov %rbx,72+8(%rdi)
+	mov %rdi,%rbx
+
+	call setjmp@PLT
+
+	pushq 64(%rbx)
+	mov %rbx,%rdi

@@ -1,0 +1,7 @@
+	return !*s;
+}
+
+static int name_from_null(struct address buf[], const char *name, int family, int flags)
+{
+	int cnt = 0;
+	if (name) return 0;

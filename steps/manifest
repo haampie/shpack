@@ -34,6 +34,10 @@
 build: checksum-transcriber-1.0
 build: simple-patch-1.0
 build: tcc-0.9.26
+# Grow the bring-up subset libc into FULL musl 1.1.24 (amd64), built by the
+# production tcc, for the downstream binutils/gcc bootstrap. Other arches still
+# use mes and the step no-ops there.
+build: musl-1.1.24
 # tcc-0.9.27 still builds against GNU mes libc; disabled while bringing up the
 # mes-free musl-subset path for tcc-0.9.26 (amd64). Re-enable once 0.9.27 is ported.
 # build: tcc-0.9.27

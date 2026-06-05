@@ -339,3 +339,60 @@ scaling.
 
 **Next:** scale the subset up to full musl 1.1.24 (plan step 2), then hand off to Spack at
 binutils.
+
+## Task 8 — grow subset → full musl 1.1.24, on a pristine-tarball + simple-patch base  [IN PROGRESS 2026-06-05]
+
+Reworked the packaging so the bootstrap consumes the **pristine** upstream
+`musl-1.1.24.tar.gz` (committed in `distfiles/`, shared across arches) instead of a
+repackaged subset tarball. All tcc-compat changes are applied **in-chroot** with
+`simple-patch` (the chroot has no GNU `patch`); each build stage re-extracts the pristine
+tree and applies the patch set it needs. Two representations of the patches coexist:
+`patches/*.patch` (canonical unified diffs, for Spack's host `patch`) and
+`simple-patches/*.{before,after}` (one fragment pair per hunk, for kaem).
+
+### Tooling: `steps/musl-1.1.24/regen.{py,sh}` (host-side, committed outputs)
+- `regen.py` parses each unified diff into per-hunk `before/after` fragments (respecting the
+  `@@ -a,b +c,d @@` line counts so the git `-- \n<ver>` trailer isn't slurped), skips the
+  `alltypes.h.in` hunk (shipped pre-generated) and `/dev/null` new files (`va_list.c` →
+  `newsrc/`), and **verifies** every fragment reproduces GNU `patch` byte-for-byte. It then
+  emits `apply-{subset,full}.kaem` (simple-patch lists; subset patches only the 3 files its
+  sources include — `src/internal/syscall.h`, `arch/x86_64/syscall_arch.h`, `include/stdarg.h`)
+  and `build-libc-{subset,full}.kaem` (per-file compile + `ar`, kaem has no loops).
+- `regen.sh` regenerates the committed host artifacts from the pristine tarball: the three
+  `generated/` headers (sed), `sysinclude.tar` (flat merged public headers — kept because the
+  in-chroot `cp` has no `-r`), the **full** source list (`./configure` + `make -n` on the
+  patched tree with `src/complex` + `src/math/x86_64` removed so generic C math is selected →
+  1257 src files), then drives `regen.py`.
+
+### Wiring
+- `steps/tcc-0.9.26/pass1.kaem`: unpack pristine musl → `kaem --file apply-subset.kaem` (SP
+  set) → drop in `generated/` headers, `newsrc/src/stdarg/va_list.c`, and the four glue files →
+  `build-libc-subset.kaem` (unchanged compile commands, so the subset `libc.a` and the
+  boot2==boot3 fixed point are **behaviorally identical** to Task 7).
+- New `steps/musl-1.1.24/pass1.kaem` (+ `sources`/`SHA256SUM`, `build: musl-1.1.24` in the
+  manifest): unpack pristine → `apply-full.kaem` → `build-libc-full.kaem` with `CC=tcc`
+  (HAVE_FLOAT=1, **no glue**) → overwrite `${LIBDIR}/libc.a`, install real
+  `crt1.o`/`crti.o`/`crtn.o` from musl's `crt/`, then a `%f` `hello-float.c` smoke test.
+
+### Validation so far (host, no chroot — sudo unavailable here)
+- `regen.py` verify: all 11 fragments == `patch` output. ✓
+- Subset: gcc-freestanding proxy compiled all 125 objects; `libc.a` has the expected surface
+  (`printf`/`strtod`/`ldexp`/`__va_arg`/`__libc_start_main`/`vfprintf`). ✓ (and the compile
+  commands are byte-identical to the old subset build, so tcc self-host is unaffected).
+- Full: gcc-freestanding proxy compiled **all 1257** sources (0 failures); `libc.a` carries
+  the full-only surface (`getaddrinfo`, `pow`, `sqrt`, `regcomp`, `socket`, `getpwnam`,
+  `opendir`). ✓ The remaining unknown is tcc-specific assembler/codegen coverage on the
+  `.s`/inline-asm the gcc proxy can't exercise (fenv.s, ldso/*, x86_64 string asm, threads).
+
+### Full tcc-driven build — GREEN (2026-06-05)
+`./task5_amd64.sh` ran clean end-to-end: the chroot tcc compiled **all 1257** full-musl
+sources, replaced `libc.a`, installed real `crt1.o`/`crti.o`/`crtn.o` from musl's `crt/`,
+and the `hello-float.c` smoke test **linked and ran**: `./hello-float` → `3.000000 2.000000
+1.500000` (full musl `%f` correct). **No new patches were needed** — the shipped
+`0006/0030/0040` + `-DSYSCALL_NO_TLS` sufficed; `0002`/fenv/ldso-asm did NOT have to be
+added (the tcc-specific `.s`/inline-asm the gcc proxy couldn't exercise all assembled fine).
+One real fix: the smoke test invoked `hello-float` bare, which kaem's `find_executable`
+(`src/kaem.c:715`) searches on PATH (→ `/usr/bin`, ENOENT); changed to `./hello-float`.
+
+### NEXT
+Hand the full libc off to Spack at binutils.

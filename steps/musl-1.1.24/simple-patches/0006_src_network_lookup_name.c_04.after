@@ -1,0 +1,7 @@
+	return b->sortkey - a->sortkey;
+}
+
+int __lookup_name(struct address buf[], char canon[], const char *name, int family, int flags)
+{
+	int cnt = 0, i, j;
+

@@ -1,0 +1,4 @@
+.hidden __sigsetjmp_tail
+	jmp __sigsetjmp_tail
+
+1:	jmp setjmp@PLT

@@ -1,0 +1,25 @@
+
+#include <bits/alltypes.h>
+
+/* tcc 0.9.26 x86_64 has no __builtin_va_*; its runtime exports __va_start /
+   __va_arg over the System V AMD64 __va_list_struct (see tcc-mes'
+   tcc_x86_64_stdarg.h). va_list is a 1-elem array so a va_list parameter
+   decays to a pointer; va_copy dereferences both sides. */
+void __va_start(__musl_va_list_t *__ap, void *__fp);
+void *__va_arg(__musl_va_list_t *__ap, int __type, int __size, int __align);
+
+/* SysV AMD64 class: float/double go in XMM (arg_type 1), everything else in
+   GP (arg_type 0). tcc-musl supports __builtin_types_compatible_p, so classify
+   at compile time -- this makes %f / double varargs round-trip. (long double
+   is x87/MEMORY but rare in the bootstrap toolchain; it falls to GP as before,
+   no regression.) */
+#define __va_argtype(type) \
+    ((__builtin_types_compatible_p(type, float) || \
+      __builtin_types_compatible_p(type, double)) ? 1 : 0)
+#define va_start(ap, last) __va_start(ap, __builtin_frame_address(0))
+#define va_arg(ap, type)   (*(type *)__va_arg(ap, __va_argtype(type), sizeof(type), __alignof__(type)))
+#define va_end(ap)
+#define va_copy(d, s)      (*(d) = *(s))
+
+#ifdef __cplusplus
+}

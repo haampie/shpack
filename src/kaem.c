@@ -46,7 +46,10 @@
 // CONSTANT FAILURE 1
 #define FAILURE 1
 #define MAX_STRING 4096
-#define MAX_ARRAY 300
+// Raised from 300: the full-musl step's `tcc -ar cr libc.a <objs...>` line passes
+// ~1257 object files as a single argv (kaem has no loops/response-files), and
+// list_to_array() caps argv/envp length at MAX_ARRAY. Only sizes a pointer array.
+#define MAX_ARRAY 8192
 
 
 /*

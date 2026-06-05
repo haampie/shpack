@@ -1,0 +1,4 @@
+    DEF_ASM_OP1(fxsave, 0x0fae, 0, OPC_MODRM, OPT_EA )
+    DEF_ASM_OP1(fxrstor, 0x0fae, 1, OPC_MODRM, OPT_EA )
+    DEF_ASM_OP1(ldmxcsr, 0x0fae, 2, OPC_MODRM, OPT_EA )
+    DEF_ASM_OP1(stmxcsr, 0x0fae, 3, OPC_MODRM, OPT_EA )

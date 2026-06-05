@@ -1,0 +1,7 @@
+#define __sys_open_cp(...) __SYSCALL_DISP(__sys_open_cp,,__VA_ARGS__)
+#define sys_open_cp(...) __syscall_ret(__sys_open_cp(__VA_ARGS__))
+
+hidden void __procfdname(char __buf[], unsigned);
+
+hidden void *__vdsosym(const char *, const char *);
+
