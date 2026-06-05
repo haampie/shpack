@@ -34,5 +34,7 @@
 build: checksum-transcriber-1.0
 build: simple-patch-1.0
 build: tcc-0.9.26
-build: tcc-0.9.27
+# tcc-0.9.27 still builds against GNU mes libc; disabled while bringing up the
+# mes-free musl-subset path for tcc-0.9.26 (amd64). Re-enable once 0.9.27 is ported.
+# build: tcc-0.9.27
 

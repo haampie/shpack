@@ -1,0 +1,138 @@
+From 3bdfaafbcaf9698816e520e098055d7b416ec9f8 Mon Sep 17 00:00:00 2001
+From: Harmen Stoppels <me@harmenstoppels.nl>
+Date: Tue, 2 Jun 2026 21:29:48 +0200
+Subject: [PATCH] x86_64 SysV AMD64 va_list
+
+---
+ arch/x86_64/bits/alltypes.h.in | 22 +++++++++++--
+ include/stdarg.h               | 16 +++++++---
+ src/stdarg/va_list.c           | 57 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 89 insertions(+), 6 deletions(-)
+ create mode 100644 src/stdarg/va_list.c
+
+diff --git a/arch/x86_64/bits/alltypes.h.in b/arch/x86_64/bits/alltypes.h.in
+index dc551d4..3e54f6a 100644
+--- a/arch/x86_64/bits/alltypes.h.in
++++ b/arch/x86_64/bits/alltypes.h.in
+@@ -2,8 +2,26 @@
+ #define _Int64 long
+ #define _Reg long
+ 
+-TYPEDEF __builtin_va_list va_list;
+-TYPEDEF __builtin_va_list __isoc_va_list;
++#ifndef __DEFINED___musl_va_list_t
++typedef struct __va_list_struct {
++	unsigned int gp_offset;
++	unsigned int fp_offset;
++	union {
++		unsigned int overflow_offset;
++		char *overflow_arg_area;
++	};
++	char *reg_save_area;
++} __musl_va_list_t;
++#define __DEFINED___musl_va_list_t
++#endif
++#if defined(__NEED_va_list) && !defined(__DEFINED_va_list)
++typedef __musl_va_list_t va_list[1];
++#define __DEFINED_va_list
++#endif
++#if defined(__NEED___isoc_va_list) && !defined(__DEFINED___isoc_va_list)
++typedef __musl_va_list_t __isoc_va_list[1];
++#define __DEFINED___isoc_va_list
++#endif
+ 
+ #ifndef __cplusplus
+ TYPEDEF int wchar_t;
+diff --git a/include/stdarg.h b/include/stdarg.h
+index 3256f80..967faa8 100644
+--- a/include/stdarg.h
++++ b/include/stdarg.h
+@@ -9,10 +9,18 @@ extern "C" {
+ 
+ #include <bits/alltypes.h>
+ 
+-#define va_start(v,l)   __builtin_va_start(v,l)
+-#define va_end(v)       __builtin_va_end(v)
+-#define va_arg(v,l)     __builtin_va_arg(v,l)
+-#define va_copy(d,s)    __builtin_va_copy(d,s)
++/* tcc 0.9.26 x86_64 has no __builtin_va_*; its runtime exports __va_start /
++   __va_arg over the System V AMD64 __va_list_struct (see tcc-mes'
++   tcc_x86_64_stdarg.h). va_list is a 1-elem array so a va_list parameter
++   decays to a pointer; va_copy dereferences both sides. __va_arg's arg_type
++   is hardcoded 0 (GP) -- the scaffold libc's documented FP-vararg limit. */
++void __va_start(__musl_va_list_t *__ap, void *__fp);
++void *__va_arg(__musl_va_list_t *__ap, int __type, int __size, int __align);
++
++#define va_start(ap, last) __va_start(ap, __builtin_frame_address(0))
++#define va_arg(ap, type)   (*(type *)__va_arg(ap, 0, sizeof(type), __alignof__(type)))
++#define va_end(ap)
++#define va_copy(d, s)      (*(d) = *(s))
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/src/stdarg/va_list.c b/src/stdarg/va_list.c
+new file mode 100644
+index 0000000..3bb83f1
+--- /dev/null
++++ b/src/stdarg/va_list.c
+@@ -0,0 +1,57 @@
++/* tcc 0.9.26 x86_64 variadic runtime (verbatim from tcc's lib/va_list.c).
++   Archived into scaffold musl's libc.a so consumers tcc-mes compiles against
++   it can resolve __va_start/__va_arg (tcc-mes bakes them into mes libc.a,
++   which they never link). Retyped onto musl's __musl_va_list_t. */
++
++#include <stdarg.h>
++
++/* Avoid pulling string.h/stdlib.h (size_t etc. not needed here). */
++extern void *memset(void *s, int c, __SIZE_TYPE__ n);
++extern void abort(void);
++
++/* Must match include/stdarg.h: 0 = GP reg, 1 = XMM reg, 2 = stack. */
++enum __va_arg_type {
++    __va_gen_reg, __va_float_reg, __va_stack
++};
++
++void __va_start(__musl_va_list_t *ap, void *fp)
++{
++    memset(ap, 0, sizeof(__musl_va_list_t));
++    *ap = *(__musl_va_list_t *)((char *)fp - 16);
++    ap->overflow_arg_area = (char *)fp + ap->overflow_offset;
++    ap->reg_save_area = (char *)fp - 176 - 16;
++}
++
++void *__va_arg(__musl_va_list_t *ap,
++               int arg_type,
++               int size, int align)
++{
++    size = (size + 7) & ~7;
++    align = (align + 7) & ~7;
++    switch (arg_type) {
++    case __va_gen_reg:
++        if (ap->gp_offset + size <= 48) {
++            ap->gp_offset += size;
++            return ap->reg_save_area + ap->gp_offset - size;
++        }
++        goto use_overflow_area;
++
++    case __va_float_reg:
++        if (ap->fp_offset < 128 + 48) {
++            ap->fp_offset += 16;
++            return ap->reg_save_area + ap->fp_offset - 16;
++        }
++        size = 8;
++        goto use_overflow_area;
++
++    case __va_stack:
++    use_overflow_area:
++        ap->overflow_arg_area += size;
++        ap->overflow_arg_area = (char*)((long long)(ap->overflow_arg_area + align - 1) & -align);
++        return ap->overflow_arg_area - size;
++
++    default: /* should never happen */
++        abort();
++    }
++    return 0;
++}
+-- 
+2.43.0
+

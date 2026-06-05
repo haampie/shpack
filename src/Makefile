@@ -17,6 +17,17 @@ x86 : unittest_s_OK stack_c_s stack_c_diff_OK tcc_cc_s tcc_cc_diff_OK diff3_OK d
 % : %.c
 	./run.sh gcc $(basename $@)
 
+# GNU make 4.4 will not use a match-anything rule (the `% : %.c` above) to build a
+# prerequisite that is only needed to *chain* implicit rules. The host seed tools
+# below are static prerequisites of the .sl/.sl64/.M1*/.macro* chain rules, so the
+# match-anything rule alone leaves make unable to form the chain to e.g.
+# unittest.amd64 ("No rule to make target ..."). A static pattern rule is not
+# match-anything, so it is eligible for chaining and fixes x86/amd64/arm64 builds.
+HOST_SEED_TOOLS := tcc_cc stack_c stack_c_amd64 stack_c_arm64 stack_c_interpreter \
+	blood-elf M1 hex2
+$(HOST_SEED_TOOLS) : % : %.c
+	./run.sh gcc $(basename $@)
+
 hex0.sl : hex0.c tcc_cc
 	./tcc_cc -o $@ $<
 

@@ -201,3 +201,60 @@ empty-crti/crtn artifact, or a tcc09-as-built-by-gcc quirk; try the spack link f
 `steps/musl-1.1.24-subset/patches/` (0006/0030/0040), regenerated `generated/bits/alltypes.h`,
 `src/stdarg/va_list.c` added to `musl-subset.files`, and a kaem build script mirroring
 pass1.kaem's libc section.
+
+## Task 5 — wire the subset into tcc-0.9.26 (amd64), replace mes  [DONE]
+
+`steps/tcc-0.9.26/pass1.kaem` rewired with a `LIBC=musl|mes` switch (amd64 -> musl,
+others -> mes; kaem has no `else`, so each branch is a separate `if match`). The amd64
+path now: unpacks `musl-1.1.24-subset.tar.gz`, untars `sysinclude.tar` into `${INCDIR}`,
+runs the generated `build-libc.kaem` (126 per-file `tcc_s -c` lines + one `ar`) to build
+`${LIBDIR}/libc.a`, builds `crt1.o` + empty `crti.o`/`crtn.o` + `libtcc1.a`(+alloca86_64.S),
+and reuses that one libc across boot0/1/2 (the mes per-stage libc rebuilds are gated to
+`mes`). The 3 musl patches (0006/0030/0040) are baked into the distfile by
+`make-distfile.sh`; only `static-plt` remains as a tcc-side patch. `steps/manifest` stops
+after tcc-0.9.26 (0.9.27 still needs mes). Distfile committed to `distfiles/`.
+
+## Task 6 — in-chroot verification  [IN PROGRESS]
+
+First `./task5_amd64.sh` runs surfaced three real bugs, all now fixed:
+
+### Bug A — `make -C src` fails under GNU make 4.4 ("No rule to make target unittest.amd64")
+GNU make **4.4** no longer uses a *match-anything* rule (`% : %.c`) to build a prerequisite
+needed only to **chain** implicit rules. The seed tools (`tcc_cc`, `blood-elf`, `M1`,
+`hex2`, `stack_c*`) are static prereqs of the `.sl64 -> .M1_amd64 -> .blood_elf_amd64 ->
+.macro_amd64 -> .amd64` chain, so the chain couldn't form. **Fix** (`src/Makefile`): add a
+**static pattern rule** for those tools (`$(HOST_SEED_TOOLS) : % : %.c`) — not
+match-anything, so it's eligible for chaining. Verified clean `x86`/`amd64`/`all` builds.
+
+### Bug B — `tcc_s` SIGSEGV on decimal float constants (e.g. musl `NAN` = `0.0f/0.0f`)
+Stage-1 `tcc_s` is built with `HAVE_FLOAT` undefined (the seed has no real float). tccpp.c
+guards the double/long-double constant evaluators with `#if HAVE_FLOAT` but **left the
+float `F`-suffix case unguarded**: `tokc.f = strtof(token_buf, NULL)` calls the seed's
+`strtof` **stub** (`*endptr = str; return 0;`), which derefs the NULL endptr -> crash.
+First hit compiling `src/internal/floatscan.c`. Pinpointed with gdb (`f_strtof+55`) and
+cvise (reduced to `0.0f`). **Fix**: simple-patch `tccpp-have-float-strtof.{before,after}`
+wraps that line in `#if HAVE_FLOAT`.
+
+### Bug C — `tcc_s` infinite hang on hex-float constants with negative exponent (`0x1p-120f`)
+Same incomplete-`HAVE_FLOAT` story for the hex-float path: the mantissa is guarded but the
+following `d = ldexp(d, exp_val - frac_bits)` is not. The seed's `ldexp(double, size_t exp)`
+loops `for(i=1;i<exp;i++)` (and isn't even a real ldexp), so a negative exponent becomes a
+~2^64-iteration hang. Hit `fmodl.c`, `scalbn.c`, `scalbnl.c`, `vfprintf.c`. **Fix**:
+simple-patch `tccpp-have-float-ldexp.{before,after}` moves the `ldexp` call inside the
+existing `#if HAVE_FLOAT`. Both patches wired in pass1.kaem after the tcctools patches
+(unconditional — harmless for mes/other arches and for the HAVE_FLOAT=1 boot stages).
+
+### Full scan (current unpatched `tcc_s`, per-file timeout)
+121/126 subset compiles OK; the only 5 failures are exactly the float-constant files above
+(1 crash + 4 hangs) — **no non-float bugs**. tcc's float-value computation is only
+strtof/strtod/strtold (decimal) + mantissa/ldexp (hex); strtod/strtold were already
+guarded, so the two new patches close every float path. After them, no float constant can
+call into the seed libc, so none can crash or hang `tcc_s`.
+
+**Caveat (deferred):** because the seed can't evaluate float constants, every float/double
+constant in the `tcc_s`-built `libc.a` (floatscan/strtod tables, vfprintf `%f`) is left 0 /
+garbage. Harmless for self-hosting tcc + non-float hello-world; a real blocker for the
+eventual gcc bootstrap (float-heavy). Genuine float bootstrap is unsolved/deferred.
+
+**Next:** re-run `./task5_amd64.sh` (needs sudo) with all three fixes; expect `tcc_s`,
+`tcc-boot0/1/2`, `tcc-0.9.26` to build and the final tcc to self-host hello-world.

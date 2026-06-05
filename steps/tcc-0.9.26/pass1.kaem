@@ -10,6 +10,14 @@ set -ex
 TCC_TAR=tcc-0.9.26
 TCC_PKG=tcc-0.9.26-1147-gee75a10c
 
+# The production tcc links against a C library. amd64 uses a stripped subset of real
+# musl 1.1.24 (see /steps/musl-1.1.24-subset); the other arches still use GNU mes libc.
+# LIBC selects which path runs below.
+LIBC=mes
+if match ${ARCH} amd64; then
+    LIBC=musl
+fi
+
 # Check tarball checksums
 checksum-transcriber sources
 sha256sum -c sources.SHA256SUM
@@ -24,9 +32,30 @@ simple-patch ${TCC_PKG}/tcctools.c \
     ../simple-patches/remove-fileopen.before ../simple-patches/remove-fileopen.after
 simple-patch ${TCC_PKG}/tcctools.c \
     ../simple-patches/addback-fileopen.before ../simple-patches/addback-fileopen.after
+# tccpp.c guards the double/long-double constant evaluators with #if HAVE_FLOAT but
+# leaves the float (F-suffix) case unguarded. Stage-1 tcc_s is built with HAVE_FLOAT
+# undefined (the seed libc has no real strtof -- only a stub), so parsing any float
+# constant (e.g. musl's NAN == 0.0f/0.0f, or 0x1p120f) calls the stub strtof(.., NULL),
+# which derefs the NULL endptr and segfaults. Guard the float case too, matching the
+# double/long-double branches; harmless for the later HAVE_FLOAT=1 boot stages.
+simple-patch ${TCC_PKG}/tccpp.c \
+    ../simple-patches/tccpp-have-float-strtof.before ../simple-patches/tccpp-have-float-strtof.after
+# Same incomplete-HAVE_FLOAT issue for hex-float constants (e.g. musl's 0x1p-120f):
+# the mantissa is guarded but the following d = ldexp(d, exp_val - frac_bits) is not.
+# The seed's ldexp takes an unsigned size_t exponent and loops for(i=1;i<exp;i++), so
+# a negative exponent becomes a ~2^64 iteration hang. Move the ldexp call inside the
+# #if HAVE_FLOAT guard so stage-1 tcc_s (HAVE_FLOAT undefined) never calls it.
+simple-patch ${TCC_PKG}/tccpp.c \
+    ../simple-patches/tccpp-have-float-ldexp.before ../simple-patches/tccpp-have-float-ldexp.after
 
-ungz --file ${DISTFILES}/${MES_PKG}.tar.gz --output ${MES_PKG}.tar
-untar --non-strict --file ${MES_PKG}.tar
+if match ${LIBC} mes; then
+    ungz --file ${DISTFILES}/${MES_PKG}.tar.gz --output ${MES_PKG}.tar
+    untar --non-strict --file ${MES_PKG}.tar
+fi
+if match ${LIBC} musl; then
+    ungz --file ${DISTFILES}/musl-1.1.24-subset.tar.gz --output musl-1.1.24-subset.tar
+    untar --non-strict --file musl-1.1.24-subset.tar
+fi
 
 # arm64 ships the pristine mes tarball (like the other arches) and reconstructs
 # the aarch64 libc in-chroot: drop in the 11 new aarch64 source files (runtime
@@ -58,35 +87,19 @@ if match ${ARCH} arm64; then
         ../simple-patches/mes-stdint-limits.before ../simple-patches/mes-stdint-limits.after
 fi
 
-# apply the x86_64 bootstrap fixes:
-# 1. tccelf.c: relocate_plt() is never called for static executables upstream,
-#    leaving every PLT stub with a wrong RIP-relative offset.
-# 2. mes stdarg.h: the i386 "char* va_list" fallback is wrong under the System
-#    V AMD64 ABI; route x86_64 TCC to a proper __va_list_struct header.
-# 3. tcc lib/va_list.c: strip the `#if defined TCC_TARGET_X86_64` / `#endif`
-#    guard so the file can be catm'd into the mes unified-libc.c (we already
-#    only do that on amd64), keeping the libc.a build commands arch-uniform.
+# x86_64 bootstrap fix: tccelf.c relocate_plt() is never called for static
+# executables upstream, leaving every PLT stub with a wrong RIP-relative offset.
+# (The musl subset carries its own SysV-AMD64 va_list handling via patch 0040, so
+# the former mes stdarg / tcc va_list.c patches are no longer needed on amd64.)
 if match ${ARCH} amd64; then
     simple-patch ${TCC_PKG}/tccelf.c \
         ../simple-patches/static-plt.before ../simple-patches/static-plt.after
-    simple-patch ${MES_PKG}/include/stdarg.h \
-        ../simple-patches/x86_64-stdarg.before ../simple-patches/x86_64-stdarg.after
-    simple-patch ${TCC_PKG}/lib/va_list.c \
-        ../simple-patches/va_list-guard-open.before ../simple-patches/va_list-guard-open.after
-    simple-patch ${TCC_PKG}/lib/va_list.c \
-        ../simple-patches/va_list-guard-close.before ../simple-patches/va_list-guard-close.after
-    # va_list.c is catm'd into unified-libc.c, which already pulls __va_list_struct
-    # in via tcc_x86_64_stdarg.h (through stdarg.h). Drop the duplicate typedef and
-    # match the header's `int arg_type` prototype so the merged TU has one definition.
-    simple-patch ${TCC_PKG}/lib/va_list.c \
-        ../simple-patches/va_list-struct.before ../simple-patches/va_list-struct.after
-    simple-patch ${TCC_PKG}/lib/va_list.c \
-        ../simple-patches/va_list-arg-type.before ../simple-patches/va_list-arg-type.after
-    cp /steps/tcc-0.9.26/tcc_x86_64_stdarg.h ${MES_PKG}/include/tcc_x86_64_stdarg.h
 fi
 
 # Create config.h
-catm ${MES_PKG}/include/mes/config.h
+if match ${LIBC} mes; then
+    catm ${MES_PKG}/include/mes/config.h
+fi
 catm ${TCC_PKG}/config.h
 cd ${TCC_PKG}
 
@@ -154,6 +167,38 @@ ${BINDIR}/hex2 -o /usr/bin/tcc_s /${ARCH}/ELF-${ARCH}-debug.hex2 ${TMPDIR}/tcc_s
 # test tcc_s
 tcc_s -version
 
+# Recompile the C library the production tcc links against.
+# amd64: a stripped subset of real musl 1.1.24 (mes-free).
+if match ${LIBC} musl; then
+    M=${SRCDIR}/${TCC_TAR}/build/musl-1.1.24-subset
+    # Install the flat public header set into tcc's system-include dir (one untar;
+    # cp has no -r and kaem has no globbing, so the headers ship pre-merged).
+    mkdir -p ${INCDIR}
+    cd ${INCDIR}
+    untar --non-strict --file ${M}/sysinclude.tar
+    # Compile the subset into libc.a. kaem has no for-loops, so build-libc.kaem
+    # (generated from musl-subset.files, shipped in the subset) carries the per-file
+    # tcc_s commands and reads ${CC} ${O} ${LIBDIR} from the environment.
+    mkdir -p ${TMPDIR}/musl-obj
+    # build-libc.kaem's final `ar` writes ${LIBDIR}/libc.a, so ${LIBDIR} must
+    # already exist (ar can't create its temp file in a missing dir -> ENOENT).
+    mkdir -p ${LIBDIR}
+    CC=tcc_s
+    O=${TMPDIR}/musl-obj
+    cd ${M}
+    kaem --file ${M}/build-libc.kaem
+    # crt1.o (amd64 uses empty crti/crtn, like the former mes amd64 path)
+    tcc_s -c -nostdinc -I obj/include -I arch/x86_64 -I arch/generic -I obj/src/internal -I src/include -I src/internal -I include -std=c99 -ffreestanding -D_XOPEN_SOURCE=700 -D SYSCALL_NO_TLS -o ${LIBDIR}/crt1.o crt/crt1.c
+    catm ${LIBDIR}/crti.o
+    catm ${LIBDIR}/crtn.o
+    # libtcc1.a + alloca: tcc maps __builtin_alloca -> the symbol 'alloca', which
+    # musl (unlike mes) does not provide, so the asm helper must be archived in.
+    mkdir -p ${LIBDIR}/tcc
+    tcc_s -c -D TCC_TARGET_X86_64=1 -o ${TMPDIR}/libtcc1.o ${SRCDIR}/${TCC_TAR}/build/${TCC_PKG}/lib/libtcc1.c
+    tcc_s -c -o ${TMPDIR}/alloca86_64.o ${SRCDIR}/${TCC_TAR}/build/${TCC_PKG}/lib/alloca86_64.S
+    tcc_s -ar cr ${LIBDIR}/tcc/libtcc1.a ${TMPDIR}/libtcc1.o ${TMPDIR}/alloca86_64.o
+fi
+if match ${LIBC} mes; then
 # Recompile the mes C library
 cd ../${MES_PKG}
 
@@ -287,6 +332,7 @@ fi
 # libgetopt.a
 tcc_s -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
 tcc_s -ar cr ${LIBDIR}/libgetopt.a getopt.o
+fi
 
 cd ../${TCC_PKG}
 
@@ -323,6 +369,8 @@ tcc_s \
 # Install
 cp tcc-boot0 ${BINDIR}/
 chmod 755 ${BINDIR}/tcc-boot0
+# musl: libc.a/crt1.o/libtcc1.a were built once (above) by tcc_s and are reused.
+if match ${LIBC} mes; then
 cd ../${MES_PKG}
 # Recompile libc: crt{1,n,i}, libtcc.a, libc.a
 tcc-boot0 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
@@ -342,6 +390,7 @@ fi
 tcc-boot0 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
 tcc-boot0 -ar cr ${LIBDIR}/libc.a unified-libc.o
 cd ../${TCC_PKG}
+fi
 
 # Test boot0
 tcc-boot0 -version
@@ -376,6 +425,7 @@ tcc-boot0 \
     tcc.c
 cp tcc-boot1 ${BINDIR}
 chmod 755 ${BINDIR}/tcc-boot1
+if match ${LIBC} mes; then
 cd ../${MES_PKG}
 tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
 if match ${ARCH} x86; then
@@ -394,6 +444,7 @@ fi
 tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
 tcc-boot1 -ar cr ${LIBDIR}/libc.a unified-libc.o
 cd ../${TCC_PKG}
+fi
 
 # Test boot1
 tcc-boot1 -version
@@ -428,6 +479,7 @@ tcc-boot1 \
     tcc.c
 cp tcc-boot2 ${BINDIR}
 chmod 755 ${BINDIR}/tcc-boot2
+if match ${LIBC} mes; then
 cd ../${MES_PKG}
 tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
 if match ${ARCH} x86; then
@@ -446,6 +498,7 @@ fi
 tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
 tcc-boot2 -ar cr ${LIBDIR}/libc.a unified-libc.o
 cd ../${TCC_PKG}
+fi
 
 # Test boot2
 tcc-boot2 -version
@@ -458,14 +511,20 @@ cp ${BINDIR}/tcc ${BINDIR}/tcc-0.9.26
 chmod 755 ${BINDIR}/tcc-0.9.26
 
 # Also recompile getopt, we don't need to do this during the boot* stages
-# because nothing is linked against it
+# because nothing is linked against it. (musl subset ships no getopt; tcc does
+# not need it, so there is no libgetopt.a on the musl path.)
+if match ${LIBC} mes; then
 cd ../${MES_PKG}
 tcc -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
 tcc -ar cr ${LIBDIR}/libgetopt.a getopt.o
+fi
 
 cd ../..
 
-# Checksums
+# Checksums. The musl-subset artifacts differ from the mes ones (and there is no
+# libgetopt.a), so the mes checksum manifest does not apply on amd64; the musl path
+# is anchored by the in-chroot self-host test instead (see LOG-MUSL.md).
+if match ${LIBC} mes; then
 if match x${UPDATE_CHECKSUMS} xTrue; then
     sha256sum -o ${pkg}.${ARCH}.checksums \
         /usr/bin/tcc-boot1 \
@@ -480,4 +539,5 @@ if match x${UPDATE_CHECKSUMS} xTrue; then
     cp ${pkg}.${ARCH}.checksums ${SRCDIR}
 else
     sha256sum -c ${pkg}.${ARCH}.checksums
+fi
 fi

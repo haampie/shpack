@@ -1,0 +1,3 @@
+#if HAVE_FLOAT
+                tokc.f = strtof(token_buf, NULL);
+#endif

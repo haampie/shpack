@@ -1,0 +1,2 @@
+#endif
+            d = ldexp(d, exp_val - frac_bits);

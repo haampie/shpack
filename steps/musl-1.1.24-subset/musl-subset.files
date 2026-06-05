@@ -41,6 +41,8 @@ src/setjmp/x86_64/longjmp.s
 src/setjmp/x86_64/setjmp.s
 src/signal/block.c
 src/signal/raise.c
+src/signal/sigemptyset.c
+src/stdarg/va_list.c
 src/stdio/__fdopen.c
 src/stdio/__fmodeflags.c
 src/stdio/__lockfile.c
@@ -90,6 +92,7 @@ src/string/memmove.c
 src/string/memrchr.c
 src/string/memset.c
 src/string/stpcpy.c
+src/string/strcat.c
 src/string/strchr.c
 src/string/strchrnul.c
 src/string/strcmp.c

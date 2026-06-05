@@ -2,16 +2,26 @@
 #define _Int64 long
 #define _Reg long
 
+#ifndef __DEFINED___musl_va_list_t
+typedef struct __va_list_struct {
+	unsigned int gp_offset;
+	unsigned int fp_offset;
+	union {
+		unsigned int overflow_offset;
+		char *overflow_arg_area;
+	};
+	char *reg_save_area;
+} __musl_va_list_t;
+#define __DEFINED___musl_va_list_t
+#endif
 #if defined(__NEED_va_list) && !defined(__DEFINED_va_list)
-typedef __builtin_va_list va_list;
+typedef __musl_va_list_t va_list[1];
 #define __DEFINED_va_list
 #endif
-
 #if defined(__NEED___isoc_va_list) && !defined(__DEFINED___isoc_va_list)
-typedef __builtin_va_list __isoc_va_list;
+typedef __musl_va_list_t __isoc_va_list[1];
 #define __DEFINED___isoc_va_list
 #endif
-
 
 #ifndef __cplusplus
 #if defined(__NEED_wchar_t) && !defined(__DEFINED_wchar_t)

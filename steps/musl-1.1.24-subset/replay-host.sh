@@ -130,15 +130,11 @@ MUSL_CFLAGS="-std=c99 -ffreestanding -D_XOPEN_SOURCE=700 -D SYSCALL_NO_TLS"
 OBJ="$WORKDIR/obj"
 rm -rf "$OBJ"; mkdir -p "$OBJ"
 
-# the manifest (120 exact musl files) ...
+# the manifest (123 exact musl files, incl. va_list.c [created by patch 0040],
+# strcat.c [tcc.c uses strcat], sigemptyset.c [tcc set_exception_handler]) ...
 SRCLIST=$(grep -vE '^\s*(#|$)' "$HERE/musl-subset.files")
-# ... plus three files the manifest does not list:
-#   src/stdarg/va_list.c   - NEW file created by patch 0040 (tcc va runtime)
-#   src/string/strcat.c    - tcc.c uses strcat (tccgen.c); real, self-contained
-#   src/signal/sigemptyset.c - referenced by tcc set_exception_handler; real
 # ... plus our glue (errno_loc, start, sigaction stub) copied into the tree above.
-EXTRA="src/stdarg/va_list.c src/string/strcat.c src/signal/sigemptyset.c \
-       src/errno/glue_errno_loc.c src/env/glue_start.c src/signal/glue_sigaction.c"
+EXTRA="src/errno/glue_errno_loc.c src/env/glue_start.c src/signal/glue_sigaction.c"
 
 say "compile musl subset with proxy tcc"
 ( cd "$MUSL"
