@@ -251,10 +251,91 @@ strtof/strtod/strtold (decimal) + mantissa/ldexp (hex); strtod/strtold were alre
 guarded, so the two new patches close every float path. After them, no float constant can
 call into the seed libc, so none can crash or hang `tcc_s`.
 
-**Caveat (deferred):** because the seed can't evaluate float constants, every float/double
-constant in the `tcc_s`-built `libc.a` (floatscan/strtod tables, vfprintf `%f`) is left 0 /
-garbage. Harmless for self-hosting tcc + non-float hello-world; a real blocker for the
-eventual gcc bootstrap (float-heavy). Genuine float bootstrap is unsolved/deferred.
+**Caveat (now resolved — see Task 7):** because the seed can't evaluate float constants,
+every float/double constant in the `tcc_s`-built `libc.a` (floatscan/strtod tables, vfprintf
+`%f`) is left 0 / garbage. Harmless for self-hosting tcc + non-float hello-world; a real
+blocker for the eventual gcc bootstrap (float-heavy).
 
-**Next:** re-run `./task5_amd64.sh` (needs sudo) with all three fixes; expect `tcc_s`,
-`tcc-boot0/1/2`, `tcc-0.9.26` to build and the final tcc to self-host hello-world.
+## Task 7 — genuine float bootstrap (amd64)  [DONE 2026-06-05]
+
+The seed is float-blind in **two independent ways**; both are now fixed, and the shipped
+`tcc` prints `%f` byte-identical to host gcc.
+
+### Facet 1 — float *constants* (`tcc_s` is `HAVE_FLOAT=0`, folds every float literal to 0)
+`HAVE_FLOAT` gates only constant *evaluation/folding/storage* (tccpp.c + the `tccgen.c`
+`vtop->c.*` cases incl. `init_putv`); runtime float **codegen** (`x86_64-gen.c`
+mulsd/cvtsi2sd) is NOT gated. So `tcc_s` can emit runtime float arithmetic — it just bakes
+float *literals* as 0. mes converged only because mes' `strtod` (`abtod`) is **constant-free
+runtime arithmetic**; musl's `strtod`/`scalbn` are constant-laden (`0x1p-120`, …) → folded
+to 0 (LOG bugs B/C above were the constant-evaluator *crashing*; this is the next layer —
+the constants *silently zeroing*).
+
+**Fix:** `steps/musl-1.1.24-subset/glue/float.c` — constant-free `strtod`/`strtof`/`strtold`
+(integer mantissa scaled by a *runtime* base multiply/divide loop) + bit-manipulation
+`ldexp` (edits the IEEE exponent field via a `union{double; unsigned long long;}`, bit-exact).
+No float literals / static-float initializers, so `tcc_s` compiles them correctly. Drops
+`src/stdlib/strtod.c` + `src/math/ldexp.c` from `musl-subset.files`. The lone hex-path
+constant `4294967296.0` self-heals at boot1 (boot0 evaluates it via the now-correct decimal
+`strtod`). Validated vs glibc: `ldexp` bit-exact over ±1100; exact decimals exact; short
+inexact decimals ≤1 ULP. The two `tccpp-have-float-{strtof,ldexp}` guard patches **stay**
+(they keep `tcc_s` from *calling* the float libc).
+
+### Facet 2 — `double` through varargs / `printf("%f")` (separate from constants)
+tcc 0.9.26's x86_64 SysV codegen is fully correct: `gfunc_prolog` spills all 8 XMM regs in
+variadic prologues (`!nosse`), `gfunc_call` sets `AL = nb_sse_args`, and the runtime
+`__va_arg` in the `0040` patch already reads the XMM save area. The **sole** defect was the
+`va_arg(ap,type)` macro hardcoding `arg_type=0` (GP) for every type, so a `double` was
+fetched from a GP slot → 0.
+
+**Fix:** classify the type at compile time. Replaced the scaffold's GP-only `0040` with the
+float-correct variant (the old `bootstrap_musl_boot/0040`): adds
+`#define __va_argtype(type) ((__builtin_types_compatible_p(type,float)||…double)?1:0)` and
+routes `va_arg` through it. `__builtin_types_compatible_p` is a pure type query (no float
+eval), so even the `HAVE_FLOAT=0` `tcc_s` resolves it — the two facets are independent. The
+patch also adds `#ifdef __TINYC__` guards in `alltypes.h.in` (tcc gets the explicit SysV
+`__musl_va_list_t[1]`; a real gcc-stage0 against this sysroot gets `__builtin_va_list`,
+ABI-identical). Proven in isolation: a tcc_s-compiled variadic callee fed real doubles by the
+final-tcc caller returns `8.0` (`4020000000000000`), so the prologue+runtime are correct.
+
+### The third layer — vfprintf's *formatter* also has constants (the actual `%f → 0.000000`)
+With both facets in, the chroot `tcc` *still* printed `0.000000`. Cause: musl's float
+**formatter** `fmt_fp` (inside `src/stdio/vfprintf.c`) is itself constant-laden —
+`vfprintf.c:268 y *= 0x1p28`, plus `0x1.0p0`/`0x1.8p0` at 326-327. Facet-1's glue only covers
+`strtod`/`ldexp`; it can't glue away the formatter. Because `pass1.kaem` builds `libc.a` with
+`CC=tcc_s` (`HAVE_FLOAT=0`), `0x1p28` folds to 0 and `y *= 0` zeroes the value before
+formatting → `0.000000`, even though the va_arg/XMM path is correct.
+
+**Fix (stage B):** `pass1.kaem` now rebuilds `${LIBDIR}/libc.a` with `CC=tcc-boot0`
+(`HAVE_FLOAT=1`) right after boot0 is built, before boot1/boot2. boot0 evaluates those
+constants, and boot1 (built by boot0) + boot2/`tcc` (built by boot1) both link the
+float-correct archive — so this relinks the final tcc *and* keeps the stages consistent. The
+first `tcc_s`-built `libc.a` is only needed to bring boot0 into existence; tcc never calls
+`printf("%f")` while compiling, so the self-host is unaffected. `crt1.o`/`libtcc1.a` carry no
+float constants and are not rebuilt. This is the float-*constant* half of the old chain's
+two-musl ladder — note it is **not** the va_arg facet (that's closed by `0040`).
+
+### Verification (chroot-produced `tcc`, 2026-06-05)
+- `printf("%f %f %f", 3.0, 2.0, 1.5)` → `3.000000 2.000000 1.500000`, and mixed int/float
+  varargs + `%.2f`/`%10.3f`/`%e` are **byte-identical to host gcc**.
+- Raw bytes of constant `3.0` = `4008000000000000`, runtime `3.0+0.5` = `400c000000000000`
+  (facet 1 in the final tcc, exact).
+
+### Fixed point — reached at boot2, now asserted (boot2 == boot3)
+The chain does **not** converge at boot1: boot0 is compiled by the float-blind `tcc_s`
+(`HAVE_FLOAT=0`), so it bakes a couple of float *constants* inside `tcc.c`'s own `.data` as 0.
+boot1 (`HAVE_FLOAT=1`, built by boot0) evaluates them correctly when it compiles boot2, so
+boot1 and boot2 differ by **exactly 2 bytes** in `.data` — the high (sign/exponent) byte of
+two float constants, `0x00`→`0x80`, 16 bytes apart (file offset `0x5A3F9`/`0x5A409`). Hashes:
+boot0/boot1/tcc = `3ed9a1`/`7d17…`/`5b59…` (boot0 unchanged by stage B; boot1+tcc moved
+because they now link the boot0-built libc). boot2 is therefore the **first float-correct
+compiler**, and `boot2(tcc.c)` reproduces boot2 byte-for-byte.
+
+`pass1.kaem` now **asserts this**: after boot2 it records `sha256sum -o` of boot2, rebuilds
+`tcc.c` with boot2 over the same filename (= boot3), and runs `sha256sum -c` — which exits
+nonzero (aborting kaem) if boot2 ≠ boot3. (Verified the tool's pass/fail/abort semantics out
+of band: match → `OK` rc 0, mismatch → `FAILED` rc 1.) This is the reproducibility anchor that
+replaces the old, never-actually-checked boot1==boot2 assumption, and the gate to keep before
+scaling.
+
+**Next:** scale the subset up to full musl 1.1.24 (plan step 2), then hand off to Spack at
+binutils.

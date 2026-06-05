@@ -1,20 +1,17 @@
-From 3bdfaafbcaf9698816e520e098055d7b416ec9f8 Mon Sep 17 00:00:00 2001
-From: Harmen Stoppels <me@harmenstoppels.nl>
-Date: Tue, 2 Jun 2026 21:29:48 +0200
-Subject: [PATCH] x86_64 SysV AMD64 va_list
+x86_64 SysV AMD64 va_list for tcc, with float-classifying va_arg.
 
----
- arch/x86_64/bits/alltypes.h.in | 22 +++++++++++--
- include/stdarg.h               | 16 +++++++---
- src/stdarg/va_list.c           | 57 ++++++++++++++++++++++++++++++++++
- 3 files changed, 89 insertions(+), 6 deletions(-)
- create mode 100644 src/stdarg/va_list.c
+tcc 0.9.26 cannot parse musl's stock 'TYPEDEF __builtin_va_list va_list',
+so redefine va_list as the SysV __va_list_struct and route va_start/va_arg
+through tcc's runtime helpers (verbatim tcc lib/va_list.c, retyped onto
+__musl_va_list_t and archived into THIS libc.a). Unlike the scaffold's
+GP-only variant, va_arg classifies float/double (via
+__builtin_types_compatible_p, which tcc-musl supports) and passes arg_type
+1 so doubles read the XMM save area -- so printf("%f") and double varargs
+round-trip correctly.
 
-diff --git a/arch/x86_64/bits/alltypes.h.in b/arch/x86_64/bits/alltypes.h.in
-index dc551d4..3e54f6a 100644
 --- a/arch/x86_64/bits/alltypes.h.in
 +++ b/arch/x86_64/bits/alltypes.h.in
-@@ -2,8 +2,26 @@
+@@ -2,8 +2,40 @@
  #define _Int64 long
  #define _Reg long
  
@@ -32,22 +29,34 @@ index dc551d4..3e54f6a 100644
 +} __musl_va_list_t;
 +#define __DEFINED___musl_va_list_t
 +#endif
++/* tcc (__TINYC__) has no __builtin_va_list, so it gets the explicit SysV
++   __va_list_struct array form. A real compiler (gcc-stage0 building against
++   this sysroot) gets __builtin_va_list -- ABI-identical on x86_64
++   (__builtin_va_list == struct __va_list_tag[1], same layout as
++   __musl_va_list_t[1]) -- so its own <stdarg.h> va_list typedef does not
++   conflict with this one. */
 +#if defined(__NEED_va_list) && !defined(__DEFINED_va_list)
++#ifdef __TINYC__
 +typedef __musl_va_list_t va_list[1];
++#else
++typedef __builtin_va_list va_list;
++#endif
 +#define __DEFINED_va_list
 +#endif
 +#if defined(__NEED___isoc_va_list) && !defined(__DEFINED___isoc_va_list)
++#ifdef __TINYC__
 +typedef __musl_va_list_t __isoc_va_list[1];
++#else
++typedef __builtin_va_list __isoc_va_list;
++#endif
 +#define __DEFINED___isoc_va_list
 +#endif
  
  #ifndef __cplusplus
  TYPEDEF int wchar_t;
-diff --git a/include/stdarg.h b/include/stdarg.h
-index 3256f80..967faa8 100644
 --- a/include/stdarg.h
 +++ b/include/stdarg.h
-@@ -9,10 +9,18 @@ extern "C" {
+@@ -9,10 +9,25 @@
  
  #include <bits/alltypes.h>
  
@@ -58,21 +67,25 @@ index 3256f80..967faa8 100644
 +/* tcc 0.9.26 x86_64 has no __builtin_va_*; its runtime exports __va_start /
 +   __va_arg over the System V AMD64 __va_list_struct (see tcc-mes'
 +   tcc_x86_64_stdarg.h). va_list is a 1-elem array so a va_list parameter
-+   decays to a pointer; va_copy dereferences both sides. __va_arg's arg_type
-+   is hardcoded 0 (GP) -- the scaffold libc's documented FP-vararg limit. */
++   decays to a pointer; va_copy dereferences both sides. */
 +void __va_start(__musl_va_list_t *__ap, void *__fp);
 +void *__va_arg(__musl_va_list_t *__ap, int __type, int __size, int __align);
 +
++/* SysV AMD64 class: float/double go in XMM (arg_type 1), everything else in
++   GP (arg_type 0). tcc-musl supports __builtin_types_compatible_p, so classify
++   at compile time -- this makes %f / double varargs round-trip. (long double
++   is x87/MEMORY but rare in the bootstrap toolchain; it falls to GP as before,
++   no regression.) */
++#define __va_argtype(type) \
++    ((__builtin_types_compatible_p(type, float) || \
++      __builtin_types_compatible_p(type, double)) ? 1 : 0)
 +#define va_start(ap, last) __va_start(ap, __builtin_frame_address(0))
-+#define va_arg(ap, type)   (*(type *)__va_arg(ap, 0, sizeof(type), __alignof__(type)))
++#define va_arg(ap, type)   (*(type *)__va_arg(ap, __va_argtype(type), sizeof(type), __alignof__(type)))
 +#define va_end(ap)
 +#define va_copy(d, s)      (*(d) = *(s))
  
  #ifdef __cplusplus
  }
-diff --git a/src/stdarg/va_list.c b/src/stdarg/va_list.c
-new file mode 100644
-index 0000000..3bb83f1
 --- /dev/null
 +++ b/src/stdarg/va_list.c
 @@ -0,0 +1,57 @@
@@ -133,6 +146,3 @@ index 0000000..3bb83f1
 +    }
 +    return 0;
 +}
--- 
-2.43.0
-

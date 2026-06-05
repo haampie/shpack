@@ -14,12 +14,26 @@ typedef struct __va_list_struct {
 } __musl_va_list_t;
 #define __DEFINED___musl_va_list_t
 #endif
+/* tcc (__TINYC__) has no __builtin_va_list, so it gets the explicit SysV
+   __va_list_struct array form. A real compiler (gcc-stage0 building against
+   this sysroot) gets __builtin_va_list -- ABI-identical on x86_64
+   (__builtin_va_list == struct __va_list_tag[1], same layout as
+   __musl_va_list_t[1]) -- so its own <stdarg.h> va_list typedef does not
+   conflict with this one. */
 #if defined(__NEED_va_list) && !defined(__DEFINED_va_list)
+#ifdef __TINYC__
 typedef __musl_va_list_t va_list[1];
+#else
+typedef __builtin_va_list va_list;
+#endif
 #define __DEFINED_va_list
 #endif
 #if defined(__NEED___isoc_va_list) && !defined(__DEFINED___isoc_va_list)
+#ifdef __TINYC__
 typedef __musl_va_list_t __isoc_va_list[1];
+#else
+typedef __builtin_va_list __isoc_va_list;
+#endif
 #define __DEFINED___isoc_va_list
 #endif
 

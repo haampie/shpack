@@ -26,6 +26,13 @@ crt, produces a working `tcc version 0.9.27 (x86_64 Linux)` that compiles C to v
   the hidden `___errno_location`.
 - `glue/start.c` — minimal `__libc_start_main` (no TLS/SSP/auxv/poll), paired with musl's
   own `crt/crt1.c` + `crt/x86_64/crt_arch.h`.
+- `glue/float.c` — constant-free `strtod`/`strtof`/`strtold`/`ldexp`, replacing musl's
+  `src/stdlib/strtod.c` and `src/math/ldexp.c` (both dropped from `musl-subset.files`).
+  The stage-1 `tcc_s` is `HAVE_FLOAT=0`: it folds every float *literal* to 0, so musl's
+  float code (which derives results from constants like `0x1p-120`) compiles to garbage.
+  These replacements form every value from runtime arithmetic on variables (`strtod`) and
+  pure integer edits of the IEEE fields (`ldexp`) — codegen `tcc_s` can already emit — so
+  the boot-stage tcc gets a working `strtod`/`ldexp` and bakes correct float constants.
 - `generated/bits/alltypes.h`, `generated/bits/syscall.h`, `generated/internal/version.h`
   — musl's three generated headers, pre-generated for x86_64 (so the bootstrap needs no
   `sed`/`awk`). Regenerate with musl's own rules:
@@ -55,8 +62,20 @@ musl 1.1.24 is MIT. Exact-source files retain their license; `COPYRIGHT` is ship
 to satisfy the MIT notice requirement. The glue files are MIT. This repo as a whole is
 GPL-3.0-or-later; MIT is GPL-compatible.
 
+## Floating point (two independent facets, both solved)
+
+1. **Float constants** — `glue/float.c` (constant-free `strtod`/`ldexp`); see above.
+2. **`double` varargs / `printf("%f")`** — the `0040` patch's `va_arg` macro classifies the
+   type at compile time via `__builtin_types_compatible_p` (`__va_argtype`: float/double →
+   SSE/XMM `arg_type 1`, else GP `0`). The tcc 0.9.26 x86_64 SysV codegen already spills XMM
+   regs in variadic prologues and sets `AL`; the runtime `__va_arg` already reads the XMM save
+   area — only the macro dispatch was hardcoded to GP. This `0040` is the float-correct variant
+   (was the old `bootstrap-musl-boot` half of the scaffold→boot ladder); `__builtin_types_compatible_p`
+   is a pure type query so even the HAVE_FLOAT=0 `tcc_s` resolves it.
+
 ## Status
 
-Scaffold + design validated (host-compiler proxy). NOT yet wired into the kaem bootstrap
-or built by `tcc_s` — that is the next task (compile the subset with `tcc_s`, applying the
-live-bootstrap musl tcc-compat patches as needed for `weak_alias` / extended inline asm).
+Both float facets verified end-to-end against the subset (full `libc.a` rebuilt with the
+bootstrap tcc; `%f`, mixed int/float varargs, and `%.2f`/`%e` are byte-identical to host gcc).
+Remaining: the authoritative `task5_amd64.sh` chroot rebuild (`tcc_s` compiles the new header;
+chain self-hosts boot1==boot2), then scale the subset up to full musl 1.1.24.

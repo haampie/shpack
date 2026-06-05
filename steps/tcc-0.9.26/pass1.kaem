@@ -185,10 +185,25 @@ tcc_s \
 # Install
 cp tcc-boot0 ${BINDIR}/
 chmod 755 ${BINDIR}/tcc-boot0
-# musl: libc.a/crt1.o/libtcc1.a were built once (above) by tcc_s and are reused.
 
 # Test boot0
 tcc-boot0 -version
+
+# Rebuild libc.a with boot0 (HAVE_FLOAT=1). The stage-1 tcc_s is HAVE_FLOAT=0,
+# so it folds every float *constant* to 0 -- including the ones inside musl's
+# own float formatter fmt_fp (src/stdio/vfprintf.c: `y *= 0x1p28`, `0x1.0p0`,
+# `0x1.8p0`). A libc.a built by tcc_s therefore prints %f as 0.000000 even
+# though the va_arg/XMM path is correct. boot0 evaluates those constants, so we
+# rebuild libc.a here and let boot1/boot2 link the float-correct archive. (The
+# tcc_s libc.a above was only needed to bring boot0 into existence -- tcc itself
+# never calls printf("%f"), so the self-host fixpoint is unaffected.) crt1.o /
+# libtcc1.a carry no float constants, so they are not rebuilt.
+mkdir -p ${TMPDIR}/musl-obj-boot0
+CC=tcc-boot0
+O=${TMPDIR}/musl-obj-boot0
+cd ${M}
+kaem --file ${M}/build-libc.kaem
+cd ../${TCC_PKG}
 
 # boot1
 tcc-boot0 \
@@ -257,6 +272,44 @@ chmod 755 ${BINDIR}/tcc-boot2
 
 # Test boot2
 tcc-boot2 -version
+
+# boot3 -- fixed-point assertion. boot0 is compiled by the float-blind tcc_s
+# (HAVE_FLOAT=0), so it bakes a few float *constants* inside tcc.c's own .data as 0;
+# boot1 (HAVE_FLOAT=1, built by boot0) evaluates them correctly when it compiles
+# boot2, so boot1 and boot2 differ by exactly those .data bytes. boot2 is thus the
+# first float-correct compiler, and boot2(tcc.c) must reproduce boot2 byte-for-byte.
+# Record boot2's hash, rebuild tcc.c with boot2 over the same filename (= boot3),
+# and re-verify: sha256sum -c exits nonzero (aborting kaem) if the fixed point fails.
+sha256sum -o ${TMPDIR}/tcc-fixedpoint.checksums tcc-boot2
+tcc-boot2 \
+    -g \
+    -static \
+    -o tcc-boot2 \
+    -D BOOTSTRAP=1 \
+    -D HAVE_BITFIELD=1 \
+    -D HAVE_FLOAT=1 \
+    -D HAVE_LONG_LONG=1 \
+    -D HAVE_SETJMP=1 \
+    -I . \
+    -I ${PREFIX}/include/mes \
+    -D TCC_TARGET_${TCC_TARGET_ARCH}=1 \
+    -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" \
+    -D CONFIG_TCC_ELFINTERP=\"/non-existent\" \
+    -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_SYSINCLUDEPATHS=\"${PREFIX}/include/mes\" \
+    -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" \
+    -D TCC_LIBTCC1=\"libtcc1.a\" \
+    -D CONFIG_TCCBOOT=1 \
+    -D CONFIG_TCC_STATIC=1 \
+    -D CONFIG_USE_LIBGCC=1 \
+    -D TCC_VERSION=\"0.9.26\" \
+    -D ONE_SOURCE=1 \
+    -L . \
+    tcc.c
+sha256sum -c ${TMPDIR}/tcc-fixedpoint.checksums
+cp tcc-boot2 ${BINDIR}/tcc-boot2
+chmod 755 ${BINDIR}/tcc-boot2
 
 # We have our final tcc 0.9.26!
 cp ${BINDIR}/tcc-boot2 ${BINDIR}/tcc
