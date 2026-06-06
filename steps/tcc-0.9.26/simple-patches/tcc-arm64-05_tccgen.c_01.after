@@ -1,0 +1,9 @@
+    }
+    /* must put zero in holes (note that doing it that way
+       ensures that it even works with designators) */
+    coff = c - corig;
+    if (!size_only && coff > al)
+	init_putz(sec, corig + al, coff - al);
+    decl_initializer(type, sec, c, 0, size_only);
+
+    /* XXX: make it more general */

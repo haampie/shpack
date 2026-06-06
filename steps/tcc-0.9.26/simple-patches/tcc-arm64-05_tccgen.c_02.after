@@ -1,0 +1,9 @@
+	}
+    }
+    c += nb_elems * type_size(type, &align);
+    coff = c - corig;
+    if (coff > al)
+      al = coff;
+    return al;
+}
+

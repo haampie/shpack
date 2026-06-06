@@ -1,0 +1,7 @@
+                           Sym **cur_field, int size_only, int al)
+{
+    Sym *s, *f;
+    int index, index_last, align, l, nb_elems, elem_size, coff;
+    unsigned long corig = c;
+
+    elem_size = 0;

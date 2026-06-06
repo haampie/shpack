@@ -471,3 +471,192 @@ built `-g`):
   that the store targets the `__libc` global. The trace also confirmed tcc's **variadic
   codegen works** (vsnprintf/vfprintf ran while formatting the error), so this was a startup
   bug, not arm64 codegen. Re-run `./task5_arm64.sh`.
+
+### Bug 2 — truncated `.o` files / `ar` SIGSEGV: seed `tcc_cc` miscompiles aggregate init [DIAGNOSED 2026-06-06]
+After Bug 1, the chroot run builds `tcc-boot0` and `tcc-boot0 -version` works, but the next
+step — `tcc-boot0` rebuilding the musl subset `libc.a`
+(`build-libc-subset.aarch64.kaem`, `CC=tcc-boot0`) — dies: `ar` SIGSEGVs (qemu signal 11)
+because the `.o` files `tcc-boot0` produced are **truncated**, so `ar` reads past EOF.
+Diagnosed entirely on the host (static aarch64 binaries run via `qemu-aarch64-static`,
+disassembled with `gdb-multiarch -ex 'set arch aarch64'`).
+
+**Symptom.** Of the 125 objects in `rootfs/tmp/musl-obj-boot0/`, ~all are short of the size
+their own ELF header implies (`Start of section headers + shnum*64 > filesize`); shortfalls
+vary from 64 B (one section header) to 31 KB (`src_time___tz.o`). The variance rules out
+"final stdio buffer not flushed" (always < BUFSIZ) and points at the write path losing data
+mid-stream.
+
+**Proximate cause — `tcc-boot0`'s `__stdio_write` is miscompiled.** Disassembly shows it
+stores all four fields of `struct iovec iovs[2]` then emits two `memset`s that **zero
+`iovs[1]`** (the `{buf,len}` payload). So `writev` only flushes `iovs[0]` (data already in
+the FILE buffer), the new data is dropped, and because `rem` is recomputed from the zeroed
+length, `cnt==rem` succeeds and `__stdio_write` **returns `len`** — musl believes the write
+fully succeeded. Hence silent, variable tail loss. (`__syscall3` is fine: prologue spills
+but preserves x0–x7.)
+
+**Root cause — the seed `tcc_cc` miscompiles `tcc.c` on arm64.** The two `memset`s are
+`tccgen.c`'s `init_putz` ("put zeros at the end", `decl_initializer`/`decl_designator`). The
+front-end logic is correct (hand-traced: `len` should reach `n*size1`, emitting nothing), so
+this is a runtime miscompilation. Minimal repro under qemu (`tcc_s -c t.c`) shows `tcc_s`
+zeroes the **last element/field of every function-local aggregate initializer**, even
+fully-initialized ones — `struct v={b,n}` zeroes the last field (8 B); `int a[3]={…}` zeroes
+the last int; `struct v[N]={…}` zeroes the last struct; partial inits (`struct v[2]={{…}}`)
+are coincidentally correct. I.e. `tcc_s`'s `decl_designator` length bookkeeping is **off by
+one element**.
+- **Propagation test is decisive:** the *same* repro compiled by **`tcc-boot0` is clean**
+  (4 stores, no `memset`). `tcc_s` and `tcc-boot0` share the `tcc.c`/`arm64-gen.c` source but
+  are built by *different* compilers (`tcc_cc` vs `tcc_s`). So the bug is **not** in the
+  shared aarch64 backend source — it is in the `tcc_s` *binary*, i.e. `tcc_cc` miscompiled
+  `tcc.c`'s `decl_designator`. `tcc-boot0` (built by `tcc_s`) is itself a **correct**
+  compiler because `tcc.c`'s own code never hits `tcc_s`'s buggy path.
+- `tcc_cc` is a deliberately minimal seed compiler: it does **not** parse designated
+  initializers (chokes on `.iov_base`) and `tcc_s` is built **without `-D HAVE_BITFIELD`**
+  (the seed can't do C bitfields; `HAVE_BITFIELD` only toggles tcc's internal `struct
+  Attribute` layout in `tcc.h:433`, not the init length arithmetic). `tcc-boot0` is built
+  *with* `HAVE_BITFIELD=1`/`HAVE_FLOAT=1`. amd64 built clean end-to-end (Task 8), so the
+  defect is specific to the **arm64 `tcc_cc` codegen**.
+
+**Blast radius is bounded to the first (subset) `libc.a`** — only `tcc_s`-compiled,
+function-local aggregate initializers are affected (globals use the `sec!=NULL` path where
+`init_putz` is a no-op). The full musl (1257 files) is compiled later by the *correct*
+`tcc-boot0`/`tcc`, so it is unaffected. Subset files with function-local aggregate inits:
+`__stdio_write.c` (the bug), `__stdio_read.c` (readahead `iov[1]`, mostly benign),
+`vsnprintf.c` (`struct cookie c={.s,.n}` → `.n` size-limit zeroed → likely breaks
+`snprintf`), and the harmless `vfprintf.c`/`qsort.c`/`strstr.c` (already all-zero or
+already-0 last element).
+
+**Two fix paths (decision pending):**
+1. *Proper* — make `tcc_s` correct by fixing the arm64 `tcc_cc` codegen (or rewriting
+   `decl_designator` into a form `tcc_cc` compiles correctly). Robust; first libc becomes
+   fully trustworthy. Requires localizing a defect in the minimal seed compiler via an
+   M1/hex2 build-and-run harness under qemu — more work, touches the seed.
+2. *Pragmatic* — patch the handful of subset musl sources to avoid function-local aggregate
+   initializers. Contained and fast: once `tcc-boot0` has working I/O + `snprintf`, the
+   `CC=tcc-boot0` step rebuilds the libc *correctly* and every later stage uses correct
+   compilers. Masks the seed bug (which only ever affects these subset files).
+
+**Decision (2026-06-06):** first scope how hard option 1 (fix `tcc_cc`/`tcc_s`) is; if too
+much, fall back to option 2 (simplify the musl subset sources). The arm64 `tcc_cc` binary is
+available at `rootfs/usr/bin/tcc_cc` (runs under qemu, emits M1/`.sl`).
+
+#### Exact root cause [PINNED 2026-06-06 via gdb]
+gdb on `tcc_s` under qemu (compiling `int a[2]={1,2}`) caught it. `decl_designator`'s tail is
+`c += nb_elems*type_size; if (c - corig > al) al = c - corig; return al;` where `c`/`corig`
+are `unsigned long` (frame offsets — **negative**, e.g. `corig = -8 = 0xFFFFFFF8`). On the
+*last* element `c` reaches frame offset **0**, so true `c - corig = 0 - (-8) = +8` and `al`
+should advance to 8.
+- **The seed `tcc_cc` maps `long`/`unsigned long` → `int` (32-bit).** Proof: feeding
+  `int bad(unsigned long c, ...)` to the real `tcc_cc` emits `.sl` declaring the param as
+  `int c c =:`. So `tcc_cc` stores these vars with `str w` and loads them with **`ldr w`
+  (zero-extending to 64-bit)**, yet performs the subtraction in a 64-bit X register.
+- On the last element: `c`=0 loads as `0x0`, `corig`=`0xFFFFFFF8` **zero-extends** to
+  `0x00000000FFFFFFF8`, so `sub` gives `0xFFFFFFFF00000008` — a huge **negative** 64-bit
+  value. `c - corig > al` (signed `cmp`/`cset gt`) is then **false**, `al` is never updated,
+  `decl_designator` returns the stale `al`, `len` ends one element short, and the array-level
+  `if (len < n*size1) init_putz(...)` zeroes the last element. (On non-last elements `c` and
+  `corig` are both `0xFFFFFFFx`, both zero-extend the same way, difference is a small
+  positive — which is why only the *last* element is ever clobbered.)
+
+#### Fix chosen — `int coff = c - corig;` in `decl_designator` (a tcc patch, not a seed change)
+The mis-widened subtraction's **low 32 bits are always correct** (= the true small offset).
+Forcing a 32-bit store recovers it: store `c - corig` into an `int coff`, then use `coff` in
+the comparison/`init_putz`. `tcc_cc` compiles `int coff = c - corig;` as `... sub x0,x1,x0;
+str w0,[coff]` — the `str w` truncates to the correct low-32 (`=8`) — and the reload is a
+clean small positive, so `coff > al` is true. **Verified end-to-end**: a `bad`/`good` mimic
+assembled through the real `tcc_cc → stack_c → M1 → hex2` chain disassembles to exactly this
+— `bad` compares the mis-widened `sub` directly (reproduces the bug); `good` truncates via
+`str w0` before comparing (correct).
+
+This is better than the option-2 musl workaround: it makes **`tcc_s` itself correct**, so the
+*first* `libc.a` (and any other function-local aggregate init anywhere) is right, not just the
+handful of patched subset files. It is a small edit to `tccgen.c` `decl_designator`, correct
+for every later stage too (`c - corig` is a genuinely small value there; truncating to `int`
+is a no-op).
+
+#### Patch wiring [DONE 2026-06-06]
+- `steps/tcc-0.9.26/patches/tcc-arm64-05-aggregate-init.patch` — canonical unified diff
+  (3 hunks in `tccgen.c` `decl_designator`: add `int ... coff;`; `coff = c - corig` before the
+  holes `init_putz`; `coff = c - corig` before the tail `al` update).
+- Registered in `steps/tcc-0.9.26/gen-arm64-patches.py` `PATCHSET`; regenerated the
+  `simple-patches/tcc-arm64-05_tccgen.c_{00,01,02}.{before,after}` fragments. `verify OK`
+  (simple-patch result == GNU `patch`, byte-for-byte).
+- Wired three `simple-patch tccgen.c ...` calls into `steps/tcc-0.9.26/pass1.kaem`, inside the
+  `if match ${ARCH} arm64` block (amd64/riscv64/x86 untouched).
+- **Verification still pending:** a full `./task5_arm64.sh` (needs sudo + aarch64 binfmt). It
+  `rm -rf rootfs` and rebuilds from scratch, re-applying all patches via `pass1.kaem`. Success
+  criteria: every `.o` in `rootfs/tmp/musl-obj-boot0/` well-formed, `ar` completes, `boot2 ==
+  boot3`, full musl (1257 files) builds, `hello-float` prints `3.000000 2.000000 1.500000`.
+  Also re-disassemble the rebuilt `tcc-boot0`'s `__stdio_write` and confirm the two spurious
+  `memset`s are gone. (A host-only rebuild of just `tcc_s` is awkward because `tcc_cc`'s
+  invocation uses chroot-absolute paths `/src`, `/usr/include/mes`; not worth fighting — run
+  task5 instead.)
+
+#### The real bug is one layer earlier — fixing the seed tools (would make patch 05 redundant)
+Patch 05 lives in `tcc` (`tccgen.c`) only because it is the cheapest place to dodge the defect.
+The defect itself is **not in tcc** — tcc 0.9.26's `decl_designator` is correct C (it builds
+clean on amd64 and when compiled by any correct compiler). The bug is in this project's **own
+in-tree seed tools** (`src/tcc_cc.c` front-end + the `stack_c` backend, `src/stack_c_*.c`); both
+are hand-written here (see `docs/tcc_cc.html`, `docs/Stack_C.html`), so there is nothing to send
+to an external upstream. To remove patch 05 entirely, fix it one layer earlier in either tool:
+
+1. **`stack_c` backend (root cause, most general fix).** `stack_c` lowers a 4-byte (`?4`)
+   value load as a **zero-extending** `ldr w` into a 64-bit X register, then runs the operator
+   (`-`) and the signed compare (`>s`) at **64-bit** width. So `int - int` whose result should
+   wrap mod 2^32 instead goes through a full 64-bit subtraction; when an operand has bit 31 set
+   (a negative frame offset like `-8 = 0xFFFFFFF8`), zero-extension turns it into a large
+   positive 64-bit number and the signed result/comparison is wrong. Fix: make `?4`-width
+   integer arithmetic 32-bit-correct — either operate in `W` registers (`sub w,w,w`; `cmp w,w`)
+   for `?4` operands, or **sign-extend signed 4-byte loads** (`ldrsw`) instead of zero-extending
+   so `0xFFFFFFF8` loads as `-8`. This corrects *every* 32-bit signed computation that crosses
+   the sign boundary, not just `decl_designator`. (Evidence in the `bad`/`good` mimic below:
+   `bad` = `ldr w; ldr w; sub x; cmp x; cset gt`; `good` only differs by an intervening
+   `str w` that truncates back to 32 bits.)
+
+2. **`tcc_cc` front-end (ABI-correct alternative).** `tcc_cc` maps plain `long`/`unsigned long`
+   → 32-bit `int` (proof: it emits `int c c =:` for an `unsigned long c` param, hence the `?4`
+   loads). aarch64 is LP64, so `long` should be 8 bytes. If `tcc_cc` typed `long` as 64-bit,
+   `c`/`corig` would be `?8` (`ldr x`, true 64-bit subtraction) and the result would be correct
+   regardless of the `stack_c` issue. This is the ABI-correct fix but more invasive: it changes
+   `sizeof(long)` and struct layouts for everything `tcc_cc` compiles (only the seed tools, which
+   today all assume `long==int`, so they'd need an audit). `tcc_cc` already handles `long long`/
+   `LL` 64-bit arithmetic (see git log "no 'long' was generated for negative constants with LL
+   postfix", ">> for 64 bits"), so the machinery exists; plain `long` just isn't wired to it.
+
+Either fix is in-tree and would let patch 05 (and its `simple-patches` fragments + `pass1.kaem`
+wiring) be deleted. Option 1 (`stack_c`) is recommended: smaller blast radius for the layout
+ABI, and it eliminates a whole *class* of latent sign-boundary miscompiles in the seed.
+
+#### How to reproduce / re-derive from scratch (future session)
+All binaries are static aarch64 ELF; run on an x86_64 host via `qemu-aarch64-static`.
+1. **Repro the miscompile** (any function-local aggregate init triggers it):
+   ```sh
+   printf 'int f(){int a[2]={1,2};return a[1];}\n' > t.c
+   qemu-aarch64-static rootfs/usr/bin/tcc_s -c t.c -o t.o
+   aarch64-linux-gnu-objdump -d t.o | sed -n '/<f>:/,/ret/p'   # spurious bl <memset> near the end
+   ```
+   Cross-check `tcc-boot0` on the same `t.c` → **clean** (no memset): confirms the bug is in the
+   `tcc_s` *binary* (i.e. how `tcc_cc` built it), not in the shared `tcc.c`/`arm64-gen.c` source.
+2. **Pin it with gdb** (watch `decl_designator` return the stale `al`):
+   ```sh
+   qemu-aarch64-static -g 1234 rootfs/usr/bin/tcc_s -c t.c -o t.o &
+   # symbols are blood-elf-mangled & size 0: f_decl_designator, f_init_putz (objdump -t)
+   gdb-multiarch -q rootfs/usr/bin/tcc_s -ex 'target remote :1234' \
+     -ex 'break *<addr of decl_designator ret>' \
+     -ex 'commands' -ex 'printf "al=%d c=%lu corig=%lu\n",*(int*)($x17+0x8),...' ...
+   ```
+   The last element shows `c=0`, `corig=0xFFFFFFF8`, returns the stale `al` (4 not 8).
+3. **Prove the seed types `long` as `int`** and that the fix truncates correctly — assemble a
+   mimic through the *real* seed chain and disassemble:
+   ```sh
+   # mimic.c: bad() uses `c-corig` directly; good() does `int coff=c-corig;` first
+   qemu-aarch64-static rootfs/usr/bin/tcc_cc -a arm64 -o mimic.sl mimic.c   # note: `int c c =:`
+   qemu-aarch64-static rootfs/usr/bin/stack_c -i src/stack_c_intro_arm64.M1 mimic.sl -o mimic.M1
+   qemu-aarch64-static rootfs/usr/bin/blood-elf -a arm64 --file mimic.M1 --little-endian --output mimic.be
+   qemu-aarch64-static rootfs/usr/bin/M1 mimic.M1 -o mimic.macro
+   qemu-aarch64-static rootfs/usr/bin/hex2 -o mimic.elf M2libc/aarch64/ELF-aarch64-debug.hex2 mimic.macro mimic.be
+   aarch64-linux-gnu-objdump -d mimic.elf   # f_bad: cmp on 64-bit sub; f_good: str w truncates first
+   ```
+4. **Regenerate the patch** if `tccgen.c` line numbers drift: edit a pristine
+   `tcc-0.9.26-1147-gee75a10c/tccgen.c`, `diff -u` to refresh
+   `patches/tcc-arm64-05-aggregate-init.patch`, then
+   `python3 steps/tcc-0.9.26/gen-arm64-patches.py <pristine-tcc-srcdir>` (must print `verify OK`).

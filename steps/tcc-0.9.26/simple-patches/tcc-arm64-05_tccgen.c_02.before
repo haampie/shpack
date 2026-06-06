@@ -1,0 +1,8 @@
+	}
+    }
+    c += nb_elems * type_size(type, &align);
+    if (c - corig > al)
+      al = c - corig;
+    return al;
+}
+
