@@ -1,0 +1,18 @@
+#define __SYSCALL_LL_E(x) (x)
+#define __SYSCALL_LL_O(x) (x)
+
+/* tcc 0.9.26 has neither an AArch64 assembler nor support for inline-asm
+ * operand constraints (musls "register long x8 __asm__("x8")" trick), so
+ * the syscall wrappers are out-of-line and implemented as raw .int words
+ * in src/internal/aarch64/syscall_raw.c.
+ */
+long __syscall0(long);
+long __syscall1(long, long);
+long __syscall2(long, long, long);
+long __syscall3(long, long, long, long);
+long __syscall4(long, long, long, long, long);
+long __syscall5(long, long, long, long, long, long);
+long __syscall6(long, long, long, long, long, long, long);
+
+#define VDSO_USEFUL
+#define VDSO_CGT_SYM "__kernel_clock_gettime"

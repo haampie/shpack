@@ -1,0 +1,8 @@
+        fsize = size;
+    }
+
+    /* See arm64-va-start-param-decay: only gaddrof a local va_list (array). */
+    if (vtop->type.t & VT_ARRAY) gaddrof();
+    r0 = intr(gv(RC_INT));
+    r1 = get_reg(RC_INT);
+    vtop[0].r = r1 | lvalue_type(t->t);

@@ -10,14 +10,35 @@
 # hunks). No glue: the full build uses pristine musl strtod/ldexp/errno/
 # __libc_start_main/sigaction (the production tcc has working float constants).
 #
-# amd64 only; other arches still link mes and skip this step.
+# amd64 + arm64; other arches still link mes and skip this step.
 
 set -ex
 
 checksum-transcriber sources
 sha256sum -c sources.SHA256SUM
 
+# Build the full libc on the two mes-free arches; other arches still link mes
+# and skip this step. Arch-select the patch set, headers, source list and
+# startfiles (everything regen.sh ${ARCH} produced).
+BUILD_MUSL=False
 if match ${ARCH} amd64; then
+    BUILD_MUSL=True
+    MUSL_INC=x86_64
+    GEN=generated
+    APPLY_FULL=apply-full.kaem
+    FULL_KAEM=build-libc-full.kaem
+    SYSINC=sysinclude.tar
+fi
+if match ${ARCH} arm64; then
+    BUILD_MUSL=True
+    MUSL_INC=aarch64
+    GEN=generated/aarch64
+    APPLY_FULL=apply-full.aarch64.kaem
+    FULL_KAEM=build-libc-full.aarch64.kaem
+    SYSINC=sysinclude.aarch64.tar
+fi
+
+if match ${BUILD_MUSL} True; then
 
 MSRC=${SRCDIR}/musl-1.1.24
 SP=${MSRC}/simple-patches
@@ -27,39 +48,53 @@ cd build
 ungz --file ${DISTFILES}/musl-1.1.24.tar.gz --output musl-1.1.24.tar
 untar --non-strict --file musl-1.1.24.tar
 
-# Apply the full tcc-compat patch set, then drop in the pre-generated headers and
-# patch 0040's new src/stdarg/va_list.c (build-libc-full.kaem compiles it).
+# Apply the full tcc-compat patch set, then drop in the pre-generated headers.
 cd musl-1.1.24
-kaem --file ${MSRC}/apply-full.kaem
+kaem --file ${MSRC}/${APPLY_FULL}
 mkdir -p obj/include/bits
 mkdir -p obj/src/internal
-mkdir -p src/stdarg
-cp ${MSRC}/generated/bits/alltypes.h obj/include/bits/alltypes.h
-cp ${MSRC}/generated/bits/syscall.h obj/include/bits/syscall.h
-cp ${MSRC}/generated/internal/version.h obj/src/internal/version.h
-cp ${MSRC}/newsrc/src/stdarg/va_list.c src/stdarg/va_list.c
+cp ${MSRC}/${GEN}/bits/alltypes.h obj/include/bits/alltypes.h
+cp ${MSRC}/${GEN}/bits/syscall.h obj/include/bits/syscall.h
+cp ${MSRC}/${GEN}/internal/version.h obj/src/internal/version.h
+# amd64: patch 0040's new src/stdarg/va_list.c (build-libc-full compiles it).
+# arm64: route va_* through tcc builtins (no va_list.c) and add the asm->C
+# sources the full build compiles (syscall_raw, setjmp, clone, fenv, ...).
+if match ${ARCH} amd64; then
+    mkdir -p src/stdarg
+    cp ${MSRC}/newsrc/src/stdarg/va_list.c src/stdarg/va_list.c
+fi
+if match ${ARCH} arm64; then
+    kaem --file ${MSRC}/copy-newsrc.aarch64.kaem
+fi
 
 # Compile the full libc.a with the production tcc (HAVE_FLOAT=1). The final `ar`
-# is the last line of build-libc-full.kaem, so a mid-build failure leaves the
+# is the last line of the build kaem, so a mid-build failure leaves the
 # previously-installed subset libc.a intact (tcc stays usable). Overwrites
 # ${LIBDIR}/libc.a on success.
 mkdir -p ${TMPDIR}/musl-obj-full
 mkdir -p ${LIBDIR}
 CC=tcc
 O=${TMPDIR}/musl-obj-full
-kaem --file ${MSRC}/build-libc-full.kaem
+kaem --file ${MSRC}/${FULL_KAEM}
 
 # Real startfiles from musl's crt (replace the tcc step's stripped crt1 + empty
 # crti/crtn): crt1.c now calls the real __libc_start_main in libc.a, and the
-# real crti/crtn provide the _init/_fini section halves it expects.
-tcc -c -nostdinc -I obj/include -I arch/x86_64 -I arch/generic -I obj/src/internal -I src/include -I src/internal -I include -std=c99 -ffreestanding -D_XOPEN_SOURCE=700 -D SYSCALL_NO_TLS -o ${LIBDIR}/crt1.o crt/crt1.c
-tcc -c -o ${LIBDIR}/crti.o crt/x86_64/crti.s
-tcc -c -o ${LIBDIR}/crtn.o crt/x86_64/crtn.s
+# real crti/crtn provide the _init/_fini section halves it expects. amd64 has
+# hand-written crt asm; arm64 uses the asm->C crt sources.
+tcc -c -nostdinc -I obj/include -I arch/${MUSL_INC} -I arch/generic -I obj/src/internal -I src/include -I src/internal -I include -std=c99 -ffreestanding -D_XOPEN_SOURCE=700 -D SYSCALL_NO_TLS -o ${LIBDIR}/crt1.o crt/crt1.c
+if match ${ARCH} amd64; then
+    tcc -c -o ${LIBDIR}/crti.o crt/x86_64/crti.s
+    tcc -c -o ${LIBDIR}/crtn.o crt/x86_64/crtn.s
+fi
+if match ${ARCH} arm64; then
+    tcc -c -o ${LIBDIR}/crti.o crt/aarch64/crti.c
+    tcc -c -o ${LIBDIR}/crtn.o crt/aarch64/crtn.c
+fi
 
 # Reinstall the full public header set into tcc's system-include dir (the tcc
 # step already merged it; harmless to refresh against the final libc).
 cd ${INCDIR}
-untar --non-strict --file ${MSRC}/sysinclude.tar
+untar --non-strict --file ${MSRC}/${SYSINC}
 
 # Smoke test: link hello-float.c against the full libc + real startfiles and run
 # it. A nonzero exit (or a failed link) aborts kaem. %f correctness itself was

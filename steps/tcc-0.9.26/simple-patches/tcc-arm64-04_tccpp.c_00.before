@@ -1,0 +1,7 @@
+                if (lcount && *(p - 1) != ch)
+                    tcc_error("incorrect integer suffix: %s", p1);
+                lcount++;
+#if !defined TCC_TARGET_X86_64 || defined TCC_TARGET_PE
+                if (lcount == 2)
+#endif
+                    must_64bit = 1;

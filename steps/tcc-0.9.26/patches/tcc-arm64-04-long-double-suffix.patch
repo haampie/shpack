@@ -1,0 +1,22 @@
+From 230a7e7139e2ffbc5174ea7f9d00e6ae699a714e Mon Sep 17 00:00:00 2001
+From: b <b@b.b>
+Date: Wed, 3 Jun 2026 13:49:51 +0200
+Subject: [PATCH] tcc: arm64 -- treat 'll' long-double suffix like x86_64
+
+---
+ tccpp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tccpp.c b/tccpp.c
+index 4fb0d4a..51cf291 100644
+--- a/tccpp.c
++++ b/tccpp.c
+@@ -2427,7 +2427,7 @@ static void parse_number(const char *p)
+                 if (lcount && *(p - 1) != ch)
+                     tcc_error("incorrect integer suffix: %s", p1);
+                 lcount++;
+-#if !defined TCC_TARGET_X86_64 || defined TCC_TARGET_PE
++#if (!defined TCC_TARGET_X86_64 && !defined TCC_TARGET_ARM64) || defined TCC_TARGET_PE
+                 if (lcount == 2)
+ #endif
+                     must_64bit = 1;

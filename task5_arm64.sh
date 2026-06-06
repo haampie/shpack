@@ -4,8 +4,9 @@
 
 set -x
 
-# Build sources
-make -C src arm64_test
+# Build sources (the arm64 target is build-only: its aarch64 artifacts can only
+# be run inside the chroot, not on an x86_64 host).
+make -C src arm64
 
 # Delete existing rootfs
 rm -rf rootfs
@@ -67,7 +68,8 @@ cp -f -t rootfs/src \
     src/configurator.c \
     src/script-generator.c \
     src/stack_c_interpreter.c \
-    src/arm64-asm.c
+    src/arm64-asm.c \
+    src/alloca-arm64.S
 
 # Also add source files for checking
 cp -f -t rootfs/src \

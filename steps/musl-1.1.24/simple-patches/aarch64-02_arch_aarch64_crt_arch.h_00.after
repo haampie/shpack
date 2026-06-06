@@ -1,0 +1,24 @@
+/* tcc 0.9.26 has no AArch64 assembler, so the _start glue is written in C
+ * and emitted as raw instruction words via __asm__(".int 0x..").
+ *
+ * tcc's aarch64 function prologue is "stp x29,x30,[sp,#-224]!; mov x29,sp",
+ * so on entry to _start the kernel-provided stack image (argc, argv[], NULL,
+ * envp[], NULL, auxv...) starts at x29+224.  We pass that pointer to
+ * _start_c as its sole argument.  _DYNAMIC is omitted because this build is
+ * --disable-shared and _start_c never reads its second argument in that mode.
+ *
+ * Encodings (verified with llvm-mc --triple=aarch64):
+ *   add x0, x29, #224  = 0x910383a0
+ */
+
+void _start_c();    /* K&R unspecified-args decl matches the mes-aarch64
+                       crt1.c trick: with no prototype, tcc does not
+                       shuffle argument registers around the call, so x0
+                       set immediately above survives into _start_c. */
+
+void _start(void)
+{
+	__asm__(".int 0x910383a0"); /* add x0, x29, #224  ; x0 = sp at entry */
+	_start_c();
+	/* _start_c -> __libc_start_main -> exit(); never returns. */
+}

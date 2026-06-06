@@ -1,0 +1,10 @@
+#define _BSD_SOURCE
+#include <string.h>
+
+/* tcc 0.9.26 lacks inline-asm operand constraints, so the upstream
+   anti-DCE barrier is dropped.  tcc performs no DCE that would erase
+   the memset, so this is safe for the bootstrap build. */
+void explicit_bzero(void *d, size_t n)
+{
+	memset(d, 0, n);
+}

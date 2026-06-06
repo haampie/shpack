@@ -396,3 +396,78 @@ One real fix: the smoke test invoked `hello-float` bare, which kaem's `find_exec
 
 ### NEXT
 Hand the full libc off to Spack at binutils.
+
+## Task 9 — port the musl bootstrap to aarch64  [IN PROGRESS 2026-06-06]
+Mirror the whole amd64 path (subset → boot2==boot3 fixed point → full musl → `hello-float`)
+on aarch64, parametrized by `${ARCH}` so one source tree serves both. The lower bootstrap
+was already arm64-capable (`task5_arm64.sh`, `target_arm64/`, `src/arm64-asm.c`,
+arch-split `tcc_s`); the gap was the x86_64-hardcoded musl libc wiring.
+
+### Prior art (translated, not re-derived)
+From `~/projects/bootstrap-glibc/.../bootstrap_{musl_scaffold,tcc_musl}`:
+- musl `aarch64-01-va_list` (AAPCS64 5-field `va_list` → tcc `__va_start`/`__va_arg`
+  builtins; **no `va_list.c`** on arm64), `aarch64-02-asm-to-c` (every `.s`/inline-asm →
+  C raw-`.int` words: syscalls `svc #0`, setjmp, crt `_init`/`_fini`, fenv, clone,
+  single-thread atomics), `aarch64-03-drop-asm-barriers`. Vendored into
+  `steps/musl-1.1.24/patches/`; `0006` stays shared.
+- tcc `tcc-arm64-0{2,3,4}` (const-lval load/store + ftof mask; AAPCS64 varargs builtin
+  loop + array/param decay; `ll` long-double suffix). Vendored into
+  `steps/tcc-0.9.26/patches/`, fragments derived by `gen-arm64-patches.py`
+  (verified vs GNU patch). `tcc-arm64-01` (asm wiring) was already in the repo.
+- `alloca-arm64.S` (raw-word trampoline; musl ships no `alloca`) → `src/`.
+
+### Wiring (single source, `${ARCH}`-parametrized)
+- `regen.{py,sh}` now take an arch arg, partition the patch set (shared/x86_64/aarch64),
+  handle `/dev/null` deletions and many `/dev/null`→`newsrc/` additions, and emit
+  arch-suffixed outputs (`*.aarch64.kaem`, `generated/aarch64/`, `sysinclude.aarch64.tar`,
+  `copy-newsrc.aarch64.kaem`). x86_64 outputs byte-identical to before; both arches keep
+  the patch-equivalence self-check. (Made the sysinclude tar reproducible to stop churn.)
+- `steps/tcc-0.9.26/pass1.kaem`: arch-split the musl unpack/patch/headers, the subset libc
+  build (`-I arch/aarch64`, `sysinclude.aarch64.tar`, real `crt{i,n}.o` from the asm→C
+  `crt/aarch64/crt{i,n}.c`, libtcc1 = `lib-arm64.c` + `alloca-arm64.S`), and the boot0
+  relink. arm64 also applies `tcc-arm64-0{2,3,4}`.
+- `steps/musl-1.1.24/pass1.kaem`: widened the `amd64`-only gate to amd64+arm64;
+  `copy-newsrc.aarch64.kaem` drops the asm→C sources in; real aarch64 `crt1/crti/crtn`.
+- `musl-subset.aarch64.files`: x86 list with setjmp `.s`→aarch64 `.c`, `va_list.c` dropped,
+  `syscall_raw.c` added.
+
+### Validation so far (host, no chroot — sudo unavailable here)
+- `regen.py` self-check GREEN both arches (every fragment reproduces GNU patch).
+- **gcc-aarch64 freestanding proxy**: the SUBSET and all **1257** full sources compile
+  against the regenerated aarch64 headers; the *only* errors (78, across 21 files) are
+  exactly the `__va_arg(ap, TYPE)` tcc-builtin facet gcc can't model (handled by
+  `tcc-arm64-03`). Headers, asm→C sources and patched headers are all coherent.
+- Static lint: every `apply-*`/`build-libc-*` fragment exists; every aarch64 source the
+  build kaems reference is provided by `copy-newsrc`; no stray `x86_64` in aarch64 outputs.
+
+### NEXT (arm64)
+Run `./task5_arm64.sh` in the chroot (needs sudo + aarch64-binfmt): expect `tcc_s`/`tcc`
+`-version`, the **boot2==boot3** fixed-point assertion, all 1257 full sources, and
+`hello-float` → `3.000000 2.000000 1.500000`. Highest risk: tcc arm64 codegen, never yet
+exercised by an actual musl build.
+
+### Bug 1 — `tcc-boot0 -version` segfaults: subset glue never set `libc.page_size` [FIXED 2026-06-06]
+First chroot run got through the seed chain and built `tcc-boot0`, but `tcc-boot0 -version`
+SIGSEGV'd. Debugged on the host (binaries run via qemu-aarch64 binfmt; boot0 is static and
+built `-g`):
+- `qemu-aarch64-static -strace` showed `brk(NULL)` ×2 then `mmap(NULL, 0, …)=EINVAL` then
+  SIGSEGV at `si_addr=0x100`.
+- `gdb-multiarch` over `qemu-aarch64-static -g` gave the backtrace:
+  `main → tcc_new (tcc.c:257) → tcc_mallocz → tcc_malloc → tcc_error → error1` crashing at
+  `libtcc.c:517` because `error1`'s `s1` (the global `tcc_state`) is still NULL during the
+  very allocation of `TCCState`. Breakpoints showed `malloc(0x618)` (correct `sizeof(TCCState)`)
+  driving `__expand_heap → mmap(0,0)`.
+- Root cause: `__expand_heap` rounds with `n += -n & PAGE_SIZE-1`. **aarch64 has no
+  compile-time `PAGE_SIZE`** (configurable 4K/16K/64K), so `src/internal/libc.h` resolves
+  `PAGE_SIZE` to the runtime `libc.page_size`. The subset's `glue/start.c` (our minimal
+  `__libc_start_main`) never set it → `page_size==0` → `n += -n & (0-1)` → `n==0` → `mmap(0)`
+  → first malloc fails. x86_64 has `PAGESIZE 4096` in `bits/limits.h` (constant), so amd64
+  never depended on the runtime value — hence amd64 worked and arm64 didn't.
+- Fix: `glue/start.c` now walks past `envp` to the aux vector and sets
+  `libc.page_size = aux[AT_PAGESZ]` (exactly the line upstream `__libc_start_main` keeps),
+  via `#include "libc.h"`. Arch-neutral: a harmless no-op on x86_64 (constant `PAGE_SIZE`).
+  The full-musl step is unaffected (it links the real `__libc_start_main`). Verified the glue
+  compiles clean against the aarch64 musl headers with the gcc-aarch64 freestanding proxy and
+  that the store targets the `__libc` global. The trace also confirmed tcc's **variadic
+  codegen works** (vsnprintf/vfprintf ran while formatting the error), so this was a startup
+  bug, not arm64 codegen. Re-run `./task5_arm64.sh`.

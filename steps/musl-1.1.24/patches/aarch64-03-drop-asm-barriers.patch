@@ -1,0 +1,37 @@
+musl 1.1.24, AArch64: drop anti-dead-code asm barriers tcc cannot parse.
+
+__libc_start_main and explicit_bzero use empty ``__asm__`` statements purely as
+optimisation barriers against gcc's dead-code elimination.  tcc does no DCE and
+rejects the asm operands, so the barriers are simply removed.
+
+Squashed from MES-replacement/steps/musl-1.1.24/patches 0011,0015.
+diff --git a/src/env/__libc_start_main.c b/src/env/__libc_start_main.c
+index 8fbe526..87aeb88 100644
+--- a/src/env/__libc_start_main.c
++++ b/src/env/__libc_start_main.c
+@@ -81,7 +81,7 @@ int __libc_start_main(int (*main)(int,char **,char **), int argc, char **argv)
+ 	/* Barrier against hoisting application code or anything using ssp
+ 	 * or thread pointer prior to its initialization above. */
+ 	lsm2_fn *stage2 = libc_start_main_stage2;
+-	__asm__ ( "" : "+r"(stage2) : : "memory" );
++	/* asm reorder barrier removed for tcc */
+ 	return stage2(main, argc, argv);
+ }
+ 
+diff --git a/src/string/explicit_bzero.c b/src/string/explicit_bzero.c
+index f2e12f2..8b7940a 100644
+--- a/src/string/explicit_bzero.c
++++ b/src/string/explicit_bzero.c
+@@ -1,8 +1,10 @@
+ #define _BSD_SOURCE
+ #include <string.h>
+ 
++/* tcc 0.9.26 lacks inline-asm operand constraints, so the upstream
++   anti-DCE barrier is dropped.  tcc performs no DCE that would erase
++   the memset, so this is safe for the bootstrap build. */
+ void explicit_bzero(void *d, size_t n)
+ {
+-	d = memset(d, 0, n);
+-	__asm__ __volatile__ ("" : : "r"(d) : "memory");
++	memset(d, 0, n);
+ }

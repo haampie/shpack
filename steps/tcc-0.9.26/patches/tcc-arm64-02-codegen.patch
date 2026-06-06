@@ -1,0 +1,57 @@
+From 2dce76890b8d5d16e3b559eaedb2d56613cf8cd1 Mon Sep 17 00:00:00 2001
+From: b <b@b.b>
+Date: Wed, 3 Jun 2026 13:49:50 +0200
+Subject: [PATCH] tcc: arm64 -- backend codegen fixes (const-lval load/store,
+ ftof mask)
+
+---
+ arm64-gen.c | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/arm64-gen.c b/arm64-gen.c
+index c7a71e6..9fa4862 100644
+--- a/arm64-gen.c
++++ b/arm64-gen.c
+@@ -538,6 +538,16 @@ ST_FUNC void load(int r, SValue *sv)
+         return;
+     }
+ 
++    if (svr == (VT_CONST | VT_LVAL)) {
++        arm64_movimm(30, svcul); // use x30 for address
++        if (IS_FREG(r))
++            arm64_ldrv(arm64_type_size(svtt), fltr(r), 30, 0);
++        else
++            arm64_ldrx(!(svtt & VT_UNSIGNED), arm64_type_size(svtt),
++                       intr(r), 30, 0);
++        return;
++    }
++
+     printf("load(%x, (%x, %x, %llx))\n", r, svtt, sv->r, (long long)svcul);
+     assert(0);
+ }
+@@ -575,6 +585,15 @@ ST_FUNC void store(int r, SValue *sv)
+         return;
+     }
+ 
++    if (svr == (VT_CONST | VT_LVAL)) {
++        arm64_movimm(30, svcul); // use x30 for address
++        if (IS_FREG(r))
++            arm64_strv(arm64_type_size(svtt), fltr(r), 30, 0);
++        else
++            arm64_strx(arm64_type_size(svtt), intr(r), 30, 0);
++        return;
++    }
++
+     printf("store(%x, (%x, %x, %llx))\n", r, svtt, sv->r, (long long)svcul);
+     assert(0);
+ }
+@@ -1722,7 +1741,8 @@ ST_FUNC void gen_cvt_ftoi(int t)
+ 
+ ST_FUNC void gen_cvt_ftof(int t)
+ {
+-    int f = vtop[0].type.t;
++    int f = vtop[0].type.t & VT_BTYPE;
++    t &= VT_BTYPE;
+     assert(t == VT_FLOAT || t == VT_DOUBLE || t == VT_LDOUBLE);
+     assert(f == VT_FLOAT || f == VT_DOUBLE || f == VT_LDOUBLE);
+     if (t == f)

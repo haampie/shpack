@@ -1,0 +1,61 @@
+musl 1.1.24, AArch64: route va_list through tcc's __va_start/__va_arg builtins.
+
+tcc 0.9.26 implements the AAPCS64 variadic ABI via its own 2-arg
+__va_start/__va_arg builtins, not gcc's __builtin_va_*.  Spell musl's va_list
+out as a named ``struct __va_list_struct`` (so va_list and __isoc_va_list share
+a tag -- tcc rejects casts between distinct anonymous structs), switch the
+forwarding form to a one-element array (decays to a pointer at the call site),
+and point <stdarg.h>'s va_* macros at the tcc builtins.  Touches only the
+AArch64 alltypes.h.in and the shared <stdarg.h>.
+
+Squashed from MES-replacement/steps/musl-1.1.24/patches 0003,0013,0016-0019 and
+the alltypes hunk of 0014.
+diff --git a/arch/aarch64/bits/alltypes.h.in b/arch/aarch64/bits/alltypes.h.in
+index d56abda..0252c5c 100644
+--- a/arch/aarch64/bits/alltypes.h.in
++++ b/arch/aarch64/bits/alltypes.h.in
+@@ -2,8 +2,18 @@
+ #define _Int64 long
+ #define _Reg long
+ 
+-TYPEDEF __builtin_va_list va_list;
+-TYPEDEF __builtin_va_list __isoc_va_list;
++#ifndef __DEFINED___musl_va_list_t
++typedef struct __va_list_struct { void *__stack; void *__gr_top; void *__vr_top; int __gr_offs; int __vr_offs; } __musl_va_list_t;
++#define __DEFINED___musl_va_list_t
++#endif
++#if defined(__NEED_va_list) && !defined(__DEFINED_va_list)
++typedef __musl_va_list_t va_list[1];
++#define __DEFINED_va_list
++#endif
++#if defined(__NEED___isoc_va_list) && !defined(__DEFINED___isoc_va_list)
++typedef __musl_va_list_t __isoc_va_list[1];
++#define __DEFINED___isoc_va_list
++#endif
+ 
+ #ifndef __cplusplus
+ TYPEDEF unsigned wchar_t;
+diff --git a/include/stdarg.h b/include/stdarg.h
+index 3256f80..9f9cc79 100644
+--- a/include/stdarg.h
++++ b/include/stdarg.h
+@@ -9,10 +9,15 @@ extern "C" {
+ 
+ #include <bits/alltypes.h>
+ 
+-#define va_start(v,l)   __builtin_va_start(v,l)
+-#define va_end(v)       __builtin_va_end(v)
+-#define va_arg(v,l)     __builtin_va_arg(v,l)
+-#define va_copy(d,s)    __builtin_va_copy(d,s)
++/* tcc 0.9.26 aarch64: __builtin_va_* are not implemented; libtcc1
++   exports __va_start/__va_arg taking the AAPCS64 va_list.  va_list is
++   defined as a 1-element array (matching upstream musl/AAPCS64) so a
++   va_list parameter decays to a pointer and forwards correctly.
++   va_copy must therefore dereference both sides. */
++#define va_start(ap, last) __va_start(ap, last)
++#define va_arg(ap, type)   __va_arg(ap, type)
++#define va_end(ap)
++#define va_copy(d, s)      (*(d) = *(s))
+ 
+ #ifdef __cplusplus
+ }

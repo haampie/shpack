@@ -1,0 +1,76 @@
+From c32134fc885febae7e22b5895a095047b6af38cc Mon Sep 17 00:00:00 2001
+From: b <b@b.b>
+Date: Wed, 3 Jun 2026 13:49:50 +0200
+Subject: [PATCH] tcc: arm64 -- AAPCS64 variadic handling (va builtin loop,
+ param decay)
+
+---
+ arm64-gen.c |  9 +++++++--
+ tccgen.c    | 21 ++++++++++++++-------
+ 2 files changed, 21 insertions(+), 9 deletions(-)
+
+diff --git a/arm64-gen.c b/arm64-gen.c
+index 9fa4862..cf23aee 100644
+--- a/arm64-gen.c
++++ b/arm64-gen.c
+@@ -1097,7 +1097,11 @@ ST_FUNC void gen_va_start(void)
+ {
+     int r;
+     --vtop; // we don't need the "arg"
+-    gaddrof();
++    /* musl's AAPCS64 va_list is array-form (struct[1]); a local decays to a
++       pointer via gaddrof, but a parameter has already been adjusted to a
++       pointer at declaration time, so gaddrof would give &param instead of
++       the pointer value.  Only gaddrof for the array (local) case. */
++    if (vtop->type.t & VT_ARRAY) gaddrof();
+     r = intr(gv(RC_INT));
+ 
+     if (arm64_func_va_list_stack) {
+@@ -1140,7 +1144,8 @@ ST_FUNC void gen_va_arg(CType *t)
+         fsize = size;
+     }
+ 
+-    gaddrof();
++    /* See arm64-va-start-param-decay: only gaddrof a local va_list (array). */
++    if (vtop->type.t & VT_ARRAY) gaddrof();
+     r0 = intr(gv(RC_INT));
+     r1 = get_reg(RC_INT);
+     vtop[0].r = r1 | lvalue_type(t->t);
+diff --git a/tccgen.c b/tccgen.c
+index 5bc6807..6ea61cf 100644
+--- a/tccgen.c
++++ b/tccgen.c
+@@ -4379,19 +4379,26 @@ static void parse_type(CType *type)
+ 
+ static void parse_builtin_params(int nc, const char *args)
+ {
+-    char c, sep = '(';
++    char c;
++    char sep = '(';
+     CType t;
++    int i;
+     if (nc)
+         nocode_wanted++;
+     next();
+-    while ((c = *args++)) {
++    for (i = 0; args[i] != 0; i = i + 1) {
++	c = args[i];
+ 	skip(sep);
+ 	sep = ',';
+-	switch (c) {
+-	    case 'e': expr_eq(); continue;
+-	    case 't': parse_type(&t); vpush(&t); continue;
+-	    default: tcc_error("internal error"); break;
+-	}
++	if (c == 'e')
++	    expr_eq();
++	else if (c == 't')
++	    {
++		parse_type(&t);
++		vpush(&t);
++	    }
++	else
++	    tcc_error("internal error");
+     }
+     skip(')');
+     if (nc)

@@ -1,0 +1,15 @@
+
+#include <bits/alltypes.h>
+
+/* tcc 0.9.26 aarch64: __builtin_va_* are not implemented; libtcc1
+   exports __va_start/__va_arg taking the AAPCS64 va_list.  va_list is
+   defined as a 1-element array (matching upstream musl/AAPCS64) so a
+   va_list parameter decays to a pointer and forwards correctly.
+   va_copy must therefore dereference both sides. */
+#define va_start(ap, last) __va_start(ap, last)
+#define va_arg(ap, type)   __va_arg(ap, type)
+#define va_end(ap)
+#define va_copy(d, s)      (*(d) = *(s))
+
+#ifdef __cplusplus
+}
