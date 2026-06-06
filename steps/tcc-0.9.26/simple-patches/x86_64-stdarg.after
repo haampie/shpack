@@ -1,3 +1,0 @@
-#elif __TINYC__ && __x86_64__
-#include "tcc_x86_64_stdarg.h"
-#else // ! SYSTEM_LIBC && ! __riscv

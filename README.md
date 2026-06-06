@@ -39,7 +39,7 @@ option, issue the command:
 ```sh
 git submodule update --init --recursive
 ```
-This will retrieve the submodules `M2libc` and GNU Mes sources. To also retrieve
+This will retrieve the `M2libc` submodule. To also retrieve
 the correct Tiny C Compilers sources, issue the command:
 ```sh
 ./download_tcc.sh

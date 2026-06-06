@@ -237,4 +237,12 @@ diff5_arm64_OK : tcc_cc.arm64.sl64 tcc_cc_tarm64.arm64.sl64
 	%.sl64 \
 	%.M1_amd64 %.blood_elf_amd64 %.macro_amd64 \
 	%.M1_arm64 %.blood_elf_arm64 %.macro_arm64
-.PHONY: all x86 amd64 arm64 arm64_tests
+clean:
+	rm -f $(HOST_SEED_TOOLS) untar_s
+	rm -f *.sl *.sl64 *_s.M1 *.blood_elf *.macro
+	rm -f *.M1_amd64 *.macro_amd64 *.blood_elf_amd64
+	rm -f *.M1_arm64 *.macro_arm64 *.blood_elf_arm64
+	rm -f *.x86 *.amd64 *.arm64 *.amd64_hex0 *.arm64_hex0
+	rm -f errors.txt untar_s.txt
+
+.PHONY: all x86 amd64 arm64 arm64_tests clean

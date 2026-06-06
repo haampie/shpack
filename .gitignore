@@ -1,0 +1,44 @@
+# Build artifacts — none of this is source; regenerate with `make -C src`
+# and the task5_*.sh scripts.
+
+# chroot build tree produced by task5_amd64.sh / task5_arm64.sh
+/rootfs/
+
+# --- src/ build products ---------------------------------------------------
+# Tracked sources are *.c, *.S, *.h, the Makefile, run.sh, and the
+# stack_c_intro*.M1 seeds — none of the patterns below match those.
+
+# host seed tools (gcc-built, no extension)
+/src/M1
+/src/hex2
+/src/blood-elf
+/src/stack_c
+/src/stack_c_amd64
+/src/stack_c_arm64
+/src/stack_c_interpreter
+/src/tcc_cc
+/src/untar_s
+
+# assembler / linker intermediates (see .PRECIOUS in src/Makefile)
+/src/*.sl
+/src/*.sl64
+/src/*_s.M1
+/src/*.blood_elf
+/src/*.macro
+/src/*.M1_amd64
+/src/*.macro_amd64
+/src/*.blood_elf_amd64
+/src/*.M1_arm64
+/src/*.macro_arm64
+/src/*.blood_elf_arm64
+
+# per-target executables and hex0 seeds
+/src/*.x86
+/src/*.amd64
+/src/*.arm64
+/src/*.amd64_hex0
+/src/*.arm64_hex0
+
+# misc generated text
+/src/errors.txt
+/src/untar_s.txt
