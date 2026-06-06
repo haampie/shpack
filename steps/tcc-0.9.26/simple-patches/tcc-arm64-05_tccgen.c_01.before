@@ -1,8 +1,0 @@
-    }
-    /* must put zero in holes (note that doing it that way
-       ensures that it even works with designators) */
-    if (!size_only && c - corig > al)
-	init_putz(sec, corig + al, c - corig - al);
-    decl_initializer(type, sec, c, 0, size_only);
-
-    /* XXX: make it more general */

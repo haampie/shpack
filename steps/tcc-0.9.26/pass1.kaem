@@ -144,12 +144,6 @@ if match ${ARCH} arm64; then
     #  02 codegen  -- const-lval load/store (string/float literals) + ftof mask
     #  03 varargs  -- AAPCS64 va builtin loop + va_list param/array decay
     #  04 longdbl  -- treat the 'll' suffix as long double like x86_64
-    #  05 agginit  -- seed tcc_cc maps long->int(32) but does the c-corig
-    #                 subtraction in 64-bit X regs (zero-extending a negative
-    #                 frame offset), so decl_designator's running length came up
-    #                 one element short and init_putz zeroed the last element of
-    #                 every function-local aggregate initializer. Force the
-    #                 difference through an int (truncates to the correct low-32).
     simple-patch arm64-gen.c \
         ../../simple-patches/tcc-arm64-02_arm64-gen.c_00.before ../../simple-patches/tcc-arm64-02_arm64-gen.c_00.after
     simple-patch arm64-gen.c \
@@ -164,12 +158,6 @@ if match ${ARCH} arm64; then
         ../../simple-patches/tcc-arm64-03_tccgen.c_00.before ../../simple-patches/tcc-arm64-03_tccgen.c_00.after
     simple-patch tccpp.c \
         ../../simple-patches/tcc-arm64-04_tccpp.c_00.before ../../simple-patches/tcc-arm64-04_tccpp.c_00.after
-    simple-patch tccgen.c \
-        ../../simple-patches/tcc-arm64-05_tccgen.c_00.before ../../simple-patches/tcc-arm64-05_tccgen.c_00.after
-    simple-patch tccgen.c \
-        ../../simple-patches/tcc-arm64-05_tccgen.c_01.before ../../simple-patches/tcc-arm64-05_tccgen.c_01.after
-    simple-patch tccgen.c \
-        ../../simple-patches/tcc-arm64-05_tccgen.c_02.before ../../simple-patches/tcc-arm64-05_tccgen.c_02.after
 fi
 
 

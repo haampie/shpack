@@ -19,8 +19,7 @@ PATCHES = os.path.join(HERE, "patches")
 SPDIR = os.path.join(HERE, "simple-patches")
 PATCHSET = ["tcc-arm64-02-codegen.patch",
             "tcc-arm64-03-varargs.patch",
-            "tcc-arm64-04-long-double-suffix.patch",
-            "tcc-arm64-05-aggregate-init.patch"]
+            "tcc-arm64-04-long-double-suffix.patch"]
 
 HUNK_RE = re.compile(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
 NUM_RE = re.compile(r"(tcc-arm64-\d+)")
