@@ -383,6 +383,69 @@ int main (int argc, char *argv[])
 		is_true(n == 101, "switch continue problem");
 	}	
 
+	unsigned int low = 0;
+	unsigned int high = 0xFFFFFFF8;
+	int limit = 4;
+	is_true((low - high) > limit, "32-bit subtraction result in ordered compare");
+
+	is_true(5 % 2 == 1, "5 % 2 == 1");
+	is_true(-5 % 2 == -1, "-5 % 2 == -1");
+	is_true(5 % -2 == 1, "5 % -2 == 1");
+
+	is_true((1 ? 42 : 0) == 42, "ternary true");
+	is_true((0 ? 42 : 13) == 13, "ternary false");
+
+	int sc = 0;
+	is_true((0 && (sc = 1)) == 0, "0 && ...");
+	is_true(sc == 0, "short circuit && prevents rhs evaluation");
+	is_true((1 || (sc = 1)) == 1, "1 || ...");
+	is_true(sc == 0, "short circuit || prevents rhs evaluation");
+
+	is_true(!5 == 0, "!5 == 0");
+	is_true(!0 == 1, "!0 == 1");
+	// is_true(~0 == -1, "~0 == -1"); // todo
+
+	int inc = 5;
+	is_true(inc++ == 5, "post-inc returns 5");
+	is_true(inc == 6, "post-inc mutated to 6");
+	is_true(++inc == 7, "pre-inc returns 7");
+	is_true(inc-- == 7, "post-dec returns 7");
+	is_true(--inc == 5, "pre-dec returns 5");
+
+	int ca = 5;
+	ca += 2; is_true(ca == 7, "ca += 2");
+	ca -= 3; is_true(ca == 4, "ca -= 3");
+	ca *= 2; is_true(ca == 8, "ca *= 2");
+	ca /= 4; is_true(ca == 2, "ca /= 4");
+	ca %= 2; is_true(ca == 0, "ca %= 2");
+	ca = 1;
+	ca <<= 3; is_true(ca == 8, "ca <<= 3");
+	ca >>= 1; is_true(ca == 4, "ca >>= 1");
+	ca |= 2;  is_true(ca == 6, "ca |= 2");
+	ca &= 3;  is_true(ca == 2, "ca &= 3");
+	ca ^= 3;  is_true(ca == 1, "ca ^= 3");
+
+	int parr[3] = {10, 20, 30};
+	int *pptr = parr;
+	is_true(*pptr == 10, "*pptr == 10");
+	pptr++;
+	is_true(*pptr == 20, "pptr++ == 20");
+	is_true(pptr - parr == 1, "ptr diff");
+
+	char c_val = -5;
+	int i_val = c_val;
+	is_true(i_val == -5, "sign extend char to int");
+	unsigned char uc_val = 250;
+	i_val = uc_val;
+	is_true(i_val == 250, "zero extend unsigned char to int");
+
+	int ma, mb, mc;
+	ma = mb = mc = 42;
+	is_true(ma == 42 && mb == 42 && mc == 42, "multiple assignment");
+
+	int comma = (1, 2, 42);
+	is_true(comma == 42, "comma operator");
+
 	if (result == 0)
 	{
 		char buffer[100];
