@@ -18,24 +18,17 @@ checksum-transcriber sources
 sha256sum -c sources.SHA256SUM
 
 # Build the full libc on the two mes-free arches; other arches still link mes
-# and skip this step. Arch-select the patch set, headers, source list and
-# startfiles (everything regen.sh ${ARCH} produced).
+# and skip this step. The patch set, headers, source list and startfiles all live
+# under ${ARCH}/ (everything regen.sh ${ARCH} produced); only MUSL_INC -- musl's
+# in-tree arch/<musl_inc> name -- isn't just a per-arch path.
 BUILD_MUSL=False
 if match ${ARCH} amd64; then
     BUILD_MUSL=True
     MUSL_INC=x86_64
-    GEN=generated
-    APPLY_FULL=apply-full.kaem
-    FULL_KAEM=build-libc-full.kaem
-    SYSINC=sysinclude.tar
 fi
 if match ${ARCH} arm64; then
     BUILD_MUSL=True
     MUSL_INC=aarch64
-    GEN=generated/aarch64
-    APPLY_FULL=apply-full.aarch64.kaem
-    FULL_KAEM=build-libc-full.aarch64.kaem
-    SYSINC=sysinclude.aarch64.tar
 fi
 
 if match ${BUILD_MUSL} True; then
@@ -50,21 +43,21 @@ untar --non-strict --file musl-1.1.24.tar
 
 # Apply the full tcc-compat patch set, then drop in the pre-generated headers.
 cd musl-1.1.24
-kaem --file ${MSRC}/${APPLY_FULL}
+kaem --file ${MSRC}/${ARCH}/apply-full.kaem
 mkdir -p obj/include/bits
 mkdir -p obj/src/internal
-cp ${MSRC}/${GEN}/bits/alltypes.h obj/include/bits/alltypes.h
-cp ${MSRC}/${GEN}/bits/syscall.h obj/include/bits/syscall.h
-cp ${MSRC}/${GEN}/internal/version.h obj/src/internal/version.h
+cp ${MSRC}/${ARCH}/generated/bits/alltypes.h obj/include/bits/alltypes.h
+cp ${MSRC}/${ARCH}/generated/bits/syscall.h obj/include/bits/syscall.h
+cp ${MSRC}/${ARCH}/generated/internal/version.h obj/src/internal/version.h
 # amd64: patch 0040's new src/stdarg/va_list.c (build-libc-full compiles it).
 # arm64: route va_* through tcc builtins (no va_list.c) and add the asm->C
 # sources the full build compiles (syscall_raw, setjmp, clone, fenv, ...).
 if match ${ARCH} amd64; then
     mkdir -p src/stdarg
-    cp ${MSRC}/newsrc/src/stdarg/va_list.c src/stdarg/va_list.c
+    cp ${MSRC}/${ARCH}/newsrc/src/stdarg/va_list.c src/stdarg/va_list.c
 fi
 if match ${ARCH} arm64; then
-    kaem --file ${MSRC}/copy-newsrc.aarch64.kaem
+    kaem --file ${MSRC}/${ARCH}/copy-newsrc.kaem
 fi
 
 # Compile the full libc.a with the production tcc (HAVE_FLOAT=1). The final `ar`
@@ -75,7 +68,7 @@ mkdir -p ${TMPDIR}/musl-obj-full
 mkdir -p ${LIBDIR}
 CC=tcc
 O=${TMPDIR}/musl-obj-full
-kaem --file ${MSRC}/${FULL_KAEM}
+kaem --file ${MSRC}/${ARCH}/build-libc-full.kaem
 
 # Real startfiles from musl's crt (replace the tcc step's stripped crt1 + empty
 # crti/crtn): crt1.c now calls the real __libc_start_main in libc.a, and the
@@ -94,7 +87,7 @@ fi
 # Reinstall the full public header set into tcc's system-include dir (the tcc
 # step already merged it; harmless to refresh against the final libc).
 cd ${INCDIR}
-untar --non-strict --file ${MSRC}/${SYSINC}
+untar --non-strict --file ${MSRC}/sysinclude.tar
 
 # Smoke test: link hello-float.c against the full libc + real startfiles and run
 # it. A nonzero exit (or a failed link) aborts kaem. %f correctness itself was

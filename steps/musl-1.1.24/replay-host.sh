@@ -57,7 +57,7 @@ die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [ -d "$TCC_SRC" ]        || die "tcc source tree not found: $TCC_SRC"
 [ -d "$PATCHDIR" ]       || die "patch dir not found: $PATCHDIR"
 [ -f "$TCC_STATIC_PLT" ] || die "tcc-static-plt.patch not found: $TCC_STATIC_PLT"
-[ -f "$HERE/musl-subset.files" ] || die "manifest not found: $HERE/musl-subset.files"
+[ -f "$HERE/amd64/musl-subset.files" ] || die "manifest not found: $HERE/amd64/musl-subset.files"
 
 say "workdir $WORKDIR (fresh)"
 rm -rf "$WORKDIR"
@@ -132,7 +132,7 @@ rm -rf "$OBJ"; mkdir -p "$OBJ"
 
 # the manifest (123 exact musl files, incl. va_list.c [created by patch 0040],
 # strcat.c [tcc.c uses strcat], sigemptyset.c [tcc set_exception_handler]) ...
-SRCLIST=$(grep -vE '^\s*(#|$)' "$HERE/musl-subset.files")
+SRCLIST=$(grep -vE '^\s*(#|$)' "$HERE/amd64/musl-subset.files")
 # ... plus our glue (errno_loc, start, sigaction stub) copied into the tree above.
 EXTRA="src/errno/glue_errno_loc.c src/env/glue_start.c src/signal/glue_sigaction.c"
 

@@ -26,9 +26,10 @@
 #   - arch/<arch>/bits/alltypes.h.in: the chroot uses the pre-generated
 #     generated[/<arch>]/bits/alltypes.h (already in the __musl_va_list_t form),
 #     so the .h.in edit is moot in-chroot.
-#   - new files created from /dev/null: shipped as plain sources under newsrc/
-#     and copied into the tree (x86_64: a single va_list.c, inline in pass1.kaem;
-#     aarch64: the asm->C .c files, via the generated copy-newsrc.aarch64.kaem).
+#   - new files created from /dev/null: shipped as plain sources under
+#     <out_dir>/newsrc/ and copied into the tree (x86_64: a single va_list.c,
+#     inline in pass1.kaem; aarch64: the asm->C .c files, via the generated
+#     arm64/copy-newsrc.kaem).
 #   - file deletions (+++ /dev/null): the asm->C patch deletes every aarch64 .s
 #     and adds a .c in its place; the .s is simply never compiled, so there is
 #     nothing to patch.
@@ -46,41 +47,30 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 PATCHES = os.path.join(HERE, "patches")
 SPDIR = os.path.join(HERE, "simple-patches")
-NEWSRC = os.path.join(HERE, "newsrc")
 
 # ---- per-arch configuration -------------------------------------------------
-# suffix         appended to the generated kaem/manifest names ("" = x86_64).
+# out_dir        per-arch output subdir (chroot-facing name, matching ${ARCH}):
+#                the apply/build-libc/copy-newsrc kaem, generated headers, newsrc
+#                tree and the hand-maintained musl-subset.files all live here.
+# manifest_sfx   suffix on the shared simple-patches/MANIFEST<sfx> ("" = amd64).
 # arch_dir       musl's arch/<arch_dir> include directory.
-# subset_files   the hand-maintained tcc-surface file list for the SUBSET libc.
 # skip_files     hunks we do NOT turn into fragments (handled another way).
-# subset_targets the patched files a SUBSET source #includes/compiles, so their
-#                fragments must be applied before the subset build (everything
-#                else -- full-only sources, deletions -- is FULL-only).
+# The whole patch set is applied for both subset and full builds: every extra
+# (full-only) fragment targets a file the subset never compiles, so applying it
+# before the subset build is a no-op on the resulting libc.a -- hence a single
+# apply-full.kaem (no separate apply-subset.kaem).
 ARCH_CFG = {
     "x86_64": {
-        "suffix": "",
+        "out_dir": "amd64",
+        "manifest_sfx": "",
         "arch_dir": "x86_64",
-        "subset_files": "musl-subset.files",
         "skip_files": {"arch/x86_64/bits/alltypes.h.in"},
-        "subset_targets": {
-            "src/internal/syscall.h",      # 0006 (the only 0006 hunk a subset file pulls in)
-            "arch/x86_64/syscall_arch.h",  # 0030
-            "include/stdarg.h",            # 0040
-        },
     },
     "aarch64": {
-        "suffix": ".aarch64",
+        "out_dir": "arm64",
+        "manifest_sfx": ".aarch64",
         "arch_dir": "aarch64",
-        "subset_files": "musl-subset.aarch64.files",
         "skip_files": {"arch/aarch64/bits/alltypes.h.in"},
-        "subset_targets": {
-            "src/internal/syscall.h",        # 0006
-            "include/stdarg.h",              # aarch64-01 (va_* -> tcc builtins)
-            "arch/aarch64/syscall_arch.h",   # aarch64-02 (extern __syscallN decls)
-            "arch/aarch64/atomic_arch.h",    # aarch64-02 (LL/SC asm -> single-thread C)
-            "arch/aarch64/crt_arch.h",       # aarch64-02 (_start asm -> C, used by crt1.c)
-            "arch/aarch64/pthread_arch.h",   # aarch64-02 (mrs tpidr_el0 -> out-of-line)
-        },
     },
 }
 
@@ -201,7 +191,7 @@ def emit_build_libc(path, srcs, header, arch_dir):
         f.write("${CC} -ar cr ${LIBDIR}/libc.a" + "".join(" " + o for o in objs) + "\n")
 
 
-def emit_copy_newsrc(path, newfiles, header):
+def emit_copy_newsrc(path, newfiles, header, out_dir):
     """Write a kaem fragment that mkdir+cp's the asm->C new sources into the musl
     tree (cwd = musl root; needs env MSRC). Used on aarch64, where the asm->C
     patch adds many .c files at nested paths (kaem has no globbing / cp -r)."""
@@ -213,7 +203,7 @@ def emit_copy_newsrc(path, newfiles, header):
             if d and d not in seen:
                 f.write("mkdir -p %s\n" % d)
                 seen.append(d)
-            f.write("cp ${MSRC}/newsrc/%s %s\n" % (rel, rel))
+            f.write("cp ${MSRC}/%s/newsrc/%s %s\n" % (out_dir, rel, rel))
 
 
 def main():
@@ -229,14 +219,16 @@ def main():
         full_files = [l.strip() for l in open(sys.argv[3], encoding="utf-8")
                       if l.strip()]
 
-    sfx = cfg["suffix"]
+    out_dir = cfg["out_dir"]
+    manifest_sfx = cfg["manifest_sfx"]
     arch_dir = cfg["arch_dir"]
     skip_files = cfg["skip_files"]
-    subset_targets = cfg["subset_targets"]
     patchset = select_patches(arch)
 
+    outd = os.path.join(HERE, out_dir)
+    newsrc_dir = os.path.join(outd, "newsrc")
     os.makedirs(SPDIR, exist_ok=True)
-    os.makedirs(NEWSRC, exist_ok=True)
+    os.makedirs(newsrc_dir, exist_ok=True)
 
     # id -> (target_path_in_tree, before, after); ordered for in-file order.
     fragments = []
@@ -268,43 +260,43 @@ def main():
         open(os.path.join(SPDIR, fid + ".before"), "w", encoding="utf-8").write(before)
         open(os.path.join(SPDIR, fid + ".after"), "w", encoding="utf-8").write(after)
     for path, content in newfiles:
-        dst = os.path.join(NEWSRC, path)
+        dst = os.path.join(newsrc_dir, path)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         open(dst, "w", encoding="utf-8").write(content)
 
-    # write a manifest: fid <space> target
-    with open(os.path.join(SPDIR, "MANIFEST" + sfx), "w", encoding="utf-8") as f:
+    # write a manifest: fid <space> target (shared simple-patches/ dir)
+    with open(os.path.join(SPDIR, "MANIFEST" + manifest_sfx), "w", encoding="utf-8") as f:
         for fid, target, _, _ in fragments:
             f.write("%s %s\n" % (fid, target))
 
     print("[%s] wrote %d fragment pairs, %d new files" % (arch, len(fragments), len(newfiles)))
 
-    # ---- emit the kaem fragments ----
-    subset_frags = [fr for fr in fragments if fr[1] in subset_targets]
-    emit_apply(os.path.join(HERE, "apply-subset%s.kaem" % sfx), subset_frags,
-               "Apply the tcc-compat musl patches needed for the SUBSET libc.")
-    emit_apply(os.path.join(HERE, "apply-full%s.kaem" % sfx), fragments,
+    # ---- emit the kaem fragments (per-arch, under <out_dir>/) ----
+    emit_apply(os.path.join(outd, "apply-full.kaem"), fragments,
                "Apply the tcc-compat musl patches needed for the FULL libc.")
 
     subset_files = [l.strip() for l in
-                    open(os.path.join(HERE, cfg["subset_files"]), encoding="utf-8")
+                    open(os.path.join(outd, "musl-subset.files"), encoding="utf-8")
                     if l.strip() and not l.lstrip().startswith("#")]
-    emit_build_libc(os.path.join(HERE, "build-libc-subset%s.kaem" % sfx),
+    emit_build_libc(os.path.join(outd, "build-libc-subset.kaem"),
                     subset_files + SUBSET_GLUE,
                     "Compile the musl 1.1.24 SUBSET (+glue) into libc.a.", arch_dir)
 
     if full_files is not None:
-        emit_build_libc(os.path.join(HERE, "build-libc-full%s.kaem" % sfx), full_files,
+        emit_build_libc(os.path.join(outd, "build-libc-full.kaem"), full_files,
                         "Compile FULL musl 1.1.24 (no glue) into libc.a.", arch_dir)
 
     # aarch64 ships its asm->C sources via a generated copy script (many nested
-    # new files). x86_64's lone va_list.c is copied inline by pass1.kaem.
-    if sfx and newfiles:
-        emit_copy_newsrc(os.path.join(HERE, "copy-newsrc%s.kaem" % sfx), newfiles,
-                         "Copy the aarch64 asm->C new sources into the musl tree.")
+    # new files). x86_64's lone va_list.c is copied inline by pass1.kaem, so it
+    # ships the newsrc file but no copy-newsrc.kaem.
+    emit_cn = arch == "aarch64" and newfiles
+    if emit_cn:
+        emit_copy_newsrc(os.path.join(outd, "copy-newsrc.kaem"), newfiles,
+                         "Copy the aarch64 asm->C new sources into the musl tree.",
+                         out_dir)
 
-    print("[%s] emitted apply/build-libc%s kaem%s" %
-          (arch, sfx, " + copy-newsrc" if (sfx and newfiles) else ""))
+    print("[%s] emitted apply-full/build-libc kaem into %s/%s" %
+          (arch, out_dir, " + copy-newsrc" if emit_cn else ""))
 
     # ---- verify: simple-patch(pristine_file) == patch(pristine_file) ----
     import tempfile

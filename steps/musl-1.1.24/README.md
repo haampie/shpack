@@ -1,9 +1,14 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-# musl 1.1.24 — mes-libc replacement + full libc (amd64)
+# musl 1.1.24 — mes-libc replacement + full libc (amd64 + arm64)
 
 This directory drives building **real musl 1.1.24** as the C library for the bootstrap,
 replacing GNU mes libc. It does so in two phases from the **pristine** upstream tarball
 (`distfiles/musl-1.1.24.tar.gz`) — the sources are never repackaged/vendored:
+
+Arch-specific build inputs live under per-arch subdirs `amd64/` and `arm64/` (the
+chroot-facing `${ARCH}` names); `pass1.kaem` reaches them via `${MSRC}/${ARCH}/…`.
+Arch-neutral inputs (`glue/`, `patches/`, `simple-patches/`, `regen.*`, `pass1.kaem`,
+`hello-float.c`, the combined `sysinclude.tar`) stay at the top level.
 
 1. **Subset** (in the `tcc-0.9.26` step): a curated 121-file closure of the ~60-symbol
    libc surface `tcc.c` needs, plus four glue files, compiled by the float-blind seed
@@ -21,28 +26,41 @@ See `../../LOG-MUSL.md` for the full narrative.
   x86_64 syscall asm, `0040` SysV va_list). Use these where a real `patch` exists (Spack).
 - `simple-patches/*.{before,after}` — one fragment pair per hunk, applied in the chroot by
   the repo's `simple-patch` (the chroot has no GNU `patch`). `regen.py` derives them from
-  the unified diffs and **verifies** each reproduces `patch`'s output byte-for-byte.
-- `apply-subset.kaem` / `apply-full.kaem` — the `simple-patch` invocation lists (subset
-  patches only the 3 files its sources pull in; full applies every hunk). Need env `${SP}`.
+  the unified diffs and **verifies** each reproduces `patch`'s output byte-for-byte. The
+  fragments (and `MANIFEST`/`MANIFEST.aarch64`) are shared across arches — keyed by the
+  patch-number prefix, which is arch-unique.
+- `<arch>/apply-full.kaem` — the `simple-patch` invocation list (needs env `${SP}`).
+  A single list applies the whole patch set for **both** the subset and full builds: every
+  full-only hunk targets a file the subset never compiles, so applying it before the subset
+  build is a no-op on the resulting `libc.a` (hence no separate `apply-subset.kaem`).
 
-`0040`'s new file `src/stdarg/va_list.c` ships under `newsrc/` (copied into the tree, not
-patched in); its `arch/x86_64/bits/alltypes.h.in` hunk is moot in-chroot because we ship
-the pre-generated `generated/bits/alltypes.h` already in the `__musl_va_list_t` form.
+`0040`'s new file `src/stdarg/va_list.c` ships under `amd64/newsrc/` (copied into the tree,
+not patched in); its `arch/x86_64/bits/alltypes.h.in` hunk is moot in-chroot because we ship
+the pre-generated `amd64/generated/bits/alltypes.h` already in the `__musl_va_list_t` form.
+The aarch64 asm→C sources ship under `arm64/newsrc/` and are copied in by the generated
+`arm64/copy-newsrc.kaem`.
 
-## Host-generated, committed inputs (regenerate with `./regen.sh`)
+## Host-generated, committed inputs (regenerate with `./regen.sh [ARCH]`)
 
-- `generated/bits/{alltypes,syscall}.h`, `generated/internal/version.h` — musl's three
-  generated headers for x86_64 (chroot has no sed/awk). `alltypes.h` carries `0040`.
-- `sysinclude.tar` — flat, merged **public** header set, untarred into tcc's include dir
-  (in-chroot `cp` has no `-r`, so the `bits/` overlay is flattened once here). Headers
-  only; the musl *sources* are pristine.
-- `build-libc-subset.kaem` / `build-libc-full.kaem` — per-file compile + `ar` lists (kaem
-  has no loops). Subset = `musl-subset.files` + glue; full = `make -n` of the patched tree
-  with `src/complex` + `src/math/x86_64` removed (so generic C math is selected).
-- `apply-*.kaem` (above).
+- `<arch>/generated/bits/{alltypes,syscall}.h`, `<arch>/generated/internal/version.h` —
+  musl's three generated headers for the arch (chroot has no sed/awk). `alltypes.h` carries
+  the va_list patch.
+- `sysinclude.tar` — ONE combined, flat, merged **public** header set with per-arch
+  subtrees `amd64/` and `arm64/`, untarred into tcc's include dir (in-chroot `cp` has no
+  `-r`, so the `bits/` overlay is flattened once here). tcc's include path is
+  `…/include/mes/${ARCH}`. Headers only; the musl *sources* are pristine. The header set
+  needs no cross-toolchain, so `regen.sh` rebuilds **both** subtrees in one pass — a single
+  run yields the complete combined tar regardless of the `ARCH` argument.
+- `<arch>/build-libc-subset.kaem` / `<arch>/build-libc-full.kaem` — per-file compile + `ar`
+  lists (kaem has no loops). Subset = `<arch>/musl-subset.files` + glue; full = `make -n` of
+  the patched tree with `src/complex` + `src/math/<musl-arch>` removed (so generic C math is
+  selected).
+- `<arch>/apply-full.kaem`, `arm64/copy-newsrc.kaem` (above).
 
-`regen.sh` (host: sed/tar/make/python3) regenerates all of the above from the pristine
-tarball and runs `regen.py` (which also verifies the fragments).
+`regen.sh` (host: sed/tar/make/python3; aarch64 source list also needs
+`aarch64-linux-gnu-gcc`) regenerates the passed arch's inputs from the pristine tarball and
+runs `regen.py` (which also verifies the fragments). The combined `sysinclude.tar` is
+rebuilt for both arches on every run.
 
 ## The four glue files (SUBSET only — the full build uses pristine musl)
 
@@ -57,8 +75,9 @@ tarball and runs `regen.py` (which also verifies the fragments).
 
 ## Compile flags (both phases)
 
-`-nostdinc -I obj/include -I arch/x86_64 -I arch/generic -I obj/src/internal -I src/include
--I src/internal -I include -std=c99 -ffreestanding -D_XOPEN_SOURCE=700 -D SYSCALL_NO_TLS`
+`-nostdinc -I obj/include -I arch/<musl-arch> -I arch/generic -I obj/src/internal
+-I src/include -I src/internal -I include -std=c99 -ffreestanding -D_XOPEN_SOURCE=700
+-D SYSCALL_NO_TLS` (`<musl-arch>` = `x86_64` for amd64, `aarch64` for arm64)
 
 ## Licensing
 

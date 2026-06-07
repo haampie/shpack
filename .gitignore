@@ -17,7 +17,13 @@
 /src/stack_c_arm64
 /src/stack_c_interpreter
 /src/tcc_cc
-/src/untar_s
+# the *_s seed-tool convention (catm_s, kaem_s, tcc_cc_s, untar_s, ...) and the
+# self-host roundtrip output (stack_c_s2.M1, tcc_cc_s2.M1)
+/src/*_s
+/src/*_s2.M1
+
+# test stamp files (./tool_s ... && touch <name>_OK)
+/src/*_OK
 
 # assembler / linker intermediates (see .PRECIOUS in src/Makefile)
 /src/*.sl
@@ -38,7 +44,10 @@
 /src/*.arm64
 /src/*.amd64_hex0
 /src/*.arm64_hex0
+/src/*_s.hex0
 
-# misc generated text
+# misc generated text (objdump / error / build dumps)
 /src/errors.txt
-/src/untar_s.txt
+/src/*_s.txt
+/src/*.amd64.txt
+/src/*.arm64.txt

@@ -660,3 +660,39 @@ All binaries are static aarch64 ELF; run on an x86_64 host via `qemu-aarch64-sta
    `tcc-0.9.26-1147-gee75a10c/tccgen.c`, `diff -u` to refresh
    `patches/tcc-arm64-05-aggregate-init.patch`, then
    `python3 steps/tcc-0.9.26/gen-arm64-patches.py <pristine-tcc-srcdir>` (must print `verify OK`).
+
+## Simplify the kaem build inputs [2026-06-07]
+
+Three input-layer simplifications under `steps/musl-1.1.24/`, none changing what the
+bootstrap compiles or its reproducibility guarantees (boot2==boot3, the `%f` facet, the
+`hello-float` smoke test):
+
+1. **Dropped `apply-subset*.kaem`** — unified on `apply-full`. The full patch set was always
+   a superset whose extra hunks target files the subset never compiles, so applying it before
+   the subset build is a no-op on `libc.a`. `regen.py` no longer carries `subset_targets` /
+   the `apply-subset` emit.
+2. **Per-arch subdirs `amd64/` + `arm64/`** — retired the `.aarch64` suffix and the
+   `generated/aarch64` convention. The apply/build-libc/copy-newsrc kaem, generated headers,
+   newsrc tree and `musl-subset.files` now live under `${ARCH}/`; both `pass1.kaem` reach
+   them via `${MSRC}/${ARCH}/…`, collapsing most filename `if match ${ARCH}` branches (only
+   genuine arch logic — `MUSL_INC`, crt asm, tcc-source patches — stays branched). Shared
+   inputs (`glue/`, `patches/`, `simple-patches/` + `MANIFEST*`) stay at top level.
+3. **One combined `sysinclude.tar`** with `amd64/` + `arm64/` subtrees, replacing the two
+   per-arch tars. The header set needs no cross-toolchain (only `make -n` does), so
+   `regen.sh` rebuilds both subtrees in one host pass. tcc's include path is now baked to
+   `…/include/mes/${ARCH}` (the in-chroot `untar` can't extract a single subtree and `cp`
+   has no `-r`).
+
+### Validation (host, no chroot — sudo unavailable here)
+- `regen.sh {x86_64,aarch64}` GREEN; `regen.py` patch-equivalence self-check GREEN both arches.
+- **Byte-identity**: every regenerated `amd64/{apply-full,build-libc-subset,build-libc-full}.kaem`,
+  `generated/*` and `newsrc/*` is byte-identical to the old top-level files; `arm64/*` identical
+  to the old `.aarch64` files (only `copy-newsrc.kaem` differs, by the `${MSRC}/arm64/newsrc/`
+  path prefix). Proves the compiled object set and patch set are unchanged.
+- Combined `sysinclude.tar`: `amd64/` subtree byte-identical to the old `sysinclude.tar`,
+  `arm64/` to the old `sysinclude.aarch64.tar` (per-file); reproducible across re-runs.
+- `task5_{amd64,arm64}.sh` stage `steps/` wholesale (`cp -r`), so the reorg is transparent.
+
+### NEXT
+Chroot end-to-end (`./task5_amd64.sh`, `./task5_arm64.sh`) still pending sudo — byte-identity
+bounds the risk to the path/untar wiring.
