@@ -243,7 +243,7 @@ the interpretation for the x86_64/amd64 target.
 ### The x86_64/amd64 target
 
 The `stack_c_amd64.c` program was developed to compile the output of
-`tcc_cc.c` to assembly for the target. The script `task5_amd64.sh`
+`tcc_cc.c` to assembly for the target. The script `build.sh amd64`
 creates a `rootfs` environment (after first having compiled versions of
 the necessary programs for amd64) and executes all the necessary steps
 to compile tcc-0.9.26 and tcc-0.9.27 for amd64.
@@ -258,7 +258,7 @@ to define the correct system calls for target.
 The `stack_c_arm64.c` program was developed by 
 [Harmen Stoppels](https://github.com/haampie) with the help of Claude Code.
 He also developed the necessary patches for the Tiny C Compiler sources.
-The script `task5_arm64.sh` creates a `rootfs` environment (after first
+The script `build.sh arm64` creates a `rootfs` environment (after first
 having compiled versions of the necessary programs for arm64) and
 executes all the necessary steps to compile tcc-0.9.26 and tcc-0.9.27 for
 arm64.

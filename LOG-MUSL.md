@@ -694,5 +694,27 @@ bootstrap compiles or its reproducibility guarantees (boot2==boot3, the `%f` fac
 - `task5_{amd64,arm64}.sh` stage `steps/` wholesale (`cp -r`), so the reorg is transparent.
 
 ### NEXT
-Chroot end-to-end (`./task5_amd64.sh`, `./task5_arm64.sh`) still pending sudo — byte-identity
+Chroot end-to-end (`./build.sh amd64`, `./build.sh arm64`) still pending sudo — byte-identity
 bounds the risk to the path/untar wiring.
+
+## Tidy the top-level bootstrap scripts [2026-06-07]
+
+Two script-layer cleanups, no change to what the bootstrap compiles:
+
+1. **Deleted `steps/musl-1.1.24/replay-host.sh`** — a host-side (no-chroot) investigation
+   harness, not part of the kaem boot. It was unreferenced and bit-rotted (default
+   `TCC_SRC=/tmp/msb4/...` gone; depended on an external Spack package dir). Its guarantee
+   (subset libc compiles + self-hosts tcc) is already covered by the chroot boot and the
+   `regen.py` byte-identity checks.
+2. **Condensed `task5_amd64.sh` + `task5_arm64.sh` into one `build.sh <arch>`** at the repo
+   root. The two were ~95% identical; the merged script parametrizes on `${ARCH}` plus three
+   keyed vars: `SEEDARCH` (`AMD64`/`AArch64`), `M2ARCH` (`amd64`/`aarch64`), `MAKEGOAL`
+   (empty == default `all` for amd64 / `arm64`). The ELF-hex2 copy is normalized to an
+   explicit rename `M2libc/${M2ARCH}/ELF-${M2ARCH}-debug.hex2 → rootfs/${ARCH}/ELF-${ARCH}-debug.hex2`
+   (a no-op rename for amd64); arm64-only `src/arm64-asm.c` + `src/alloca-arm64.S` are gated by
+   an `if [ "$ARCH" = arm64 ]`. Bad/missing arg prints usage and exits before touching `rootfs/`.
+
+`README.md` updated (`task5_*.sh` → `build.sh <arch>`).
+
+### NEXT
+Same as above: chroot end-to-end via `./build.sh amd64` / `./build.sh arm64` pending sudo.

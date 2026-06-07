@@ -10,6 +10,9 @@ chroot-facing `${ARCH}` names); `pass1.kaem` reaches them via `${MSRC}/${ARCH}/â
 Arch-neutral inputs (`glue/`, `patches/`, `simple-patches/`, `regen.*`, `pass1.kaem`,
 `hello-float.c`, the combined `sysinclude.tar`) stay at the top level.
 
+The whole bootstrap (this step plus the tcc step) is driven from the repo root by
+`./build.sh <amd64|arm64>`.
+
 1. **Subset** (in the `tcc-0.9.26` step): a curated 121-file closure of the ~60-symbol
    libc surface `tcc.c` needs, plus four glue files, compiled by the float-blind seed
    `tcc_s` then by `tcc-boot0`, just to bring the production `tcc` into existence.
