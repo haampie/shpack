@@ -588,7 +588,7 @@ is a no-op).
   boot3`, full musl (1257 files) builds, `hello-float` prints `3.000000 2.000000 1.500000`.
   Also re-disassemble the rebuilt `tcc-boot0`'s `__stdio_write` and confirm the two spurious
   `memset`s are gone. (A host-only rebuild of just `tcc_s` is awkward because `tcc_cc`'s
-  invocation uses chroot-absolute paths `/src`, `/usr/include/mes`; not worth fighting — run
+  invocation uses chroot-absolute paths `/src`, `/usr/include/musl`; not worth fighting — run
   task5 instead.)
 
 #### The real bug is one layer earlier — fixing the seed tools (would make patch 05 redundant)
@@ -680,7 +680,7 @@ bootstrap compiles or its reproducibility guarantees (boot2==boot3, the `%f` fac
 3. **One combined `sysinclude.tar`** with `amd64/` + `arm64/` subtrees, replacing the two
    per-arch tars. The header set needs no cross-toolchain (only `make -n` does), so
    `regen.sh` rebuilds both subtrees in one host pass. tcc's include path is now baked to
-   `…/include/mes/${ARCH}` (the in-chroot `untar` can't extract a single subtree and `cp`
+   `…/include/tcc/${ARCH}` (the in-chroot `untar` can't extract a single subtree and `cp`
    has no `-r`).
 
 ### Validation (host, no chroot — sudo unavailable here)

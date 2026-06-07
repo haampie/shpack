@@ -51,7 +51,7 @@ The aarch64 asm→C sources ship under `arm64/newsrc/` and are copied in by the 
 - `sysinclude.tar` — ONE combined, flat, merged **public** header set with per-arch
   subtrees `amd64/` and `arm64/`, untarred into tcc's include dir (in-chroot `cp` has no
   `-r`, so the `bits/` overlay is flattened once here). tcc's include path is
-  `…/include/mes/${ARCH}`. Headers only; the musl *sources* are pristine. The header set
+  `…/include/tcc/${ARCH}`. Headers only; the musl *sources* are pristine. The header set
   needs no cross-toolchain, so `regen.sh` rebuilds **both** subtrees in one pass — a single
   run yields the complete combined tar regardless of the `ARCH` argument.
 - `<arch>/build-libc-subset.kaem` / `<arch>/build-libc-full.kaem` — per-file compile + `ar`
