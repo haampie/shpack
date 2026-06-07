@@ -4375,6 +4375,30 @@ void expr_print_warning(expr_p expr, const char *mesg)
 	}
 }
 
+void gen_canonical_cast(type_p type)
+{
+	if (type == NULL || type->kind != TYPE_KIND_BASE)
+		return;
+	switch (type->base_type)
+	{
+		case BT_VOID: break;
+		case BT_U8: fprintf(fcode, "0xFF & "); break;
+		case BT_S8: fprintf(fcode, "char "); break;
+		case BT_U16: fprintf(fcode, "0xFFFF & "); break;
+		case BT_U32:
+			if (long_long_size == TARGET_64BITS)
+				fprintf(fcode, "0xFFFFFFFF & ");
+			break;
+		case BT_S32:
+			if (long_long_size == TARGET_64BITS)
+				fprintf(fcode, "long ");
+			break;
+		case BT_U64: break;
+		case BT_S64: break;
+		default: break;
+	}
+}
+
 void gen_expr(expr_p expr, bool as_value)
 {
 	if (expr == NULL)
@@ -4427,31 +4451,16 @@ void gen_expr(expr_p expr, bool as_value)
 					expr_print_warning(expr, "Cast non base type to base type");
 				if (child_type->kind != TYPE_KIND_BASE || child_type->base_type != expr->type->base_type)
 				{
-					switch (expr->type->base_type)
+					if (expr->type->base_type > BT_S64)
 					{
-						case BT_VOID: break;
-						case BT_U8: fprintf(fcode, "0xFF & "); break;
-						case BT_S8: fprintf(fcode, "char "); break;
-						case BT_U16: fprintf(fcode, "0xFFFF & "); break;
-						case BT_U32:
-							if (long_long_size == TARGET_64BITS)
-								fprintf(fcode, "0xFFFFFFFF & ");
-							break;
-						case BT_S32:
-							if (long_long_size == TARGET_64BITS)
-								fprintf(fcode, "long ");
-							break;
-						case BT_U64: break;
-						case BT_S64: break;
-						default:
-							if (child_type->kind == TYPE_KIND_BASE)
-							{
-								char buffer[100];
-								sprintf(buffer, "Cast base type %d to %d", child_type->base_type, expr->type->base_type);
-								expr_print_warning(expr, buffer);
-							}
-							break;
+						if (child_type != NULL && child_type->kind == TYPE_KIND_BASE)
+						{
+							char buffer[100];
+							sprintf(buffer, "Cast base type %d to %d", child_type->base_type, expr->type->base_type);
+							expr_print_warning(expr, buffer);
+						}
 					}
+					gen_canonical_cast(expr->type);
 				}
 			}
 			else if (is_lvalue(expr->children[0]))
@@ -4475,6 +4484,8 @@ void gen_expr(expr_p expr, bool as_value)
 		case '~':
 			gen_expr(expr->children[0], TRUE);
 			fprintf(fcode, "%c ", expr->kind);
+			if (expr->kind == '~')
+				gen_canonical_cast(expr->type);
 			break;
 		case TK_SHR:
 			if (expr->children[1]->kind == '0' && expr->children[1]->int_val >= long_long_size * 8)
@@ -4529,6 +4540,8 @@ void gen_expr(expr_p expr, bool as_value)
 				case TK_NE: fprintf(fcode, "!= "); break;
 				default: fprintf(fcode, "%c ", expr->kind); break;
 			}
+			if (expr->kind == '+' || expr->kind == '-' || expr->kind == '*')
+				gen_canonical_cast(expr->type);
 			break;
 		case '=':
 			gen_expr(expr->children[0], FALSE);
@@ -4544,6 +4557,7 @@ void gen_expr(expr_p expr, bool as_value)
 			else
 			{
 				gen_expr(expr->children[1], TRUE);
+				gen_canonical_cast(expr->type);
 				fprintf(fcode, "=%s ", expr_size_ind);
 			}
 			break;
@@ -4565,6 +4579,8 @@ void gen_expr(expr_p expr, bool as_value)
 				|| type_is_signed_integer(expr->children[1]->type))
 				fprintf(fcode, "s");
 			fprintf(fcode, " ");
+			if (expr->kind == '/' || expr->kind == '%')
+				gen_canonical_cast(expr->type);
 			break;
 		case TK_MUL_ASS:
 		case TK_DIV_ASS:
@@ -4594,6 +4610,9 @@ void gen_expr(expr_p expr, bool as_value)
 			    && (   type_is_signed_integer(expr->children[0]->type)
 					|| type_is_signed_integer(expr->children[1]->type)))
 				fprintf(fcode, "s");
+			fprintf(fcode, " ");
+			if (expr->kind == TK_ADD_ASS || expr->kind == TK_SUB_ASS || expr->kind == TK_MUL_ASS || expr->kind == TK_DIV_ASS || expr->kind == TK_MOD_ASS)
+				gen_canonical_cast(expr->type);
 			fprintf(fcode, " =%s ", expr_size_ind);
 			break;
 		case TK_ARROW:
@@ -4669,7 +4688,10 @@ void gen_expr(expr_p expr, bool as_value)
 				expr_print_error(expr, "multiple post increment");
 			gen_expr(expr->children[0], FALSE);
 			int size = expr_inc_dec_value(expr->children[0]);
-			fprintf(fcode, "$ ?%s%s %d + =%s %d - ", expr_size_ind, signed_ind, size, expr_size_ind, size);
+			fprintf(fcode, "$ ?%s%s %d + ", expr_size_ind, signed_ind, size);
+			gen_canonical_cast(expr->type);
+			fprintf(fcode, "=%s %d - ", expr_size_ind, size);
+			gen_canonical_cast(expr->type);
 			break;
 		}
 		case OPER_POST_DEC:
@@ -4678,25 +4700,33 @@ void gen_expr(expr_p expr, bool as_value)
 				expr_print_error(expr, "multiple post decrement");
 			gen_expr(expr->children[0], FALSE);
 			int size = expr_inc_dec_value(expr->children[0]);
-			fprintf(fcode, "$ ?%s%s %d - =%s %d + ", expr_size_ind, signed_ind, size, expr_size_ind, size);
+			fprintf(fcode, "$ ?%s%s %d - ", expr_size_ind, signed_ind, size);
+			gen_canonical_cast(expr->type);
+			fprintf(fcode, "=%s %d + ", expr_size_ind, size);
+			gen_canonical_cast(expr->type);
 			break;
 		}
 		case OPER_PRE_INC:
 			if (multiple)
 				expr_print_error(expr, "multiple pre increment");
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "$ ?%s%s %d + =%s ", expr_size_ind, signed_ind, expr_inc_dec_value(expr->children[0]), expr_size_ind);
+			fprintf(fcode, "$ ?%s%s %d + ", expr_size_ind, signed_ind, expr_inc_dec_value(expr->children[0]));
+			gen_canonical_cast(expr->type);
+			fprintf(fcode, "=%s ", expr_size_ind);
 			break;
 		case OPER_PRE_DEC:
 			if (multiple)
 				expr_print_error(expr, "multiple pre decrement");
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "$ ?%s%s %d - =%s ", expr_size_ind, signed_ind, expr_inc_dec_value(expr->children[0]), expr_size_ind);
+			fprintf(fcode, "$ ?%s%s %d - ", expr_size_ind, signed_ind, expr_inc_dec_value(expr->children[0]));
+			gen_canonical_cast(expr->type);
+			fprintf(fcode, "=%s ", expr_size_ind);
 			break;
 		case OPER_MIN:
 			fprintf(fcode, "0 ");
 			gen_expr(expr->children[0], TRUE);
 			fprintf(fcode, "- ");
+			gen_canonical_cast(expr->type);
 			break;
 		case OPER_STAR:
 			gen_expr(expr->children[0], TRUE);
