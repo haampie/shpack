@@ -132,8 +132,6 @@ if match ${ARCH} arm64; then
         ../../simple-patches/tcc-arm64-03_arm64-gen.c_00.before ../../simple-patches/tcc-arm64-03_arm64-gen.c_00.after
     simple-patch arm64-gen.c \
         ../../simple-patches/tcc-arm64-03_arm64-gen.c_01.before ../../simple-patches/tcc-arm64-03_arm64-gen.c_01.after
-    simple-patch tccgen.c \
-        ../../simple-patches/tcc-arm64-03_tccgen.c_00.before ../../simple-patches/tcc-arm64-03_tccgen.c_00.after
     simple-patch tccpp.c \
         ../../simple-patches/tcc-arm64-04_tccpp.c_00.before ../../simple-patches/tcc-arm64-04_tccpp.c_00.after
 fi
