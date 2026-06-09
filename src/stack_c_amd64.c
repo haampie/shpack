@@ -24,7 +24,7 @@ Notes:
 #include <string.h>
 #include <malloc.h>
 
-// Constants
+/* Constants */
 
 #define MAX_TOKEN_LENGTH 8000
 #define MAX_NR_VARIABLES 4000
@@ -32,13 +32,13 @@ Notes:
 #define MAX_VARIABLE_LENGTH 50
 #define MAX_NESTING 100
 
-// Boolean definition
+/* Boolean definition */
 
 #define TRUE 1
 #define FALSE 0
 typedef int bool;
 
-// Global variables
+/* Global variables */
 
 FILE *fin;
 FILE *fout;
@@ -47,29 +47,26 @@ char cur_char = '\0';
 int cur_char_line = 1;
 int cur_char_column = 1;
 
-// Read charachter
+/* Read charachter */
 
 void read_char(void)
 {
-	if (feof(fin))
-		cur_char = '\0';
-	else
+	int c;
+	if (cur_char == '\n')
 	{
-		if (cur_char == '\n')
-		{
-			cur_char_line++;
-			cur_char_column = 0;
-		}
-		cur_char = fgetc(fin);
-		if (feof(fin))
-			cur_char = '\0';
-		else
-		{
-			cur_char_column++;
-			if (cur_char == '\t')
-				cur_char_column += 4 - ((cur_char_column - 1) % 4);
-		}
+		cur_char_line = cur_char_line + 1;
+		cur_char_column = 0;
 	}
+	c = fgetc(fin);
+	if (c == EOF)
+	{
+		cur_char = '\0';
+		return;
+	}
+	cur_char = c;
+	cur_char_column = cur_char_column + 1;
+	if (cur_char == '\t')
+		cur_char_column += 4 - ((cur_char_column - 1) % 4);
 }
 
 char sym;
@@ -81,7 +78,7 @@ int cur_column = 0;
 
 typedef struct
 {
-	const char *name;
+	char *name;
 	char sym;
 } Mapping;
 #define NR_KEYWORDS 15
@@ -103,68 +100,53 @@ Mapping keywords[NR_KEYWORDS] = {
 	{ "long",       'O' }
 };
 
-#define SYMBOL(X) ('a' + (X))
+#define SYM_REV_ASS  'a'
+#define SYM_GET_BYTE 'b'
+#define SYM_GET_WORD 'c'
+#define SYM_GET_LWORD 'd'
+#define SYM_ASS_BYTE 'e'
+#define SYM_ASS_WORD 'f'
+#define SYM_ASS_LWORD 'g'
+#define SYM_CALL 'h'
+#define SYM_DIV_SIGNED 'i'
+#define SYM_MOD_SIGNED 'j'
+#define SYM_EQ 'k'
+#define SYM_NE 'l'
+#define SYM_LE 'm'
+#define SYM_GE 'n'
+#define SYM_LT_SIGNED 'o'
+#define SYM_LE_SIGNED 'p'
+#define SYM_GT_SIGNED 'q'
+#define SYM_GE_SIGNED 'r'
+#define SYM_SHL 's'
+#define SYM_SHR 't'
+#define SYM_LOG_AND 'u'
+#define SYM_LOG_OR 'v'
+#define SYM_ARROW 'w'
+#define SYM_SWAP 'x'
+#define SYM_SUB_PTRS 'y'
 
 #define NR_SYMBOLS 25
-Mapping symbols[NR_SYMBOLS] = {
-#define SYM_REV_ASS SYMBOL(0)
-	{ "=:",         SYM_REV_ASS },
-#define SYM_GET_BYTE SYMBOL(1)
-	{ "?1",         SYM_GET_BYTE },
-#define SYM_GET_WORD SYMBOL(2)
-	{ "?2",         SYM_GET_WORD },
-#define SYM_GET_LWORD SYMBOL(3)
-	{ "?4",         SYM_GET_LWORD },
-#define SYM_ASS_BYTE SYMBOL(4)
-	{ "=1",         SYM_ASS_BYTE },
-#define SYM_ASS_WORD SYMBOL(5)
-	{ "=2",         SYM_ASS_WORD },
-#define SYM_ASS_LWORD SYMBOL(6)
-	{ "=4",         SYM_ASS_LWORD },
-#define SYM_CALL SYMBOL(7)
-	{ "()",         SYM_CALL },
-#define SYM_DIV_SIGNED SYMBOL(8)
-	{ "/s",         SYM_DIV_SIGNED },
-#define SYM_MOD_SIGNED SYMBOL(9)
-	{ "%s",         SYM_MOD_SIGNED },
-#define SYM_EQ SYMBOL(10)
-	{ "==",         SYM_EQ },
-#define SYM_NE SYMBOL(11)
-	{ "!=",         SYM_NE },
-#define SYM_LE SYMBOL(12)
-	{ "<=",         SYM_LE },
-#define SYM_GE SYMBOL(13)
-	{ ">=",         SYM_GE },
-#define SYM_LT_SIGNED SYMBOL(14)
-	{ "<s",         SYM_LT_SIGNED },
-#define SYM_LE_SIGNED SYMBOL(15)
-	{ "<=s",         SYM_LE_SIGNED },
-#define SYM_GT_SIGNED SYMBOL(16)
-	{ ">s",         SYM_GT_SIGNED },
-#define SYM_GE_SIGNED SYMBOL(17)
-	{ ">=s",         SYM_GE_SIGNED },
-#define SYM_SHL SYMBOL(18)
-	{ "<<",         SYM_SHL },
-#define SYM_SHR SYMBOL(19)
-	{ ">>",         SYM_SHR },
-#define SYM_LOG_AND SYMBOL(20)
-	{ "&&",         SYM_LOG_AND },
-#define SYM_LOG_OR SYMBOL(21)
-	{ "||",         SYM_LOG_OR },
-#define SYM_ARROW SYMBOL(22)
-	{ "->",         SYM_ARROW },
-#define SYM_SWAP SYMBOL(23)
-	{ "><",         SYM_SWAP },
-#define SYM_SUB_PTRS SYMBOL(24)
-	{ "-p",         SYM_SUB_PTRS }
-};
+Mapping symbols[NR_SYMBOLS];
 
 int error = 0;
 
+/* Append cur_char to token. A helper because M2-Planet mis-compiles '++' on
+   global variables, so token[token_len++] cannot be used directly. */
+void append_char(char c)
+{
+	token[token_len] = c;
+	token_len = token_len + 1;
+}
+
 void get_token(void)
 {
+	int i;
+	int v;
+	int sign;
+	char quote;
 	token_len = 0;
-	// Skip white spaces, but echo comments starting with # till end of the line
+	/* Skip white spaces, but echo comments starting with # till end of the line */
 	while ((cur_char != '\0' && cur_char <= ' ') || cur_char == '#')
 	{
 		if (cur_char == '#')
@@ -181,24 +163,24 @@ void get_token(void)
 			read_char();
 	}
 
-	// Check for end of file
+	/* Check for end of file */
 	if (cur_char == '\0')
 	{
 		sym = '\0';
 		return;
 	}
 
-	// Store starting position
+	/* Store starting position */
 	cur_line = cur_char_line;
 	cur_column = cur_char_column;
 
-	// Check for identifier
+	/* Check for identifier */
 	if (('a' <= cur_char && cur_char <= 'z') || ('A' <= cur_char && cur_char <= 'Z') || cur_char == '_')
 	{
 		sym = 'A';
 		do
 		{
-			token[token_len++] = cur_char;
+			append_char(cur_char);
 			read_char();
 		}
 		while (('a' <= cur_char && cur_char <= 'z') || ('A' <= cur_char && cur_char <= 'Z') || cur_char == '_' || ('0' <= cur_char && cur_char <= '9'));
@@ -212,8 +194,8 @@ void get_token(void)
 			return;
 		}
 
-		// Recognize keywords
-		for (int i = 0; i < NR_KEYWORDS; i++)
+		/* Recognize keywords */
+		for (i = 0; i < NR_KEYWORDS; i++)
 			if (strcmp(keywords[i].name, token) == 0)
 			{
 				sym = keywords[i].sym;
@@ -222,12 +204,12 @@ void get_token(void)
 		return;
 	}
 
-	// Check for character or string
+	/* Check for character or string */
 	if (cur_char == '\'' || cur_char == '"')
 	{
 		sym = cur_char;
-		char quote = cur_char;
-		for (;;)
+		quote = cur_char;
+		while (1)
 		{
 			read_char();
 			if (cur_char == '\0')
@@ -258,7 +240,7 @@ void get_token(void)
 				else if (cur_char == 'x')
 				{
 					read_char();
-					int v = 0;
+					v = 0;
 					if ('0' <= cur_char && cur_char <= '9')
 						v = 16 * (cur_char - '0');
 					else if ('A' <= cur_char && cur_char <= 'F')
@@ -278,29 +260,29 @@ void get_token(void)
 						fprintf(ferr, "ERROR %d.%d: Illegal character '%c' after \\x\n", cur_line, cur_column, cur_char);
 					cur_char = v;
 				}
-				token[token_len++] = cur_char;
+				append_char(cur_char);
 			}
 			else
-				token[token_len++] = cur_char;
+				append_char(cur_char);
 		}
 		token[token_len] = '\0';
 		return;
 	}
 
-	// Check for number or '->' symbol
+	/* Check for number or '->' symbol */
 	if (('0' <= cur_char && cur_char <= '9') || cur_char == '-')
 	{
-		token[token_len++] = cur_char;
-		int sign = 1;
+		append_char(cur_char);
+		sign = 1;
 		if (cur_char == '-')
 		{
 			sign = -1;
 			read_char();
-			// check of '->' symbol
+			/* check of '->' symbol */
 			if (cur_char == '>')
 			{
 				sym = SYM_ARROW;
-				token[token_len++] = cur_char;
+				append_char(cur_char);
 				token[token_len] = '\0';
 				read_char();
 				return;
@@ -308,7 +290,7 @@ void get_token(void)
 			if (cur_char == 'p')
 			{
 				sym = SYM_SUB_PTRS;
-				token[token_len++] = cur_char;
+				append_char(cur_char);
 				token[token_len] = '\0';
 				read_char();
 				return;
@@ -320,7 +302,7 @@ void get_token(void)
 				return;
 			}
 		}
-		// Check for number
+		/* Check for number */
 		if ('0' <= cur_char && cur_char <= '9')
 		{
 			sym = '0';
@@ -331,7 +313,7 @@ void get_token(void)
 				if (cur_char == 'x')
 				{
 					read_char();
-					// Parse hexadecimal number
+					/* Parse hexadecimal number */
 					while (1)
 					{
 						if ('0' <= cur_char && cur_char <= '9')
@@ -347,7 +329,7 @@ void get_token(void)
 				}
 				else
 				{
-					// Parse octal number
+					/* Parse octal number */
 					while ('0' <= cur_char && cur_char <= '7')
 					{
 						int_value = 8 * int_value + cur_char - '0';
@@ -357,7 +339,7 @@ void get_token(void)
 			}
 			else
 			{
-				// Parse decimal number
+				/* Parse decimal number */
 				while ('0' <= cur_char && cur_char <= '9')
 				{
 					int_value = 10 * int_value + cur_char - '0';
@@ -365,12 +347,12 @@ void get_token(void)
 				}
 			}
 			int_value = sign * int_value;
-			sprintf(token, "%lld", int_value);
-			return; 
+			sprintf(token, "%d", int_value);
+			return;
 		}
 	}
 
-	// Label start
+	/* Label start */
 	if (cur_char == ':')
 	{
 		sym = ':';
@@ -379,11 +361,11 @@ void get_token(void)
 		return;
 	}
 
-	// Parse symbol till next white space
+	/* Parse symbol till next white space */
 	sym = ' ';
 	do
 	{
-		token[token_len++] = cur_char;
+		append_char(cur_char);
 		read_char();
 	}
 	while (cur_char > ' ');
@@ -392,7 +374,7 @@ void get_token(void)
 	if (token_len == 1)
 		sym = token[0];
 	else
-		for (int i = 0; i < NR_SYMBOLS; i++)
+		for (i = 0; i < NR_SYMBOLS; i++)
 			if (strcmp(token, symbols[i].name) == 0)
 			{
 				sym = symbols[i].sym;
@@ -400,15 +382,15 @@ void get_token(void)
 			}
 }
 
-// Identifiers
+/* Identifiers */
 
 typedef struct
 {
-	char type;   // 'F': Function, 'C': constant, 'G': global variable, 'L': local variable
-	char name[MAX_VARIABLE_LENGTH+1];
-	int pos;     // position for local variable
-	int size;    // size for variable
-	long long value;   // value for constant, nr for static
+	char type;   /* 'F': Function, 'C': constant, 'G': global variable, 'L': local variable */
+	char *name;  /* malloc'd: M2-Planet cannot take the address of a char[] struct member */
+	int pos;     /* position for local variable */
+	int size;    /* size for variable */
+	long long value;   /* value for constant, nr for static */
 } ident_t;
 
 ident_t idents[MAX_NR_VARIABLES];
@@ -417,7 +399,7 @@ int pos = 0;
 
 typedef struct
 {
-	char name[MAX_VARIABLE_LENGTH+1];
+	char *name;  /* malloc'd: M2-Planet cannot take the address of a char[] struct member */
 	int size;
 	/* data */
 } static_t;
@@ -425,18 +407,18 @@ typedef struct
 static_t statics[MAX_NR_STATICS];
 int nr_statics;
 
-// String constants
+/* String constants */
 
-typedef struct string_s *string_p;
 struct string_s
 {
 	char *value;
 	int length;
-	string_p next;
+	struct string_s *next;
 };
-string_p strings = 0;
+typedef struct string_s *string_p;
+struct string_s *strings;
 
-void save_print_string(FILE *fout, const char *s)
+void save_print_string(FILE *fout, char *s)
 {
 	for (; *s != '\0'; s++)
 		if (*s == '\n')
@@ -451,44 +433,106 @@ void save_print_string(FILE *fout, const char *s)
 			fprintf(fout, "%c", *s);
 }
 
-int nr_for_string(const char *s, int length)
+int nr_for_string(char *s, int length)
 {
-	//printf("# nr_for_string %s\n", s);
-	int nr = 0;
-	string_p *ref_string = &strings;
-	for (; (*ref_string) != 0; ref_string = &(*ref_string)->next, nr++)
-		if ((*ref_string)->length == length && memcmp((*ref_string)->value, s, length) == 0)
+	int nr;
+	string_p cur;
+	string_p prev;
+	string_p newstr;
+	nr = 0;
+	cur = strings;
+	prev = 0;
+	while (cur != 0)
+	{
+		if (cur->length == length && memcmp(cur->value, s, length) == 0)
 			return nr;
-	(*ref_string) = (string_p)malloc(sizeof(struct string_s));
-	(*ref_string)->value = (char*)malloc(length + 1);
-	memcpy((*ref_string)->value, s, length + 1);
-	(*ref_string)->length = length;
-	(*ref_string)->next = 0;
+		prev = cur;
+		cur = cur->next;
+		nr++;
+	}
+	newstr = (string_p)malloc(sizeof(struct string_s));
+	newstr->value = (char*)malloc(length + 1);
+	memcpy(newstr->value, s, length + 1);
+	newstr->length = length;
+	newstr->next = 0;
+	if (prev == 0)
+		strings = newstr;
+	else
+		prev->next = newstr;
 	return nr;
 }
 
 int nesting_depth = 0;
 int nesting_nr_vars[MAX_NESTING];
 int nesting_pos[MAX_NESTING];
-char nesting_type[MAX_NESTING];
+/* int (not char): M2-Planet leaves garbage high bits when reading a char-array
+   element via a variable index, so char-array comparisons are unreliable. */
+int nesting_type[MAX_NESTING];
 int nesting_id[MAX_NESTING];
 
 
-void add_function(const char *name)
+void add_function(char *name)
 {
 	idents[nr_idents].type = 'F';
+	idents[nr_idents].name = malloc(MAX_VARIABLE_LENGTH+1);
 	strcpy(idents[nr_idents].name, name);
-	nr_idents++;
-} 
+	nr_idents = nr_idents + 1;
+}
 
 int main(int argc, char *argv[])
 {
+	int i;
+	int j;
+	int nr;
+	int id;
+	int c;
+	int size;
+	int bi;
+	int ai;
+	int fi;
+	int nr2;
+	char type;
+	char ch;
+	bool found;
+	bool safe_string;
+	struct string_s *string;
+	FILE *fintro;
+	char function_name[MAX_VARIABLE_LENGTH+1];
+
+	symbols[0].name = "=:";  symbols[0].sym = 'a';
+	symbols[1].name = "?1";  symbols[1].sym = 'b';
+	symbols[2].name = "?2";  symbols[2].sym = 'c';
+	symbols[3].name = "?4";  symbols[3].sym = 'd';
+	symbols[4].name = "=1";  symbols[4].sym = 'e';
+	symbols[5].name = "=2";  symbols[5].sym = 'f';
+	symbols[6].name = "=4";  symbols[6].sym = 'g';
+	symbols[7].name = "()";  symbols[7].sym = 'h';
+	symbols[8].name = "/s";  symbols[8].sym = 'i';
+	symbols[9].name = "%s";  symbols[9].sym = 'j';
+	symbols[10].name = "=="; symbols[10].sym = 'k';
+	symbols[11].name = "!="; symbols[11].sym = 'l';
+	symbols[12].name = "<="; symbols[12].sym = 'm';
+	symbols[13].name = ">="; symbols[13].sym = 'n';
+	symbols[14].name = "<s"; symbols[14].sym = 'o';
+	symbols[15].name = "<=s"; symbols[15].sym = 'p';
+	symbols[16].name = ">s"; symbols[16].sym = 'q';
+	symbols[17].name = ">=s"; symbols[17].sym = 'r';
+	symbols[18].name = "<<"; symbols[18].sym = 's';
+	symbols[19].name = ">>"; symbols[19].sym = 't';
+	symbols[20].name = "&&"; symbols[20].sym = 'u';
+	symbols[21].name = "||"; symbols[21].sym = 'v';
+	symbols[22].name = "->"; symbols[22].sym = 'w';
+	symbols[23].name = "><"; symbols[23].sym = 'x';
+	symbols[24].name = "-p"; symbols[24].sym = 'y';
+
 	ferr = stderr;
 	fout = stdout;
 	fin = stdin;
-	FILE *fintro = NULL;
-	
-	for (int i = 1; i < argc; i++)
+	fintro = NULL;
+	nr = 0;
+	id = 0;
+
+	for (i = 1; i < argc; i++)
 		if (i + 1 < argc && strcmp(argv[i], "-o") == 0)
 		{
 			fout = fopen(argv[++i], "w");
@@ -516,53 +560,51 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 		}
-	
 
-	// Add predefined system functions
+
+	/* Add predefined system functions */
 	add_function("sys_syscall");
 	add_function("sys_malloc");
 
-	// Copy contents of intro file
+	/* Copy contents of intro file */
 	if (fintro != 0)
 	{
-		for (;;)
+		while (1)
 		{
-			cur_char = fgetc(fintro);
-			if (feof(fintro))
+			c = fgetc(fintro);
+			if (c == EOF)
 				break;
+			cur_char = c;
 			fputc(cur_char, fout);
 		}
 		fclose(fintro);
 	}
-	
-	int id;
-
-	char function_name[MAX_VARIABLE_LENGTH+1];
 
 	read_char();
-	
+
 	get_token();
 	while (TRUE)
 	{
 		if (sym == '\0')
 			break;
-		
+
 		if (sym == 'F')
 		{
-			// Function definition
+			/* Function definition */
 			get_token();
 			if (sym != 'A')
 			{
 				fprintf(ferr, "ERROR %d.%d: Expecting name after 'void' for function\n", cur_line, cur_column);
 				return 1;
 			}
-			// Save the function name
+			/* Save the function name */
 			strcpy(function_name, token);
-			// Add it, if is has not been found
+			/* Add it, if is has not been found */
 			{
-				bool found = FALSE;
-				for (int i = 0; i < nr_idents; i++)
-					if (strcmp(token, idents[i].name) == 0)
+				fi = 0;
+				found = FALSE;
+				for (fi = 0; fi < nr_idents; fi++)
+					if (strcmp(token, idents[fi].name) == 0)
 					{
 						found = TRUE;
 						break;
@@ -580,7 +622,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym == ';')
 			{
-				// Forward definition
+				/* Forward definition */
 			}
 			else
 			{
@@ -590,19 +632,19 @@ int main(int argc, char *argv[])
 					fprintf(ferr, "ERROR %d.%d: Expect ; or { after function name\n", cur_line, cur_column);
 					return 1;
 				}
-				//printf("start function %s\n", function_name);
-				// Copy return address to first location in variable stack
+				/*printf("start function %s\n", function_name);*/
+				/* Copy return address to first location in variable stack */
 				fprintf(fout, "\n:f_%s\n\tpop_rax\n\tmov_[rbp],rax\n\tpop_rax\n", function_name);
 				nesting_type[nesting_depth] = ' ';
 				nesting_nr_vars[nesting_depth] = nr_idents;
 				nesting_pos[nesting_depth] = pos;
-				nesting_depth++;
+				nesting_depth = nesting_depth + 1;
 				id = 1;
 			}
 		}
 		else if (sym == 'C')
 		{
-			// Constant definition
+			/* Constant definition */
 			get_token();
 			if (sym != 'A')
 			{
@@ -615,6 +657,7 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 			idents[nr_idents].type = 'C';
+			idents[nr_idents].name = malloc(MAX_VARIABLE_LENGTH+1);
 			strcpy(idents[nr_idents].name, token);
 			get_token();
 			if (sym != '0')
@@ -623,14 +666,19 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 			idents[nr_idents].value = int_value;
-			nr_idents++;
+			nr_idents = nr_idents + 1;
 		}
 		else if (sym == 'V' || sym == 'S')
 		{
-			char type = sym == 'S' ? 'S' : nesting_depth == 0 ? 'G' : 'L'; 
-			// Variable definition
+			if (sym == 'S')
+				type = 'S';
+			else if (nesting_depth == 0)
+				type = 'G';
+			else
+				type = 'L';
+			/* Variable definition */
 			get_token();
-			int size = 1;
+			size = 1;
 			if (sym == '0')
 			{
 				size = int_value;
@@ -652,25 +700,27 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 			idents[nr_idents].type = type;
+			idents[nr_idents].name = malloc(MAX_VARIABLE_LENGTH+1);
 			strcpy(idents[nr_idents].name, token);
 			idents[nr_idents].size = size;
 			if (type == 'S')
 			{
+				statics[nr_statics].name = malloc(MAX_VARIABLE_LENGTH+1);
 				strcpy(statics[nr_statics].name, token);
 				statics[nr_statics].size = size;
 				idents[nr_idents].value = nr_statics;
-				nr_statics++;
+				nr_statics = nr_statics + 1;
 			}
 			else if (nesting_depth > 0)
 			{
 				idents[nr_idents].pos = pos;
 				pos += size;
 			}
-			nr_idents++;
+			nr_idents = nr_idents + 1;
 		}
 		else if (sym == 'L' || sym == 'W')
 		{
-			char type = sym;
+			type = sym;
 			get_token();
 			if (sym != '{')
 			{
@@ -688,23 +738,28 @@ int main(int argc, char *argv[])
 			nesting_id[nesting_depth] = id++;
 			nesting_nr_vars[nesting_depth] = nr_idents;
 			nesting_pos[nesting_depth] = pos;
-			nesting_depth++;
+			nesting_depth = nesting_depth + 1;
 		}
 		else if (sym == 'B' || sym == 'D')
 		{
-			int i = nesting_depth - 1;
-			for (; i >= 0; i--)
-				if (nesting_type[i] == 'L' || (sym == 'B' && nesting_type[i] == 'W'))
+			bi = nesting_depth - 1;
+			for (; bi >= 0; bi--)
+				if (nesting_type[bi] == 'L' || (sym == 'B' && nesting_type[bi] == 'W'))
 					break;
-			if (i < 0)
+			if (bi < 0)
 			{
 				fprintf(ferr, "ERROR %d.%d: 'break' outside 'loop'\n", cur_line, cur_column);
 				return 1;
 			}
 			if (sym == 'B')
-				fprintf(fout, "\tjmp %%_%s_%s_end%d\n", function_name, nesting_type[i] == 'L' ? "loop" : "switch", nesting_id[i]);
+			{
+				if (nesting_type[bi] == 'L')
+					fprintf(fout, "\tjmp %%_%s_loop_end%d\n", function_name, nesting_id[bi]);
+				else
+					fprintf(fout, "\tjmp %%_%s_switch_end%d\n", function_name, nesting_id[bi]);
+			}
 			else
-				fprintf(fout, "\tjmp %%_%s_loop%d\n", function_name, nesting_id[i]);
+				fprintf(fout, "\tjmp %%_%s_loop%d\n", function_name, nesting_id[bi]);
 		}
 		else if (sym == 'I')
 		{
@@ -724,7 +779,7 @@ int main(int argc, char *argv[])
 			nesting_id[nesting_depth] = id++;
 			nesting_nr_vars[nesting_depth] = nr_idents;
 			nesting_pos[nesting_depth] = pos;
-			nesting_depth++;
+			nesting_depth = nesting_depth + 1;
 		}
 		else if (sym == 'E')
 		{
@@ -736,7 +791,7 @@ int main(int argc, char *argv[])
 			nesting_type[nesting_depth] = ' ';
 			nesting_nr_vars[nesting_depth] = nr_idents;
 			nesting_pos[nesting_depth] = pos;
-			nesting_depth++;
+			nesting_depth = nesting_depth + 1;
 		}
 		else if (sym == '}')
 		{
@@ -745,7 +800,7 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d.%d: To many }\n", cur_line, cur_column);
 				return 1;
 			}
-			nesting_depth--;
+			nesting_depth = nesting_depth - 1;
 			nr_idents = nesting_nr_vars[nesting_depth];
 			pos = nesting_pos[nesting_depth];
 			if (nesting_type[nesting_depth] == 'L')
@@ -773,13 +828,13 @@ int main(int argc, char *argv[])
 					nesting_type[nesting_depth] = 'E';
 					nesting_nr_vars[nesting_depth] = nr_idents;
 					nesting_pos[nesting_depth] = pos;
-					nesting_depth++;
+					nesting_depth = nesting_depth + 1;
 				}
 				else
 				{
 					fprintf(fout, ":_%s_else%d # no else\n", function_name, nesting_id[nesting_depth]);
-					continue; // to skip the call to get_token at the end of the while loop
-				}				
+					continue; /* to skip the call to get_token at the end of the while loop */
+				}
 			}
 			else if (nesting_type[nesting_depth] == 'E')
 				fprintf(fout, ":_%s_else_end%d\n", function_name, nesting_id[nesting_depth]);
@@ -812,28 +867,22 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == 'A')
 		{
-			int i = nr_idents - 1;
-			for (; i >= 0; i--)
-				if (strcmp(token, idents[i].name) == 0)
+			ai = nr_idents - 1;
+			for (; ai >= 0; ai--)
+				if (strcmp(token, idents[ai].name) == 0)
 					break;
-			if (i >= 0)
+			if (ai >= 0)
 			{
-				//fprintf(fout, "# Ident %s type %c", token, idents[i].type);
-				//if (idents[i].type == 'L')
-				//	fprintf(fout, "\tpos %d", idents[i].pos);
-				//else if (idents[i].type == 'C')
-				//	fprintf(fout, "\tvalue %d", idents[i].value);
-				//fprintf(fout, "\n");
-				if (idents[i].type == 'G')
+				if (idents[ai].type == 'G')
 					fprintf(fout, "\tpush_rax              # %s (global)\n\tmov_rax, &g_%s\n", token, token);
-				else if (idents[i].type == 'F')
+				else if (idents[ai].type == 'F')
 					fprintf(fout, "\tpush_rax              # %s (function)\n\tmov_rax, &f_%s\n", token, token);
-				else if (idents[i].type == 'C')
-					fprintf(fout, "\tpush_rax              # %llu (const %s)\n\tmov_rax, %%%llu\n", idents[i].value, token, idents[i].value);
-				else if (idents[i].type == 'L')
-					fprintf(fout, "\tpush_rax              # %s (local)\n\tlea_rax,[rbp+DWORD] %%%d\n", token, 8 * idents[i].pos);
-				else if (idents[i].type == 'S')
-					fprintf(fout, "\tpush_rax              # %s (static)\n\tmov_rax, &static_%lld_%s\n", token, idents[i].value, token);
+				else if (idents[ai].type == 'C')
+					fprintf(fout, "\tpush_rax              # %u (const %s)\n\tmov_rax, %%%u\n", idents[ai].value, token, idents[ai].value);
+				else if (idents[ai].type == 'L')
+					fprintf(fout, "\tpush_rax              # %s (local)\n\tlea_rax,[rbp+DWORD] %%%d\n", token, 8 * idents[ai].pos);
+				else if (idents[ai].type == 'S')
+					fprintf(fout, "\tpush_rax              # %s (static)\n\tmov_rax, &static_%d_%s\n", token, idents[ai].value, token);
 			}
 			else
 			{
@@ -843,14 +892,14 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '0')
 		{
-			fprintf(fout, "\tpush_rax              # %llu\n\tmov_rax, %%%llu\n", int_value, int_value);
+			fprintf(fout, "\tpush_rax              # %u\n\tmov_rax, %%%u\n", int_value, int_value);
 		}
 		else if (sym == '"')
 		{
-			int nr = nr_for_string(token, token_len);
+			nr2 = nr_for_string(token, token_len);
 			fprintf(fout, "\tpush_rax              # '");
 			save_print_string(fout, token);
-			fprintf(fout, "'\n\tmov_rax, &string_%d\n", nr);
+			fprintf(fout, "'\n\tmov_rax, &string_%d\n", nr2);
 		}
 		else if (sym == '\'')
 		{
@@ -967,8 +1016,6 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_CALL)
 		{
-			//int nr = pos - nesting_nr_vars[0] + 1;
-			//printf(" call at %d offset %d\n", pos, nr);
 			fprintf(fout, "\tadd_rbp, %%%d         # ()\n\tcall_rax\n\tsub_rbp, %%%d\n", 8 * pos, 8 * pos);
 		}
 		else if (sym == SYM_DIV_SIGNED)
@@ -1037,7 +1084,7 @@ int main(int argc, char *argv[])
 			nesting_id[nesting_depth] = id++;
 			nesting_nr_vars[nesting_depth] = nr_idents;
 			nesting_pos[nesting_depth] = pos;
-			nesting_depth++;
+			nesting_depth = nesting_depth + 1;
 		}
 		else if (sym == SYM_LOG_OR)
 		{
@@ -1057,7 +1104,7 @@ int main(int argc, char *argv[])
 			nesting_id[nesting_depth] = id++;
 			nesting_nr_vars[nesting_depth] = nr_idents;
 			nesting_pos[nesting_depth] = pos;
-			nesting_depth++;
+			nesting_depth = nesting_depth + 1;
 		}
 		else if (sym == SYM_ARROW)
 		{
@@ -1067,13 +1114,13 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d.%d: Expecting const ident after '->'. Found %s\n", cur_line, cur_column, token);
 				return 1;
 			}
-			int i = nr_idents - 1;
-			for (; i >= 0; i--)
-				if (strcmp(token, idents[i].name) == 0)
+			ai = nr_idents - 1;
+			for (; ai >= 0; ai--)
+				if (strcmp(token, idents[ai].name) == 0)
 					break;
-			if (i >= 0 && idents[i].type == 'C')
+			if (ai >= 0 && idents[ai].type == 'C')
 			{
-				fprintf(fout, "\tmov_rax,[rax]         # ->\n\tadd_rax, %%%lld\n", idents[i].value);
+				fprintf(fout, "\tmov_rax,[rax]         # ->\n\tadd_rax, %%%d\n", idents[ai].value);
 			}
 			else
 			{
@@ -1090,20 +1137,19 @@ int main(int argc, char *argv[])
 			fprintf(ferr, "ERROR %d.%d: token |%s| not supported\n", cur_line, cur_column, token);
 			error = 1;
 		}
-		
+
 		get_token();
 	}
-	
+
 	fprintf(fout, "\n:ELF_data\n\n");
 	fprintf(fout, ":SYS_MALLOC NULL\n");
-	int nr = 0;
-	for (string_p string = strings; string != 0; string = string->next, nr++)
+	for (string = strings; string != 0; string = string->next)
 	{
+		safe_string = TRUE;
 		fprintf(fout, ":string_%d  ", nr);
-		bool safe_string = TRUE;
-		for (int i = 0; i < string->length; i++)
+		for (i = 0; i < string->length; i++)
 		{
-			char ch = string->value[i];
+			ch = string->value[i];
 			if (ch == '"' || ch < ' ')
 			{
 				safe_string = FALSE;
@@ -1114,25 +1160,38 @@ int main(int argc, char *argv[])
 			fprintf(fout, "\"%s\"", string->value);
 		else
 		{
-			for (int i = 0; i < string->length; i++)
-				fprintf(fout, "!%u%s", string->value[i], i % 20 == 16 ? "\n  " : " ");
+			for (i = 0; i < string->length; i++)
+			{
+				fprintf(fout, "!%u", string->value[i]);
+				if (i % 20 == 16)
+					fprintf(fout, "\n  ");
+				else
+					fprintf(fout, " ");
+			}
 			fprintf(fout, "!0");
 		}
 		fprintf(fout, "\n");
+		nr++;
 	}
-	for (int i = 0; i < nr_idents; i++)
+	for (i = 0; i < nr_idents; i++)
 		if (idents[i].type == 'G')
 		{
 			fprintf(fout, ":g_%s", idents[i].name);
-			for (int j = 0; j < idents[i].size; j++)
-				fprintf(fout, "%sNULL", j % 8 == 0 ? "\n\t" : " ");
+			for (j = 0; j < idents[i].size; j++)
+				if (j % 8 == 0)
+					fprintf(fout, "\n\tNULL");
+				else
+					fprintf(fout, " NULL");
 			fprintf(fout, "\n");
 		}
-	for (int i = 0; i < nr_statics; i++)
+	for (i = 0; i < nr_statics; i++)
 	{
 		fprintf(fout, ":static_%d_%s", i, statics[i].name);
-		for (int j = 0; j < statics[i].size; j++)
-			fprintf(fout, "%sNULL", j % 8 == 0 ? "\n\t" : " ");
+		for (j = 0; j < statics[i].size; j++)
+			if (j % 8 == 0)
+					fprintf(fout, "\n\tNULL");
+				else
+					fprintf(fout, " NULL");
 		fprintf(fout, "\n");
 	}
 	fprintf(fout, "\n:ELF_end\n");
