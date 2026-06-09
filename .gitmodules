@@ -1,3 +1,6 @@
 [submodule "M2libc"]
 	path = M2libc
 	url = https://github.com/oriansj/M2libc.git
+[submodule "stage0-posix"]
+	path = stage0-posix
+	url = https://github.com/oriansj/stage0-posix

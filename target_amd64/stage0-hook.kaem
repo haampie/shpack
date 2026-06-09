@@ -1,0 +1,43 @@
+#!/kaem
+# Executed by stage0-posix's kaem.run after it finishes (via exec ./after.kaem).
+# At this point AMD64/bin/ holds all mescc-tools and mescc-tools-extra binaries.
+# We install them into /usr/bin, then build our unique tcc_cc+stack_c layer from
+# the committed seeds and continue the bootstrap.
+
+mkdir -p usr/bin
+mkdir -p tmp
+
+# Populate /usr/bin from stage0-posix tools
+./AMD64/bin/cp ./AMD64/bin/blood-elf     ./usr/bin/blood-elf
+./AMD64/bin/cp ./AMD64/bin/M1            ./usr/bin/M1
+./AMD64/bin/cp ./AMD64/bin/hex2          ./usr/bin/hex2
+./AMD64/bin/cp ./AMD64/bin/kaem          ./usr/bin/kaem
+./AMD64/bin/cp ./AMD64/bin/catm          ./usr/bin/catm
+./AMD64/bin/cp ./AMD64/bin/match         ./usr/bin/match
+./AMD64/bin/cp ./AMD64/bin/mkdir         ./usr/bin/mkdir
+./AMD64/bin/cp ./AMD64/bin/cp            ./usr/bin/cp
+./AMD64/bin/cp ./AMD64/bin/chmod         ./usr/bin/chmod
+./AMD64/bin/cp ./AMD64/bin/rm            ./usr/bin/rm
+./AMD64/bin/cp ./AMD64/bin/sha256sum     ./usr/bin/sha256sum
+./AMD64/bin/cp ./AMD64/bin/ungz          ./usr/bin/ungz
+./AMD64/bin/cp ./AMD64/bin/unbz2         ./usr/bin/unbz2
+./AMD64/bin/cp ./AMD64/bin/unxz          ./usr/bin/unxz
+./AMD64/bin/cp ./AMD64/bin/untar         ./usr/bin/untar
+./AMD64/bin/cp ./AMD64/bin/M2-Mesoplanet ./usr/bin/M2-Mesoplanet
+
+# Build stack_c from the committed M1 seed using mescc-tools pipeline
+./AMD64/bin/blood-elf --64 --little-endian -f ./amd64/stack_c.M1 -o ./tmp/stack_c-footer.M1
+./AMD64/bin/M1 --architecture amd64 --little-endian -f ./amd64/stack_c.M1 -f ./tmp/stack_c-footer.M1 -o ./tmp/stack_c.hex2
+./AMD64/bin/hex2 --architecture amd64 --little-endian --base-address 0x00600000 -f ./M2libc/amd64/ELF-amd64-debug.hex2 -f ./tmp/stack_c.hex2 -o ./usr/bin/stack_c
+
+# Build tcc_cc from the committed sl64 seed
+./usr/bin/stack_c -i ./amd64/stack_c_intro.M1 ./src/tcc_cc.amd64.sl64 -o ./tmp/tcc_cc.M1
+./AMD64/bin/blood-elf --64 --little-endian -f ./tmp/tcc_cc.M1 -o ./tmp/tcc_cc-footer.M1
+./AMD64/bin/M1 --architecture amd64 --little-endian -f ./tmp/tcc_cc.M1 -f ./tmp/tcc_cc-footer.M1 -o ./tmp/tcc_cc.hex2
+./AMD64/bin/hex2 --architecture amd64 --little-endian --base-address 0x00600000 -f ./M2libc/amd64/ELF-amd64-debug.hex2 -f ./tmp/tcc_cc.hex2 -o ./usr/bin/tcc_cc
+
+# Verify self-hosting: tcc_cc reproduces itself and stack_c
+./usr/bin/kaem --file ./amd64/check-tools.kaem
+
+# Run steps: configurator, script-generator, tcc-0.9.26, musl, ...
+./usr/bin/kaem --verbose --strict --file ./amd64/after.kaem
