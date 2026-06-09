@@ -157,9 +157,9 @@ ${BINDIR}/tcc_cc \
     -D ONE_SOURCE=1 \
     /src/stdlib.c tcc.c
 ${BINDIR}/stack_c -i /${ARCH}/stack_c_intro.M1 ${TMPDIR}/tcc.sl -o ${TMPDIR}/tcc_s.M1
-${BINDIR}/blood-elf -a ${ARCH} --file ${TMPDIR}/tcc_s.M1 --little-endian --output ${TMPDIR}/tcc_s.blood_elf
-${BINDIR}/M1 ${TMPDIR}/tcc_s.M1 -o ${TMPDIR}/tcc_s.macro
-${BINDIR}/hex2 -o /usr/bin/tcc_s /${ARCH}/ELF-${ARCH}-debug.hex2 ${TMPDIR}/tcc_s.macro ${TMPDIR}/tcc_s.blood_elf
+${BINDIR}/blood-elf --64 --little-endian -f ${TMPDIR}/tcc_s.M1 -o ${TMPDIR}/tcc_s.blood_elf
+${BINDIR}/M1 --architecture ${ARCH} --little-endian -f ${TMPDIR}/tcc_s.M1 -f ${TMPDIR}/tcc_s.blood_elf -o ${TMPDIR}/tcc_s.macro
+${BINDIR}/hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f /M2libc/${ARCH}/ELF-${ARCH}-debug.hex2 -f ${TMPDIR}/tcc_s.macro -o /usr/bin/tcc_s
 
 # test tcc_s
 tcc_s -version
@@ -186,7 +186,7 @@ mkdir -p ${LIBDIR}/tcc
 CC=tcc_s
 O=${TMPDIR}/musl-obj
 cd ${M}
-kaem --file ${MSRC}/${SUBSET_KAEM}
+kaem --verbose --file ${MSRC}/${SUBSET_KAEM}
 # Startfiles + libtcc1.a, arch-specific. crt1.o links the real _start (musl
 # crt_arch.h) -> _start_c -> __libc_start_main. libtcc1 supplies 'alloca' (tcc
 # lowers __builtin_alloca to a call to it; musl, unlike mes, has no such symbol).
@@ -264,7 +264,7 @@ mkdir -p ${TMPDIR}/musl-obj-boot0
 CC=tcc-boot0
 O=${TMPDIR}/musl-obj-boot0
 cd ${M}
-kaem --file ${MSRC}/${SUBSET_KAEM}
+kaem --verbose --file ${MSRC}/${SUBSET_KAEM}
 cd ../${TCC_PKG}
 
 # boot1

@@ -1,11 +1,12 @@
 #!/kaem
 # Executed by stage0-posix's kaem.run after it finishes (via exec ./after.kaem).
 # At this point AMD64/bin/ holds all mescc-tools and mescc-tools-extra binaries.
-# We install them into /usr/bin, then build our unique tcc_cc+stack_c layer from
-# the committed seeds and continue the bootstrap.
+# We install them into /usr/bin, then build our unique tcc_cc+stack_c layer
+# (stack_c via M2-Planet from C source, tcc_cc from the committed sl64 seed)
+# and continue the bootstrap.
 
-mkdir -p usr/bin
-mkdir -p tmp
+./AMD64/bin/mkdir -p usr/bin
+./AMD64/bin/mkdir -p tmp
 
 # Populate /usr/bin from stage0-posix tools
 ./AMD64/bin/cp ./AMD64/bin/blood-elf     ./usr/bin/blood-elf
@@ -25,9 +26,14 @@ mkdir -p tmp
 ./AMD64/bin/cp ./AMD64/bin/untar         ./usr/bin/untar
 ./AMD64/bin/cp ./AMD64/bin/M2-Mesoplanet ./usr/bin/M2-Mesoplanet
 
-# Build stack_c from the committed M1 seed using mescc-tools pipeline
-./AMD64/bin/blood-elf --64 --little-endian -f ./amd64/stack_c.M1 -o ./tmp/stack_c-footer.M1
-./AMD64/bin/M1 --architecture amd64 --little-endian -f ./amd64/stack_c.M1 -f ./tmp/stack_c-footer.M1 -o ./tmp/stack_c.hex2
+# mescc-tools cp uses fopen(dest,"w") and does not preserve the execute bit,
+# so the copies land at 0600. Make them executable.
+./AMD64/bin/chmod 755 ./usr/bin/blood-elf ./usr/bin/M1 ./usr/bin/hex2 ./usr/bin/kaem ./usr/bin/catm ./usr/bin/match ./usr/bin/mkdir ./usr/bin/cp ./usr/bin/chmod ./usr/bin/rm ./usr/bin/sha256sum ./usr/bin/ungz ./usr/bin/unbz2 ./usr/bin/unxz ./usr/bin/untar ./usr/bin/M2-Mesoplanet
+
+# Compile stack_c from C source with M2-Planet (no committed .M1 seed)
+./AMD64/bin/M2-Planet --architecture amd64 -f ./M2libc/sys/types.h -f ./M2libc/stddef.h -f ./M2libc/amd64/linux/fcntl.c -f ./M2libc/fcntl.c -f ./M2libc/amd64/linux/unistd.c -f ./M2libc/amd64/linux/sys/stat.c -f ./M2libc/ctype.c -f ./M2libc/stdlib.c -f ./M2libc/stdarg.h -f ./M2libc/stdio.h -f ./M2libc/stdio.c -f ./M2libc/string.c -f ./M2libc/bootstrappable.c -f ./src/stack_c_amd64.c --debug -o ./tmp/stack_c.M1
+./AMD64/bin/blood-elf --64 --little-endian -f ./tmp/stack_c.M1 -o ./tmp/stack_c-footer.M1
+./AMD64/bin/M1 --architecture amd64 --little-endian -f ./M2libc/amd64/amd64_defs.M1 -f ./M2libc/amd64/libc-full.M1 -f ./tmp/stack_c.M1 -f ./tmp/stack_c-footer.M1 -o ./tmp/stack_c.hex2
 ./AMD64/bin/hex2 --architecture amd64 --little-endian --base-address 0x00600000 -f ./M2libc/amd64/ELF-amd64-debug.hex2 -f ./tmp/stack_c.hex2 -o ./usr/bin/stack_c
 
 # Build tcc_cc from the committed sl64 seed
@@ -37,7 +43,7 @@ mkdir -p tmp
 ./AMD64/bin/hex2 --architecture amd64 --little-endian --base-address 0x00600000 -f ./M2libc/amd64/ELF-amd64-debug.hex2 -f ./tmp/tcc_cc.hex2 -o ./usr/bin/tcc_cc
 
 # Verify self-hosting: tcc_cc reproduces itself and stack_c
-./usr/bin/kaem --file ./amd64/check-tools.kaem
+./usr/bin/kaem --verbose --file ./amd64/check-tools.kaem
 
 # Run steps: configurator, script-generator, tcc-0.9.26, musl, ...
 ./usr/bin/kaem --verbose --strict --file ./amd64/after.kaem

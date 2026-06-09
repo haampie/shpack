@@ -188,6 +188,11 @@ def emit_build_libc(path, srcs, header, arch_dir):
             o = objname(s)
             f.write("${CC} -c %s %s %s -o ${O}/%s\n" % (inc, CFLAGS, s, o))
             objs.append("${O}/" + o)
+        # Single `ar` call: tcc's built-in -ar (tcctools.c) recreates the archive
+        # from exactly the listed objects -- it does NOT append -- so the whole
+        # object list must be on one line. The full libc is ~1260 objects, which
+        # exceeds stock kaem's MAX_ARRAY (512); build.sh bumps that limit on the
+        # staged mescc-tools copy.
         f.write("${CC} -ar cr ${LIBDIR}/libc.a" + "".join(" " + o for o in objs) + "\n")
 
 

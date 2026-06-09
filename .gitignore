@@ -56,5 +56,4 @@
 # --- committed seeds (exceptions to the ignore rules above) ----------------
 !/src/tcc_cc.amd64.sl64
 !/src/tcc_cc.arm64.sl64
-!/src/stack_c_amd64.M1_amd64
 !/src/stack_c_arm64.M1_arm64

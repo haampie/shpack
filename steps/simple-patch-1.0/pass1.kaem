@@ -9,9 +9,9 @@ set -ex
 # Build & install
 tcc_cc -a ${ARCH} -o /tmp/simple-patch.sl /src/stdlib.c src/simple-patch.c
 stack_c -i /${ARCH}/stack_c_intro.M1 /tmp/simple-patch.sl -o /tmp/simple-patch.M1
-blood-elf -a ${ARCH} --file /tmp/simple-patch.M1 --little-endian --output /tmp/simple-patch.blood_elf
-M1 /tmp/simple-patch.M1 -o /tmp/simple-patch.macro
-hex2 -o ${BINDIR}/simple-patch /${ARCH}/ELF-${ARCH}-debug.hex2 /tmp/simple-patch.macro /tmp/simple-patch.blood_elf
+blood-elf --64 --little-endian -f /tmp/simple-patch.M1 -o /tmp/simple-patch.blood_elf
+M1 --architecture ${ARCH} --little-endian -f /tmp/simple-patch.M1 -f /tmp/simple-patch.blood_elf -o /tmp/simple-patch.macro
+hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f /M2libc/${ARCH}/ELF-${ARCH}-debug.hex2 -f /tmp/simple-patch.macro -o ${BINDIR}/simple-patch
 
 # Checksums
 if match x${UPDATE_CHECKSUMS} xTrue; then

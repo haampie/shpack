@@ -9,9 +9,9 @@ set -ex
 # Build & install
 tcc_cc -a ${ARCH} -o /tmp/checksum-transcriber.sl /src/stdlib.c src/checksum-transcriber.c
 stack_c -i /${ARCH}/stack_c_intro.M1 /tmp/checksum-transcriber.sl -o /tmp/checksum-transcriber.M1
-blood-elf -a ${ARCH} --file /tmp/checksum-transcriber.M1 --little-endian --output /tmp/checksum-transcriber.blood_elf
-M1 /tmp/checksum-transcriber.M1 -o /tmp/checksum-transcriber.macro
-hex2 -o ${BINDIR}/checksum-transcriber /${ARCH}/ELF-${ARCH}-debug.hex2 /tmp/checksum-transcriber.macro /tmp/checksum-transcriber.blood_elf
+blood-elf --64 --little-endian -f /tmp/checksum-transcriber.M1 -o /tmp/checksum-transcriber.blood_elf
+M1 --architecture ${ARCH} --little-endian -f /tmp/checksum-transcriber.M1 -f /tmp/checksum-transcriber.blood_elf -o /tmp/checksum-transcriber.macro
+hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f /M2libc/${ARCH}/ELF-${ARCH}-debug.hex2 -f /tmp/checksum-transcriber.macro -o ${BINDIR}/checksum-transcriber
 
 # Checksums
 if match x${UPDATE_CHECKSUMS} xTrue; then

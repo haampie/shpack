@@ -63,8 +63,20 @@ cp -rf stage0-posix/mescc-tools  rootfs/mescc-tools
 cp -rf stage0-posix/mescc-tools-extra rootfs/mescc-tools-extra
 cp -rf stage0-posix/M2-Mesoplanet rootfs/M2-Mesoplanet
 
+# Bump kaem's MAX_ARRAY (tokens per command) on the staged copy only, leaving the
+# stage0-posix submodule pristine. The musl full-libc `ar` line lists ~1260 object
+# files in one command (tcc's -ar recreates the archive each call, so it can't be
+# split), which overflows the stock limit of 512.
+sed -i 's/^#define MAX_ARRAY .*/#define MAX_ARRAY 4096/' rootfs/mescc-tools/Kaem/kaem.h
+
 # Checksum file that stage0-posix's kaem.run verifies after building tools
 cp -f stage0-posix/${M1ARCH}.answers rootfs/
+
+# We bump kaem's MAX_ARRAY above, which changes the kaem binary, so update its
+# expected hash in the staged answers file (amd64 only; the hash is build-specific).
+if [ "$ARCH" = amd64 ]; then
+    sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|dc1a41453eeca57018f7d582f28c45dc5bdc10efac6840566ff3393da57b48fb  AMD64/bin/kaem|' rootfs/${M1ARCH}.answers
+fi
 
 # stage0-posix entry point (kaem-optional-seed runs this)
 cp -f stage0-posix/kaem.${M1ARCH} rootfs/kaem.${ARCH}
@@ -79,14 +91,19 @@ cp -f -t rootfs/${ARCH} \
     target_${ARCH}/check-tools.kaem \
     target_${ARCH}/after.kaem
 
-# Committed seeds (our unique tcc_cc/stack_c layer)
-cp -f src/stack_c_${ARCH}.M1_${ARCH}  rootfs/${ARCH}/stack_c.M1
+# Committed seeds (our unique tcc_cc/stack_c layer).
+# amd64 compiles stack_c from C source via M2-Planet, so it needs no committed
+# stack_c.M1 seed; arm64 still bootstraps stack_c from its committed seed.
 cp -f src/stack_c_intro_${ARCH}.M1    rootfs/${ARCH}/stack_c_intro.M1
+if [ "$ARCH" = arm64 ]; then
+    cp -f src/stack_c_${ARCH}.M1_${ARCH}  rootfs/${ARCH}/stack_c.M1
+fi
 
 # ── Generic C sources ─────────────────────────────────────────────────────
 mkdir -p rootfs/src
 cp -f -t rootfs/src \
     src/stdlib.c \
+    src/bootstrappable.c \
     src/sys_syscall.h \
     src/tcc_cc.${ARCH}.sl64 \
     src/configurator.c \

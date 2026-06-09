@@ -68,7 +68,7 @@ mkdir -p ${TMPDIR}/musl-obj-full
 mkdir -p ${LIBDIR}
 CC=tcc
 O=${TMPDIR}/musl-obj-full
-kaem --file ${MSRC}/${ARCH}/build-libc-full.kaem
+kaem --verbose --file ${MSRC}/${ARCH}/build-libc-full.kaem
 
 # Real startfiles from musl's crt (replace the tcc step's stripped crt1 + empty
 # crti/crtn): crt1.c now calls the real __libc_start_main in libc.a, and the
