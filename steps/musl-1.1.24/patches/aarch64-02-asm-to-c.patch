@@ -889,7 +889,7 @@ index 0000000..6f959f8
 +   Raw instruction words: tcc has no AArch64 instruction assembler.
 +   Encodings verified with llvm-mc --triple=aarch64.
 +
-+   These are sigreturn trampolines — the kernel jumps here after a
++   These are sigreturn trampolines - the kernel jumps here after a
 +   signal handler returns; they invoke rt_sigreturn so the syscall
 +   never returns to userspace. */
 +

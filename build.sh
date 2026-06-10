@@ -22,7 +22,7 @@ set -ex
 
 ARCH="$1"
 # ARCH is the mescc-tools/M2libc/answers arch name AND the chroot ${ARCH} token
-# (amd64, aarch64) — kept identical so the step scripts' single ${ARCH} resolves
+# (amd64, aarch64) - kept identical so the step scripts' single ${ARCH} resolves
 # everywhere. Only the stage0-posix/bootstrap-seeds directory uses an uppercase
 # spelling, mapped separately via S0ARCH/SEEDARCH.
 case "$ARCH" in
@@ -43,7 +43,7 @@ esac
 # Delete existing rootfs
 rm -rf rootfs
 
-# ── Stage0-posix tree ─────────────────────────────────────────────────────
+# --- Stage0-posix tree ---------------------------------------------------
 # Copy the stage0-posix subtree into rootfs root, matching the layout that
 # stage0-posix's own kaem scripts expect (paths like ./AMD64/..., ./M2libc/...).
 
@@ -87,7 +87,7 @@ cp -f stage0-posix/kaem.${ARCH} rootfs/kaem.${ARCH}
 # Our hook: replaces stage0-posix's placeholder after.kaem
 cp -f target_${ARCH}/stage0-hook.kaem rootfs/after.kaem
 
-# ── MES-replacement arch directory ────────────────────────────────────────
+# --- MES-replacement arch directory --------------------------------------
 mkdir -p rootfs/${ARCH}
 
 cp -f -t rootfs/${ARCH} \
@@ -99,7 +99,7 @@ cp -f -t rootfs/${ARCH} \
 # committed stack_c.M1 seed; only the stack_c intro/prelude is staged.
 cp -f src/stack_c_intro_${ARCH}.M1    rootfs/${ARCH}/stack_c_intro.M1
 
-# ── Generic C sources ─────────────────────────────────────────────────────
+# --- Generic C sources ---------------------------------------------------
 mkdir -p rootfs/src
 cp -f -t rootfs/src \
     src/stdlib.c \
@@ -119,7 +119,7 @@ if [ "$ARCH" = aarch64 ]; then
         src/alloca-arm64.S
 fi
 
-# ── Script and step support ────────────────────────────────────────────────
+# --- Script and step support ---------------------------------------------
 cp -f target_${ARCH}/seed.kaem rootfs/
 cp -f target_${ARCH}/configurator.${ARCH}.checksums rootfs/
 cp -f target_${ARCH}/script-generator.${ARCH}.checksums rootfs/
@@ -134,6 +134,6 @@ cp -f target_${ARCH}/bootstrap.cfg rootfs/steps
 mkdir -p rootfs/external
 cp -r distfiles rootfs/external/
 
-# ── Execute in chroot ──────────────────────────────────────────────────────
+# --- Execute in chroot ---------------------------------------------------
 sudo chroot --userspec=$(id -u):$(id -g) rootfs \
     /bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed kaem.${ARCH}
