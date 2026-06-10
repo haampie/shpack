@@ -1,7 +1,7 @@
 From 230a7e7139e2ffbc5174ea7f9d00e6ae699a714e Mon Sep 17 00:00:00 2001
 From: b <b@b.b>
 Date: Wed, 3 Jun 2026 13:49:51 +0200
-Subject: [PATCH] tcc: arm64 -- treat 'll' long-double suffix like x86_64
+Subject: [PATCH] tcc: aarch64 -- treat 'll' long-double suffix like x86_64
 
 ---
  tccpp.c | 2 +-

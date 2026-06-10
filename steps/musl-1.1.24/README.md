@@ -1,17 +1,17 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-# musl 1.1.24 — mes-libc replacement + full libc (amd64 + arm64)
+# musl 1.1.24 — mes-libc replacement + full libc (amd64 + aarch64)
 
 This directory drives building **real musl 1.1.24** as the C library for the bootstrap,
 replacing GNU mes libc. It does so in two phases from the **pristine** upstream tarball
 (`distfiles/musl-1.1.24.tar.gz`) — the sources are never repackaged/vendored:
 
-Arch-specific build inputs live under per-arch subdirs `amd64/` and `arm64/` (the
+Arch-specific build inputs live under per-arch subdirs `amd64/` and `aarch64/` (the
 chroot-facing `${ARCH}` names); `pass1.kaem` reaches them via `${MSRC}/${ARCH}/…`.
 Arch-neutral inputs (`glue/`, `patches/`, `simple-patches/`, `regen.*`, `pass1.kaem`,
 `hello-float.c`, the combined `sysinclude.tar`) stay at the top level.
 
 The whole bootstrap (this step plus the tcc step) is driven from the repo root by
-`./build.sh <amd64|arm64>`.
+`./build.sh <amd64|aarch64>`.
 
 1. **Subset** (in the `tcc-0.9.26` step): a curated 121-file closure of the ~60-symbol
    libc surface `tcc.c` needs, plus four glue files, compiled by the float-blind seed
@@ -40,8 +40,8 @@ See `../../LOG-MUSL.md` for the full narrative.
 `0040`'s new file `src/stdarg/va_list.c` ships under `amd64/newsrc/` (copied into the tree,
 not patched in); its `arch/x86_64/bits/alltypes.h.in` hunk is moot in-chroot because we ship
 the pre-generated `amd64/generated/bits/alltypes.h` already in the `__musl_va_list_t` form.
-The aarch64 asm→C sources ship under `arm64/newsrc/` and are copied in by the generated
-`arm64/copy-newsrc.kaem`.
+The aarch64 asm→C sources ship under `aarch64/newsrc/` and are copied in by the generated
+`aarch64/copy-newsrc.kaem`.
 
 ## Host-generated, committed inputs (regenerate with `./regen.sh [ARCH]`)
 
@@ -49,7 +49,7 @@ The aarch64 asm→C sources ship under `arm64/newsrc/` and are copied in by the 
   musl's three generated headers for the arch (chroot has no sed/awk). `alltypes.h` carries
   the va_list patch.
 - `sysinclude.tar` — ONE combined, flat, merged **public** header set with per-arch
-  subtrees `amd64/` and `arm64/`, untarred into tcc's include dir (in-chroot `cp` has no
+  subtrees `amd64/` and `aarch64/`, untarred into tcc's include dir (in-chroot `cp` has no
   `-r`, so the `bits/` overlay is flattened once here). tcc's include path is
   `…/include/tcc/${ARCH}`. Headers only; the musl *sources* are pristine. The header set
   needs no cross-toolchain, so `regen.sh` rebuilds **both** subtrees in one pass — a single
@@ -58,7 +58,7 @@ The aarch64 asm→C sources ship under `arm64/newsrc/` and are copied in by the 
   lists (kaem has no loops). Subset = `<arch>/musl-subset.files` + glue; full = `make -n` of
   the patched tree with `src/complex` + `src/math/<musl-arch>` removed (so generic C math is
   selected).
-- `<arch>/apply-full.kaem`, `arm64/copy-newsrc.kaem` (above).
+- `<arch>/apply-full.kaem`, `aarch64/copy-newsrc.kaem` (above).
 
 `regen.sh` (host: sed/tar/make/python3; aarch64 source list also needs
 `aarch64-linux-gnu-gcc`) regenerates the passed arch's inputs from the pristine tarball and
@@ -80,7 +80,7 @@ rebuilt for both arches on every run.
 
 `-nostdinc -I obj/include -I arch/<musl-arch> -I arch/generic -I obj/src/internal
 -I src/include -I src/internal -I include -std=c99 -ffreestanding -D_XOPEN_SOURCE=700
--D SYSCALL_NO_TLS` (`<musl-arch>` = `x86_64` for amd64, `aarch64` for arm64)
+-D SYSCALL_NO_TLS` (`<musl-arch>` = `x86_64` for amd64, `aarch64` for aarch64)
 
 ## Licensing
 

@@ -1,0 +1,49 @@
+#!/kaem
+# Executed by stage0-posix's kaem.run after it finishes (via exec ./after.kaem).
+# At this point @S0ARCH@/bin/ holds all mescc-tools and mescc-tools-extra binaries.
+# We install them into /usr/bin, then build our unique tcc_cc+stack_c layer
+# (stack_c via M2-Planet from C source, tcc_cc from the committed sl64 seed)
+# and continue the bootstrap.
+
+./@S0ARCH@/bin/mkdir -p usr/bin
+./@S0ARCH@/bin/mkdir -p tmp
+
+# Populate /usr/bin from stage0-posix tools
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/blood-elf     ./usr/bin/blood-elf
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/M1            ./usr/bin/M1
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/hex2          ./usr/bin/hex2
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/kaem          ./usr/bin/kaem
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/catm          ./usr/bin/catm
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/match         ./usr/bin/match
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/mkdir         ./usr/bin/mkdir
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/cp            ./usr/bin/cp
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/chmod         ./usr/bin/chmod
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/rm            ./usr/bin/rm
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/sha256sum     ./usr/bin/sha256sum
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/ungz          ./usr/bin/ungz
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/unbz2         ./usr/bin/unbz2
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/unxz          ./usr/bin/unxz
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/untar         ./usr/bin/untar
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/M2-Mesoplanet ./usr/bin/M2-Mesoplanet
+
+# mescc-tools cp uses fopen(dest,"w") and does not preserve the execute bit,
+# so the copies land at 0600. Make them executable.
+./@S0ARCH@/bin/chmod 755 ./usr/bin/blood-elf ./usr/bin/M1 ./usr/bin/hex2 ./usr/bin/kaem ./usr/bin/catm ./usr/bin/match ./usr/bin/mkdir ./usr/bin/cp ./usr/bin/chmod ./usr/bin/rm ./usr/bin/sha256sum ./usr/bin/ungz ./usr/bin/unbz2 ./usr/bin/unxz ./usr/bin/untar ./usr/bin/M2-Mesoplanet
+
+# Compile stack_c from C source with M2-Planet (no committed .M1 seed)
+./@S0ARCH@/bin/M2-Planet --architecture @ARCH@ -f ./M2libc/sys/types.h -f ./M2libc/stddef.h -f ./M2libc/@ARCH@/linux/fcntl.c -f ./M2libc/fcntl.c -f ./M2libc/@ARCH@/linux/unistd.c -f ./M2libc/@ARCH@/linux/sys/stat.c -f ./M2libc/ctype.c -f ./M2libc/stdlib.c -f ./M2libc/stdarg.h -f ./M2libc/stdio.h -f ./M2libc/stdio.c -f ./M2libc/string.c -f ./M2libc/bootstrappable.c -f ./src/stack_c_@ARCH@.c --debug -o ./tmp/stack_c.M1
+./@S0ARCH@/bin/blood-elf --64 --little-endian -f ./tmp/stack_c.M1 -o ./tmp/stack_c-footer.M1
+./@S0ARCH@/bin/M1 --architecture @ARCH@ --little-endian -f ./M2libc/@ARCH@/@ARCH@_defs.M1 -f ./M2libc/@ARCH@/libc-full.M1 -f ./tmp/stack_c.M1 -f ./tmp/stack_c-footer.M1 -o ./tmp/stack_c.hex2
+./@S0ARCH@/bin/hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f ./M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f ./tmp/stack_c.hex2 -o ./usr/bin/stack_c
+
+# Build tcc_cc from the committed sl64 seed
+./usr/bin/stack_c -i ./@ARCH@/stack_c_intro.M1 ./src/tcc_cc.@ARCH@.sl64 -o ./tmp/tcc_cc.M1
+./@S0ARCH@/bin/blood-elf --64 --little-endian -f ./tmp/tcc_cc.M1 -o ./tmp/tcc_cc-footer.M1
+./@S0ARCH@/bin/M1 --architecture @ARCH@ --little-endian -f ./tmp/tcc_cc.M1 -f ./tmp/tcc_cc-footer.M1 -o ./tmp/tcc_cc.hex2
+./@S0ARCH@/bin/hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f ./M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f ./tmp/tcc_cc.hex2 -o ./usr/bin/tcc_cc
+
+# Verify self-hosting: tcc_cc reproduces itself and stack_c
+./usr/bin/kaem --verbose --file ./@ARCH@/check-tools.kaem
+
+# Run steps: configurator, script-generator, tcc-0.9.26, musl, ...
+./usr/bin/kaem --verbose --strict --file ./@ARCH@/after.kaem

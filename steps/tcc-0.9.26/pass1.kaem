@@ -113,27 +113,28 @@ SUBSET_KAEM=${ARCH}/build-libc-subset.kaem
 # aarch64 inline-asm: drop in the minimal data-directive assembler
 # and apply the source patches in-chroot.
 if match ${ARCH} aarch64; then
-    cp /src/arm64-asm.c arm64-asm.c
+    cp /src/aarch64-asm.c aarch64-asm.c
     simple-patch tcc.h \
-        ../../simple-patches/arm64-asm-defs.before ../../simple-patches/arm64-asm-defs.after
+        ../../simple-patches/aarch64-asm-defs.before ../../simple-patches/aarch64-asm-defs.after
     simple-patch libtcc.c \
-        ../../simple-patches/arm64-asm-include.before ../../simple-patches/arm64-asm-include.after
-    # aarch64 backend fixes that musl exercises but the bring-up build never did:
+        ../../simple-patches/aarch64-asm-include.before ../../simple-patches/aarch64-asm-include.after
+    # aarch64 backend fixes that musl exercises but the bring-up build never did
+    # (the patched file keeps tcc's upstream name arm64-gen.c):
     #  02 codegen  -- const-lval load/store (string/float literals) + ftof mask
     #  03 varargs  -- AAPCS64 va builtin loop + va_list param/array decay
     #  04 longdbl  -- treat the 'll' suffix as long double like x86_64
     simple-patch arm64-gen.c \
-        ../../simple-patches/tcc-arm64-02_arm64-gen.c_00.before ../../simple-patches/tcc-arm64-02_arm64-gen.c_00.after
+        ../../simple-patches/tcc-aarch64-02_arm64-gen.c_00.before ../../simple-patches/tcc-aarch64-02_arm64-gen.c_00.after
     simple-patch arm64-gen.c \
-        ../../simple-patches/tcc-arm64-02_arm64-gen.c_01.before ../../simple-patches/tcc-arm64-02_arm64-gen.c_01.after
+        ../../simple-patches/tcc-aarch64-02_arm64-gen.c_01.before ../../simple-patches/tcc-aarch64-02_arm64-gen.c_01.after
     simple-patch arm64-gen.c \
-        ../../simple-patches/tcc-arm64-02_arm64-gen.c_02.before ../../simple-patches/tcc-arm64-02_arm64-gen.c_02.after
+        ../../simple-patches/tcc-aarch64-02_arm64-gen.c_02.before ../../simple-patches/tcc-aarch64-02_arm64-gen.c_02.after
     simple-patch arm64-gen.c \
-        ../../simple-patches/tcc-arm64-03_arm64-gen.c_00.before ../../simple-patches/tcc-arm64-03_arm64-gen.c_00.after
+        ../../simple-patches/tcc-aarch64-03_arm64-gen.c_00.before ../../simple-patches/tcc-aarch64-03_arm64-gen.c_00.after
     simple-patch arm64-gen.c \
-        ../../simple-patches/tcc-arm64-03_arm64-gen.c_01.before ../../simple-patches/tcc-arm64-03_arm64-gen.c_01.after
+        ../../simple-patches/tcc-aarch64-03_arm64-gen.c_01.before ../../simple-patches/tcc-aarch64-03_arm64-gen.c_01.after
     simple-patch tccpp.c \
-        ../../simple-patches/tcc-arm64-04_tccpp.c_00.before ../../simple-patches/tcc-arm64-04_tccpp.c_00.after
+        ../../simple-patches/tcc-aarch64-04_tccpp.c_00.before ../../simple-patches/tcc-aarch64-04_tccpp.c_00.after
 fi
 
 
@@ -205,11 +206,12 @@ if match ${ARCH} aarch64; then
     tcc_s -c -nostdinc -I obj/include -I arch/aarch64 -I arch/generic -I obj/src/internal -I src/include -I src/internal -I include -std=c99 -ffreestanding -D_XOPEN_SOURCE=700 -D SYSCALL_NO_TLS -o ${LIBDIR}/crt1.o crt/crt1.c
     tcc_s -c -D TCC_TARGET_ARM64=1 -o ${LIBDIR}/crti.o crt/aarch64/crti.c
     tcc_s -c -D TCC_TARGET_ARM64=1 -o ${LIBDIR}/crtn.o crt/aarch64/crtn.c
-    # libtcc1: arm64 builds lib-arm64.c (TFmode soft-float / 128-bit helpers) +
-    # alloca-arm64.S (raw-word trampoline), not the x86 lib/libtcc1.c.
+    # libtcc1: aarch64 builds tcc's upstream lib/lib-arm64.c (TFmode soft-float /
+    # 128-bit helpers) + our alloca-aarch64.S (raw-word trampoline), not the x86
+    # lib/libtcc1.c.
     tcc_s -c -D TCC_TARGET_ARM64=1 -D HAVE_FLOAT=1 -D HAVE_LONG_LONG=1 -I ${SRCDIR}/${TCC_TAR}/build/${TCC_PKG}/include -o ${TMPDIR}/lib-arm64.o ${SRCDIR}/${TCC_TAR}/build/${TCC_PKG}/lib/lib-arm64.c
-    tcc_s -c -D TCC_TARGET_ARM64=1 -o ${TMPDIR}/alloca-arm64.o /src/alloca-arm64.S
-    tcc_s -ar cr ${LIBDIR}/tcc/libtcc1.a ${TMPDIR}/lib-arm64.o ${TMPDIR}/alloca-arm64.o
+    tcc_s -c -D TCC_TARGET_ARM64=1 -o ${TMPDIR}/alloca-aarch64.o /src/alloca-aarch64.S
+    tcc_s -ar cr ${LIBDIR}/tcc/libtcc1.a ${TMPDIR}/lib-arm64.o ${TMPDIR}/alloca-aarch64.o
 fi
 
 cd ../${TCC_PKG}

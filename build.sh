@@ -29,16 +29,29 @@ case "$ARCH" in
     amd64)
         SEEDARCH=AMD64          # bootstrap-seeds/POSIX/<SEEDARCH> + stage0-posix dir
         S0ARCH=AMD64
+        TCC_ARCH_FLAG=-64       # tcc_cc target-selection flag
         ;;
     aarch64)
         SEEDARCH=AArch64
         S0ARCH=AArch64
+        TCC_ARCH_FLAG='-a aarch64'
         ;;
     *)
         echo "usage: $0 <amd64|aarch64>" >&2
         exit 1
         ;;
 esac
+
+# The kaem scripts and bootstrap.cfg in target/ are shared between arches;
+# instantiate them by replacing the @ARCH@/@S0ARCH@/@TCC_ARCH_FLAG@ tokens.
+# (Host sed, like the host cp/mkdir used below, is part of the staging step,
+# not of the in-chroot bootstrap.)
+subst() {
+    sed -e "s|@ARCH@|${ARCH}|g" \
+        -e "s|@S0ARCH@|${S0ARCH}|g" \
+        -e "s|@TCC_ARCH_FLAG@|${TCC_ARCH_FLAG}|g" \
+        "$1" > "$2"
+}
 
 # Delete existing rootfs
 rm -rf rootfs
@@ -85,14 +98,13 @@ fi
 cp -f stage0-posix/kaem.${ARCH} rootfs/kaem.${ARCH}
 
 # Our hook: replaces stage0-posix's placeholder after.kaem
-cp -f target_${ARCH}/stage0-hook.kaem rootfs/after.kaem
+subst target/stage0-hook.kaem rootfs/after.kaem
 
 # --- MES-replacement arch directory --------------------------------------
 mkdir -p rootfs/${ARCH}
 
-cp -f -t rootfs/${ARCH} \
-    target_${ARCH}/check-tools.kaem \
-    target_${ARCH}/after.kaem
+subst target/check-tools.kaem rootfs/${ARCH}/check-tools.kaem
+subst target/after.kaem       rootfs/${ARCH}/after.kaem
 
 # Committed seeds (our unique tcc_cc/stack_c layer).
 # Both arches compile stack_c from C source via M2-Planet, so there is no
@@ -115,21 +127,21 @@ cp -f -t rootfs/src \
 # aarch64 also needs its asm backend and alloca helper (tcc-0.9.26 assets)
 if [ "$ARCH" = aarch64 ]; then
     cp -f -t rootfs/src \
-        src/arm64-asm.c \
-        src/alloca-arm64.S
+        src/aarch64-asm.c \
+        src/alloca-aarch64.S
 fi
 
 # --- Script and step support ---------------------------------------------
-cp -f target_${ARCH}/seed.kaem rootfs/
-cp -f target_${ARCH}/configurator.${ARCH}.checksums rootfs/
-cp -f target_${ARCH}/script-generator.${ARCH}.checksums rootfs/
+subst target/seed.kaem rootfs/seed.kaem
+cp -f target/configurator.${ARCH}.checksums rootfs/
+cp -f target/script-generator.${ARCH}.checksums rootfs/
 
 mkdir -p rootfs/usr
 mkdir -p rootfs/usr/bin
 mkdir -p rootfs/tmp
 
 cp -r steps rootfs/
-cp -f target_${ARCH}/bootstrap.cfg rootfs/steps
+subst target/bootstrap.cfg rootfs/steps/bootstrap.cfg
 
 mkdir -p rootfs/external
 cp -r distfiles rootfs/external/

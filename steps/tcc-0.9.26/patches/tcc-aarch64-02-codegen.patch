@@ -1,7 +1,7 @@
 From 2dce76890b8d5d16e3b559eaedb2d56613cf8cd1 Mon Sep 17 00:00:00 2001
 From: b <b@b.b>
 Date: Wed, 3 Jun 2026 13:49:50 +0200
-Subject: [PATCH] tcc: arm64 -- backend codegen fixes (const-lval load/store,
+Subject: [PATCH] tcc: aarch64 -- backend codegen fixes (const-lval load/store,
  ftof mask)
 
 ---

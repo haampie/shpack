@@ -1,2 +1,8 @@
 # chroot build tree produced by build.sh
 /rootfs/
+
+# local reference checkouts (clean clones; not used by the build --
+# build.sh uses stage0-posix/M2libc, and GNU Mes is replaced by src/tcc_cc.c)
+/M2libc/
+/mes/
+/live-bootstrap/

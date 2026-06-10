@@ -1,0 +1,12 @@
+remove-fileopen tcctools.c
+addback-fileopen tcctools.c
+tccpp-have-float-strtof tccpp.c
+tccpp-have-float-ldexp tccpp.c
+aarch64-asm-defs tcc.h
+aarch64-asm-include libtcc.c
+tcc-aarch64-02_arm64-gen.c_00 arm64-gen.c
+tcc-aarch64-02_arm64-gen.c_01 arm64-gen.c
+tcc-aarch64-02_arm64-gen.c_02 arm64-gen.c
+tcc-aarch64-03_arm64-gen.c_00 arm64-gen.c
+tcc-aarch64-03_arm64-gen.c_01 arm64-gen.c
+tcc-aarch64-04_tccpp.c_00 tccpp.c

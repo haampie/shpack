@@ -1,0 +1,6 @@
+remove-fileopen tcctools.c
+addback-fileopen tcctools.c
+tccpp-have-float-strtof tccpp.c
+tccpp-have-float-ldexp tccpp.c
+static-plt tccelf.c
+x86_64-mxcsr x86_64-asm.h

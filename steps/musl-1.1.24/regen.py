@@ -89,7 +89,7 @@ def iinc(arch_dir):
 
 
 HUNK_RE = re.compile(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
-NUM_RE = re.compile(r"(aarch64-\d+|tcc-arm64-\d+|\d+)")
+NUM_RE = re.compile(r"(aarch64-\d+|tcc-aarch64-\d+|\d+)")
 
 
 def patch_arch(name):
