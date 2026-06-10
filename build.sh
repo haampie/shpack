@@ -10,9 +10,9 @@
 # then runs kaem inside a chroot to execute the full bootstrap sequence.
 #
 # No host compilation is required: `make -C src` is NOT called here.
-# The committed files src/tcc_cc.<arch>.sl64 and src/stack_c_<arch>.M1_<arch>
-# are the only MES-replacement-specific seeds; everything else comes from
-# the stage0-posix and bootstrap-seeds submodules.
+# The committed files src/tcc_cc.<arch>.sl64 are the only MES-replacement-specific
+# seeds (stack_c is compiled from C source by M2-Planet inside the chroot);
+# everything else comes from the stage0-posix and bootstrap-seeds submodules.
 #
 # arm64 note: aarch64 binaries only run inside the chroot, so on an x86_64
 # host register the qemu-aarch64 binfmt handler with the F (fix-binary) flag
@@ -73,9 +73,12 @@ sed -i 's/^#define MAX_ARRAY .*/#define MAX_ARRAY 4096/' rootfs/mescc-tools/Kaem
 cp -f stage0-posix/${M1ARCH}.answers rootfs/
 
 # We bump kaem's MAX_ARRAY above, which changes the kaem binary, so update its
-# expected hash in the staged answers file (amd64 only; the hash is build-specific).
+# expected hash in the staged answers file. The hash is build-specific (depends
+# on the resulting kaem binary), one per arch.
 if [ "$ARCH" = amd64 ]; then
     sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|dc1a41453eeca57018f7d582f28c45dc5bdc10efac6840566ff3393da57b48fb  AMD64/bin/kaem|' rootfs/${M1ARCH}.answers
+elif [ "$ARCH" = arm64 ]; then
+    sed -i 's|^[0-9a-f]\{64\}  AArch64/bin/kaem$|034944e38ef8df20ae0bc916366940c708fe9297741f8bc608861a3b2bc9f936  AArch64/bin/kaem|' rootfs/${M1ARCH}.answers
 fi
 
 # stage0-posix entry point (kaem-optional-seed runs this)
@@ -92,12 +95,9 @@ cp -f -t rootfs/${ARCH} \
     target_${ARCH}/after.kaem
 
 # Committed seeds (our unique tcc_cc/stack_c layer).
-# amd64 compiles stack_c from C source via M2-Planet, so it needs no committed
-# stack_c.M1 seed; arm64 still bootstraps stack_c from its committed seed.
+# Both arches compile stack_c from C source via M2-Planet, so there is no
+# committed stack_c.M1 seed; only the stack_c intro/prelude is staged.
 cp -f src/stack_c_intro_${ARCH}.M1    rootfs/${ARCH}/stack_c_intro.M1
-if [ "$ARCH" = arm64 ]; then
-    cp -f src/stack_c_${ARCH}.M1_${ARCH}  rootfs/${ARCH}/stack_c.M1
-fi
 
 # ── Generic C sources ─────────────────────────────────────────────────────
 mkdir -p rootfs/src
@@ -112,7 +112,7 @@ cp -f -t rootfs/src \
     src/tcc_cc.c \
     src/stack_c_${ARCH}.c
 
-# arm64 also needs its asm backend and alloca helper (referenced by stack_c_arm64.c)
+# arm64 also needs its asm backend and alloca helper (aarch64 tcc-0.9.26 assets)
 if [ "$ARCH" = arm64 ]; then
     cp -f -t rootfs/src \
         src/arm64-asm.c \
