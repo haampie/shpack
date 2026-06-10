@@ -12020,7 +12020,7 @@ void main
                                                 "__TCC_CC_32__" 1 get_env () ;
                                             }
 # tcc_cc.c 4957
-                                            target_arch ? 0 != && { target_arch ? "arm64" strcmp () 0 == } if
+                                            target_arch ? 0 != && { target_arch ? "aarch64" strcmp () 0 == } if
                                             {
 # tcc_cc.c 4958
                                                 "TCC_TARGET_ARM64" 1 get_env () ;

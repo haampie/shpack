@@ -34,7 +34,7 @@
 build: checksum-transcriber-1.0
 build: simple-patch-1.0
 build: tcc-0.9.26
-# Grow the bring-up subset libc into FULL musl 1.1.24 (amd64 + arm64), built by
+# Grow the bring-up subset libc into FULL musl 1.1.24 (amd64 + aarch64), built by
 # the production tcc, for the downstream binutils/gcc bootstrap.
 build: musl-1.1.24
 

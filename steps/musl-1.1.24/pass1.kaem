@@ -10,7 +10,7 @@
 # hunks). No glue: the full build uses pristine musl strtod/ldexp/errno/
 # __libc_start_main/sigaction (the production tcc has working float constants).
 #
-# amd64 + arm64; other arches still link mes and skip this step.
+# amd64 + aarch64; other arches still link mes and skip this step.
 
 set -ex
 
@@ -26,7 +26,7 @@ if match ${ARCH} amd64; then
     BUILD_MUSL=True
     MUSL_INC=x86_64
 fi
-if match ${ARCH} arm64; then
+if match ${ARCH} aarch64; then
     BUILD_MUSL=True
     MUSL_INC=aarch64
 fi
@@ -50,13 +50,13 @@ cp ${MSRC}/${ARCH}/generated/bits/alltypes.h obj/include/bits/alltypes.h
 cp ${MSRC}/${ARCH}/generated/bits/syscall.h obj/include/bits/syscall.h
 cp ${MSRC}/${ARCH}/generated/internal/version.h obj/src/internal/version.h
 # amd64: patch 0040's new src/stdarg/va_list.c (build-libc-full compiles it).
-# arm64: route va_* through tcc builtins (no va_list.c) and add the asm->C
+# aarch64: route va_* through tcc builtins (no va_list.c) and add the asm->C
 # sources the full build compiles (syscall_raw, setjmp, clone, fenv, ...).
 if match ${ARCH} amd64; then
     mkdir -p src/stdarg
     cp ${MSRC}/${ARCH}/newsrc/src/stdarg/va_list.c src/stdarg/va_list.c
 fi
-if match ${ARCH} arm64; then
+if match ${ARCH} aarch64; then
     kaem --file ${MSRC}/${ARCH}/copy-newsrc.kaem
 fi
 
@@ -73,13 +73,13 @@ kaem --verbose --file ${MSRC}/${ARCH}/build-libc-full.kaem
 # Real startfiles from musl's crt (replace the tcc step's stripped crt1 + empty
 # crti/crtn): crt1.c now calls the real __libc_start_main in libc.a, and the
 # real crti/crtn provide the _init/_fini section halves it expects. amd64 has
-# hand-written crt asm; arm64 uses the asm->C crt sources.
+# hand-written crt asm; aarch64 uses the asm->C crt sources.
 tcc -c -nostdinc -I obj/include -I arch/${MUSL_INC} -I arch/generic -I obj/src/internal -I src/include -I src/internal -I include -std=c99 -ffreestanding -D_XOPEN_SOURCE=700 -D SYSCALL_NO_TLS -o ${LIBDIR}/crt1.o crt/crt1.c
 if match ${ARCH} amd64; then
     tcc -c -o ${LIBDIR}/crti.o crt/x86_64/crti.s
     tcc -c -o ${LIBDIR}/crtn.o crt/x86_64/crtn.s
 fi
-if match ${ARCH} arm64; then
+if match ${ARCH} aarch64; then
     tcc -c -o ${LIBDIR}/crti.o crt/aarch64/crti.c
     tcc -c -o ${LIBDIR}/crtn.o crt/aarch64/crtn.c
 fi

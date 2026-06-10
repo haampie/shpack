@@ -1,4 +1,4 @@
-# Stack-C runtime prologue for aarch64 (arm64), self-contained.
+# Stack-C runtime prologue for aarch64, self-contained.
 #
 # Runtime model (mirrors stack_c_intro_amd64.M1, RISC equivalents):
 #   x18 = operand stack pointer (push: str x,[x18,-8]! / pop: ldr x,[x18],8)

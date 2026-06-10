@@ -64,7 +64,7 @@ cp ${MSRC}/glue/sigaction.c glue/sigaction.c
 cp ${MSRC}/glue/float.c glue/float.c
 # Apply the arch's tcc-compat patch set and drop in that arch's pre-generated
 # headers (generated host-side by regen.sh ${ARCH}, committed under ${ARCH}/).
-# amd64 carries the SysV-AMD64 va_list as a real source; arm64 routes va_* through
+# amd64 carries the SysV-AMD64 va_list as a real source; aarch64 routes va_* through
 # tcc's AAPCS64 builtins (no va_list.c) but adds the asm->C sources via copy-newsrc.
 kaem --file ${MSRC}/${ARCH}/apply-full.kaem
 cp ${MSRC}/${ARCH}/generated/bits/alltypes.h obj/include/bits/alltypes.h
@@ -74,7 +74,7 @@ if match ${ARCH} amd64; then
     mkdir -p src/stdarg
     cp ${MSRC}/${ARCH}/newsrc/src/stdarg/va_list.c src/stdarg/va_list.c
 fi
-if match ${ARCH} arm64; then
+if match ${ARCH} aarch64; then
     kaem --file ${MSRC}/${ARCH}/copy-newsrc.kaem
 fi
 cd ..
@@ -103,22 +103,22 @@ if match ${ARCH} amd64; then
     HAVE_LONG_LONG=1
     MUSL_INC=x86_64
 fi
-if match ${ARCH} arm64; then
+if match ${ARCH} aarch64; then
     TCC_TARGET_ARCH=ARM64
     HAVE_LONG_LONG=1
     MUSL_INC=aarch64
 fi
 SUBSET_KAEM=${ARCH}/build-libc-subset.kaem
 
-# arm64 inline-asm: drop in the minimal data-directive assembler
+# aarch64 inline-asm: drop in the minimal data-directive assembler
 # and apply the source patches in-chroot.
-if match ${ARCH} arm64; then
+if match ${ARCH} aarch64; then
     cp /src/arm64-asm.c arm64-asm.c
     simple-patch tcc.h \
         ../../simple-patches/arm64-asm-defs.before ../../simple-patches/arm64-asm-defs.after
     simple-patch libtcc.c \
         ../../simple-patches/arm64-asm-include.before ../../simple-patches/arm64-asm-include.after
-    # arm64 backend fixes that musl exercises but the bring-up build never did:
+    # aarch64 backend fixes that musl exercises but the bring-up build never did:
     #  02 codegen  -- const-lval load/store (string/float literals) + ftof mask
     #  03 varargs  -- AAPCS64 va builtin loop + va_list param/array decay
     #  04 longdbl  -- treat the 'll' suffix as long double like x86_64
@@ -170,7 +170,7 @@ M=${SRCDIR}/${TCC_TAR}/build/musl-1.1.24
 # Install the flat public header set into tcc's system-include dir (one untar;
 # cp has no -r and kaem has no globbing, so the headers ship pre-merged in the
 # combined sysinclude.tar, regenerated host-side by regen.sh). The tar carries
-# per-arch subtrees, so this yields ${INCDIR}/amd64 and ${INCDIR}/arm64; the
+# per-arch subtrees, so this yields ${INCDIR}/amd64 and ${INCDIR}/aarch64; the
 # include paths below point tcc at ${INCDIR}/${ARCH}.
 mkdir -p ${INCDIR}
 cd ${INCDIR}
@@ -199,8 +199,8 @@ if match ${ARCH} amd64; then
     tcc_s -c -o ${TMPDIR}/alloca86_64.o ${SRCDIR}/${TCC_TAR}/build/${TCC_PKG}/lib/alloca86_64.S
     tcc_s -ar cr ${LIBDIR}/tcc/libtcc1.a ${TMPDIR}/libtcc1.o ${TMPDIR}/alloca86_64.o
 fi
-if match ${ARCH} arm64; then
-    # arm64 needs REAL crti/crtn: the asm->C _init/_fini section halves (stp/ldp
+if match ${ARCH} aarch64; then
+    # aarch64 needs REAL crti/crtn: the asm->C _init/_fini section halves (stp/ldp
     # x29,x30) that the crt1 _start_c epilogue and section ordering depend on.
     tcc_s -c -nostdinc -I obj/include -I arch/aarch64 -I arch/generic -I obj/src/internal -I src/include -I src/internal -I include -std=c99 -ffreestanding -D_XOPEN_SOURCE=700 -D SYSCALL_NO_TLS -o ${LIBDIR}/crt1.o crt/crt1.c
     tcc_s -c -D TCC_TARGET_ARM64=1 -o ${LIBDIR}/crti.o crt/aarch64/crti.c

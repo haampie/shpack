@@ -1,4 +1,4 @@
-/*	Stack_C: Compiler for Stack C language to aarch64 (arm64) M1 assembly
+/*	Stack_C: Compiler for Stack C language to aarch64 M1 assembly
 
 	This is to adapted to parse output produced by the tcc_cc.c
 	C compiler. For that reason, it only uses keywords that are
@@ -9,7 +9,7 @@
 
 	Port of stack_c_amd64.c. The parsing/scoping logic is identical; only the
 	emitted instruction macros differ. Macros are defined in
-	stack_c_intro_arm64.M1. Runtime model:
+	stack_c_intro_aarch64.M1. Runtime model:
 	- x18 = operand stack pointer (PUSH_Xn / POP_Xn)
 	- x17 = locals base pointer (BP); [x17] holds the frame return address
 	- x0  = top-of-stack accumulator (rax), x1 = second operand (rbx)

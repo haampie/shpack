@@ -4954,7 +4954,7 @@ int main(int argc, char *argv[])
 				if (long_long_size == TARGET_32BITS)
 					get_env("__TCC_CC_32__", TRUE);
 				// -a injects the target macro (sys_syscall.h keys on it).
-				if (target_arch != NULL && strcmp(target_arch, "arm64") == 0)
+				if (target_arch != NULL && strcmp(target_arch, "aarch64") == 0)
 					get_env("TCC_TARGET_ARM64", TRUE);
 				if (target_arch != NULL && strcmp(target_arch, "riscv64") == 0)
 					get_env("TCC_TARGET_RISCV64", TRUE);

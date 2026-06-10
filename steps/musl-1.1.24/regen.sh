@@ -7,10 +7,10 @@
 #   <arch>/generated/bits/{alltypes,syscall}.h, <arch>/generated/internal/version.h
 #       musl's three generated headers for the arch (the chroot has no sed/awk).
 #       alltypes.h carries the __musl_va_list_t form from the va_list patch.
-#       (<arch> is the chroot-facing name: amd64 / arm64.)
+#       (<arch> is the chroot-facing name: amd64 / aarch64.)
 #   sysinclude.tar
 #       ONE combined, flat, merged PUBLIC header set with per-arch subtrees
-#       amd64/<headers> and arm64/<headers>, untarred into tcc's include dir in
+#       amd64/<headers> and aarch64/<headers>, untarred into tcc's include dir in
 #       the chroot (the in-chroot `cp` has no -r, so the bits/ overlay -- generic
 #       then arch then generated -- is flattened here once). Headers only; the
 #       musl *sources* are never repackaged (pristine tarball is the distfile).
@@ -33,7 +33,7 @@ MUSL_TARBALL=${2:-/home/harmen/spack/var/spack/cache/_source-cache/archive/13/13
 
 case "$ARCH" in
     x86_64)  OUT_DIR=amd64; CONFTGT=x86_64-linux-musl;  CONFCC= ;;
-    aarch64) OUT_DIR=arm64; CONFTGT=aarch64-linux-musl; CONFCC="CC=aarch64-linux-gnu-gcc" ;;
+    aarch64) OUT_DIR=aarch64; CONFTGT=aarch64-linux-musl; CONFCC="CC=aarch64-linux-gnu-gcc" ;;
     *) echo "unknown ARCH: $ARCH (want x86_64 or aarch64)" >&2; exit 1 ;;
 esac
 GENDIR="$HERE/$OUT_DIR/generated"
@@ -93,11 +93,11 @@ stage_headers() {  # $1=musl-arch  $2=out_dir  $3=patched-tree
     sed -n 's/__NR_/SYS_/p' "$t/arch/$a/bits/syscall.h.in" >> "$d/bits/syscall.h"
 }
 
-echo "== sysinclude.tar (combined flat public headers: amd64 + arm64) =="
+echo "== sysinclude.tar (combined flat public headers: amd64 + aarch64) =="
 rm -rf "$STAGE"; mkdir -p "$STAGE"
 # Reuse $W/patched for whichever arch matches; build a fresh tree for the other.
 for a in x86_64 aarch64; do
-    case "$a" in x86_64) o=amd64 ;; aarch64) o=arm64 ;; esac
+    case "$a" in x86_64) o=amd64 ;; aarch64) o=aarch64 ;; esac
     if [ "$a" = "$ARCH" ]; then
         t="$W/patched"
     else

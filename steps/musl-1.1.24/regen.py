@@ -29,7 +29,7 @@
 #   - new files created from /dev/null: shipped as plain sources under
 #     <out_dir>/newsrc/ and copied into the tree (x86_64: a single va_list.c,
 #     inline in pass1.kaem; aarch64: the asm->C .c files, via the generated
-#     arm64/copy-newsrc.kaem).
+#     aarch64/copy-newsrc.kaem).
 #   - file deletions (+++ /dev/null): the asm->C patch deletes every aarch64 .s
 #     and adds a .c in its place; the .s is simply never compiled, so there is
 #     nothing to patch.
@@ -67,7 +67,7 @@ ARCH_CFG = {
         "skip_files": {"arch/x86_64/bits/alltypes.h.in"},
     },
     "aarch64": {
-        "out_dir": "arm64",
+        "out_dir": "aarch64",
         "manifest_sfx": ".aarch64",
         "arch_dir": "aarch64",
         "skip_files": {"arch/aarch64/bits/alltypes.h.in"},

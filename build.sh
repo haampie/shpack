@@ -3,7 +3,7 @@
 # Build the bootstrap rootfs for one target arch and run it under chroot.
 #
 #   ./build.sh amd64
-#   ./build.sh arm64
+#   ./build.sh aarch64
 #
 # Stages a fresh rootfs/ from the stage0-posix submodule (binary seeds +
 # bootstrap scripts), adds the MES-replacement-specific seeds and sources,
@@ -14,28 +14,28 @@
 # seeds (stack_c is compiled from C source by M2-Planet inside the chroot);
 # everything else comes from the stage0-posix and bootstrap-seeds submodules.
 #
-# arm64 note: aarch64 binaries only run inside the chroot, so on an x86_64
+# aarch64 note: aarch64 binaries only run inside the chroot, so on an x86_64
 # host register the qemu-aarch64 binfmt handler with the F (fix-binary) flag
 # (qemu-user-static) before running this script.
 
 set -ex
 
 ARCH="$1"
+# ARCH is the mescc-tools/M2libc/answers arch name AND the chroot ${ARCH} token
+# (amd64, aarch64) — kept identical so the step scripts' single ${ARCH} resolves
+# everywhere. Only the stage0-posix/bootstrap-seeds directory uses an uppercase
+# spelling, mapped separately via S0ARCH/SEEDARCH.
 case "$ARCH" in
     amd64)
-        SEEDARCH=AMD64          # bootstrap-seeds/POSIX/<SEEDARCH>
-        S0ARCH=AMD64            # stage0-posix arch directory name
-        M1ARCH=amd64            # M1 --architecture flag value
-        M2ARCH=amd64            # M2libc arch subdirectory
+        SEEDARCH=AMD64          # bootstrap-seeds/POSIX/<SEEDARCH> + stage0-posix dir
+        S0ARCH=AMD64
         ;;
-    arm64)
+    aarch64)
         SEEDARCH=AArch64
         S0ARCH=AArch64
-        M1ARCH=aarch64
-        M2ARCH=aarch64
         ;;
     *)
-        echo "usage: $0 <amd64|arm64>" >&2
+        echo "usage: $0 <amd64|aarch64>" >&2
         exit 1
         ;;
 esac
@@ -70,19 +70,19 @@ cp -rf stage0-posix/M2-Mesoplanet rootfs/M2-Mesoplanet
 sed -i 's/^#define MAX_ARRAY .*/#define MAX_ARRAY 4096/' rootfs/mescc-tools/Kaem/kaem.h
 
 # Checksum file that stage0-posix's kaem.run verifies after building tools
-cp -f stage0-posix/${M1ARCH}.answers rootfs/
+cp -f stage0-posix/${ARCH}.answers rootfs/
 
 # We bump kaem's MAX_ARRAY above, which changes the kaem binary, so update its
 # expected hash in the staged answers file. The hash is build-specific (depends
 # on the resulting kaem binary), one per arch.
 if [ "$ARCH" = amd64 ]; then
-    sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|dc1a41453eeca57018f7d582f28c45dc5bdc10efac6840566ff3393da57b48fb  AMD64/bin/kaem|' rootfs/${M1ARCH}.answers
-elif [ "$ARCH" = arm64 ]; then
-    sed -i 's|^[0-9a-f]\{64\}  AArch64/bin/kaem$|034944e38ef8df20ae0bc916366940c708fe9297741f8bc608861a3b2bc9f936  AArch64/bin/kaem|' rootfs/${M1ARCH}.answers
+    sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|dc1a41453eeca57018f7d582f28c45dc5bdc10efac6840566ff3393da57b48fb  AMD64/bin/kaem|' rootfs/${ARCH}.answers
+elif [ "$ARCH" = aarch64 ]; then
+    sed -i 's|^[0-9a-f]\{64\}  AArch64/bin/kaem$|034944e38ef8df20ae0bc916366940c708fe9297741f8bc608861a3b2bc9f936  AArch64/bin/kaem|' rootfs/${ARCH}.answers
 fi
 
 # stage0-posix entry point (kaem-optional-seed runs this)
-cp -f stage0-posix/kaem.${M1ARCH} rootfs/kaem.${ARCH}
+cp -f stage0-posix/kaem.${ARCH} rootfs/kaem.${ARCH}
 
 # Our hook: replaces stage0-posix's placeholder after.kaem
 cp -f target_${ARCH}/stage0-hook.kaem rootfs/after.kaem
@@ -112,8 +112,8 @@ cp -f -t rootfs/src \
     src/tcc_cc.c \
     src/stack_c_${ARCH}.c
 
-# arm64 also needs its asm backend and alloca helper (aarch64 tcc-0.9.26 assets)
-if [ "$ARCH" = arm64 ]; then
+# aarch64 also needs its asm backend and alloca helper (tcc-0.9.26 assets)
+if [ "$ARCH" = aarch64 ]; then
     cp -f -t rootfs/src \
         src/arm64-asm.c \
         src/alloca-arm64.S
