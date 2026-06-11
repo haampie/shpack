@@ -82,6 +82,12 @@ cp -rf stage0-posix/M2-Mesoplanet rootfs/M2-Mesoplanet
 # split), which overflows the stock limit of 512.
 sed -i 's/^#define MAX_ARRAY .*/#define MAX_ARRAY 4096/' rootfs/mescc-tools/Kaem/kaem.h
 
+# kaem micro-optimizations (staged copy only, submodule stays pristine): use
+# access() instead of slurping each candidate binary in find_executable, and
+# trim the per-token MAX_STRING zeroing in list_to_array. No produced artifact
+# changes; this only speeds up kaem's own per-command work.
+patch -p1 -d rootfs/mescc-tools < target/kaem-perf.patch
+
 # Checksum file that stage0-posix's kaem.run verifies after building tools
 cp -f stage0-posix/${ARCH}.answers rootfs/
 
@@ -89,9 +95,9 @@ cp -f stage0-posix/${ARCH}.answers rootfs/
 # expected hash in the staged answers file. The hash is build-specific (depends
 # on the resulting kaem binary), one per arch.
 if [ "$ARCH" = amd64 ]; then
-    sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|dc1a41453eeca57018f7d582f28c45dc5bdc10efac6840566ff3393da57b48fb  AMD64/bin/kaem|' rootfs/${ARCH}.answers
+    sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|05e72a2fae51a1cb626815e87f3a5b35f0a3c818656efe73f04286b06742a5b1  AMD64/bin/kaem|' rootfs/${ARCH}.answers
 elif [ "$ARCH" = aarch64 ]; then
-    sed -i 's|^[0-9a-f]\{64\}  AArch64/bin/kaem$|034944e38ef8df20ae0bc916366940c708fe9297741f8bc608861a3b2bc9f936  AArch64/bin/kaem|' rootfs/${ARCH}.answers
+    sed -i 's|^[0-9a-f]\{64\}  AArch64/bin/kaem$|1dcef6f99ae10f2805e2693746931089545a4e487c8934c5a9ca109d559580ac  AArch64/bin/kaem|' rootfs/${ARCH}.answers
 fi
 
 # stage0-posix entry point (kaem-optional-seed runs this)
