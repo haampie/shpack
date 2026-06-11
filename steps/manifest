@@ -38,3 +38,16 @@ build: tcc-0.9.26
 # the production tcc, for the downstream binutils/gcc bootstrap.
 build: musl-1.1.24
 
+# Core userland, built by the production tcc against full musl (live-bootstrap's
+# post-tcc kaem phase). make first (needs only tcc + mescc-tools), then patch
+# (every later package applies real unified diffs), up to a working /bin/bash.
+build: make-3.82
+build: patch-2.5.9
+build: gzip-1.2.4
+build: tar-1.12
+build: sed-4.0.9
+build: bzip2-1.0.8
+build: coreutils-5.0
+build: oyacc-6.6
+build: bash-2.05b
+

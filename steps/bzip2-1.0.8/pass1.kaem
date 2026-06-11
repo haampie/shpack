@@ -1,0 +1,55 @@
+#!/bin/sh
+
+# SPDX-FileCopyrightText: 2021 Andrius Štikonas <andrius@stikonas.eu>
+# SPDX-FileCopyrightText: 2021 Samuel Tyler <samuel@samuelt.me>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+set -ex
+
+# Check tarball checksums
+checksum-transcriber sources
+sha256sum -c sources.SHA256SUM
+
+mkdir build src
+cd build
+
+# Extract
+cp ${DISTFILES}/${pkg}.tar.gz ../src/
+gzip -d -f ../src/${pkg}.tar.gz
+tar xf ../src/${pkg}.tar
+rm -r ../src
+cd ${pkg}
+
+# Patch
+# mes-libc.patch is NOT applied: it is a mes-libc-only workaround that removes
+# bzip2's utime() call (mes has no time support) and ships a fake <utime.h> that
+# `#define fchown(...) 0` / `#define fchmod(...) 0` (mes lacks them). musl provides
+# utime, fchown and fchmod, and that fake utime.h is actively harmful here -- with
+# `-I .` it shadows musl's <utime.h>, so the fchown macro rewrites musl unistd.h's
+# `int fchown(int, uid_t, gid_t);` prototype into `int 0;` (identifier expected).
+patch -Np1 -i ../../patches/coreutils.patch
+
+# Build
+make CC=tcc AR="tcc -ar" LDFLAGS="-static" bzip2
+
+# Install
+cp bzip2 ${PREFIX}/bin/bzip2
+cp bzip2 ${PREFIX}/bin/bunzip2
+chmod 755 ${PREFIX}/bin/bzip2
+chmod 755 ${PREFIX}/bin/bunzip2
+
+# Test
+bzip2 --help
+
+cd ../..
+
+# Checksums
+if match x${UPDATE_CHECKSUMS} xTrue; then
+    sha256sum -o ${pkg}.${ARCH}.checksums \
+        /usr/bin/bzip2
+
+    cp ${pkg}.${ARCH}.checksums ${SRCDIR}
+else
+    sha256sum -c ${pkg}.${ARCH}.checksums
+fi

@@ -1,0 +1,46 @@
+SPDX-License-Identifier: LGPL-2.0-or-later
+
+tcc's aarch64 backend (arm64-gen.c) implements load()/store() only for
+symbol-relative constant lvalues (VT_CONST|VT_LVAL|VT_SYM), not for a bare
+absolute-address constant lvalue (VT_CONST|VT_LVAL, no VT_SYM). Dereferencing
+a constant pointer -- e.g. the dead `*(sigset_t *)0 = ...` branch that patch's
+sigprocmask() macro expands to in util.c:exit_with_signal -- then hits the
+catch-all assert(0) and aborts the compiler. The x86/x86_64 backends handle
+this case; add the symmetric handling for aarch64 by materialising the absolute
+address (sv->c.i) into x30 and doing a plain ldr/str.
+
+--- a/arm64-gen.c	2026-06-11 09:42:48.466835765 +0200
++++ b/arm64-gen.c	2026-06-11 09:42:48.466835765 +0200
+@@ -537,6 +537,16 @@
+         return;
+     }
+ 
++    if (svr == (VT_CONST | VT_LVAL)) {
++        arm64_movimm(30, sv->c.i); // use x30 for absolute address
++        if (IS_FREG(r))
++            arm64_ldrv(arm64_type_size(svtt), fltr(r), 30, 0);
++        else
++            arm64_ldrx(!(svtt & VT_UNSIGNED), arm64_type_size(svtt),
++                       intr(r), 30, 0);
++        return;
++    }
++
+     printf("load(%x, (%x, %x, %llx))\n", r, svtt, sv->r, (long long)svcul);
+     assert(0);
+ }
+@@ -570,6 +580,15 @@
+         if (IS_FREG(r))
+             arm64_strv(arm64_type_size(svtt), fltr(r), 30, 0);
+         else
++            arm64_strx(arm64_type_size(svtt), intr(r), 30, 0);
++        return;
++    }
++
++    if (svr == (VT_CONST | VT_LVAL)) {
++        arm64_movimm(30, sv->c.i); // use x30 for absolute address
++        if (IS_FREG(r))
++            arm64_strv(arm64_type_size(svtt), fltr(r), 30, 0);
++        else
+             arm64_strx(arm64_type_size(svtt), intr(r), 30, 0);
+         return;
+     }

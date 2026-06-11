@@ -1,0 +1,22 @@
+SPDX-FileCopyrightText: 2026 Harmen Stoppels <harmen@stoppels.ch>
+
+SPDX-License-Identifier: GPL-2.0-or-later
+
+getline.h declares its own int getline()/getdelim() under `#if __GLIBC__ < 2`,
+i.e. only when the system libc is too old to provide them. musl provides getline
+and getdelim (as ssize_t, via <stdio.h>) but does NOT define __GLIBC__, so the
+bare `__GLIBC__ < 2` evaluates to `0 < 2` = true and the stale int-returning
+prototypes are emitted, clashing with musl's. Guard on __GLIBC__ being defined
+first, which is correct on glibc (any version), musl, and mes alike.
+
+--- coreutils-5.0/lib/getline.h
++++ coreutils-5.0/lib/getline.h
+@@ -26,7 +26,7 @@
+ #  endif
+ # endif
+
+-# if __GLIBC__ < 2
++# if defined __GLIBC__ && __GLIBC__ < 2
+ int
+ getline PARAMS ((char **_lineptr, size_t *_n, FILE *_stream));
+

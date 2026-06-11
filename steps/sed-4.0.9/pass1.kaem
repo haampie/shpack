@@ -1,0 +1,49 @@
+#!/bin/sh
+
+# SPDX-FileCopyrightText: 2021 Andrius Štikonas <andrius@stikonas.eu>
+# SPDX-FileCopyrightText: 2021-22 Samuel Tyler <samuel@samuelt.me>
+# SPDX-FileCopyrightText: 2021 Paul Dersey <pdersey@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+set -ex
+
+# Check tarball checksums
+checksum-transcriber sources
+sha256sum -c sources.SHA256SUM
+
+mkdir build src
+cd build
+
+# Extract
+cp ${DISTFILES}/${pkg}.tar.gz ../src/
+gzip -d -f ../src/${pkg}.tar.gz
+tar xf ../src/${pkg}.tar
+rm -r ../src
+cd ${pkg}
+cp ../../mk/main.mk Makefile
+
+# Create config.h
+catm config.h
+
+# Build. LIBC selects the gnulib compat shims: the mes branch builds a bundled
+# getline (mes libc lacks it); musl HAS getline (and getline.c's K&R `size_t`
+# definition clashes with musl's `ssize_t` prototype), so use the non-mes branch,
+# which builds alloca instead and relies on musl's getline.
+make -f Makefile LIBC=musl
+
+# Install
+cp sed/sed ${PREFIX}/bin/sed
+chmod 755 ${PREFIX}/bin/sed
+
+cd ../..
+
+# Checksums
+if match x${UPDATE_CHECKSUMS} xTrue; then
+    sha256sum -o ${pkg}.${ARCH}.checksums \
+        /usr/bin/sed
+
+    cp ${pkg}.${ARCH}.checksums ${SRCDIR}
+else
+    sha256sum -c ${pkg}.${ARCH}.checksums
+fi

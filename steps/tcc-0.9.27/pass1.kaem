@@ -1,0 +1,141 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Build the 2017 savannah release tcc 0.9.27 for aarch64, compiled by the
+# production aarch64 tcc 0.9.26 (the janneke snapshot) against full musl 1.1.24.
+#
+# live-bootstrap builds 0.9.27 for i386 + mes-libc in several passes and notes it
+# is "not self-hosting when built with mes, but is once linked with musl". We
+# already have musl + an aarch64 0.9.26, so we go straight to the musl path:
+#   stage1: tcc-0.9.26 (ARM64 backend) compiles tcc.c -> tcc-0.9.27
+#   stage2: tcc-0.9.27 compiles tcc.c -> s2   (first fully-0.9.27-built compiler)
+#   stage3: s2 compiles tcc.c -> s3           (must equal s2: byte fixed point)
+#
+# Building the *binary* needs no assembler: tcc.c is pure C. 0.9.27 ships the
+# arm64-gen.c / arm64-link.c backend and lib/lib-arm64.c runtime; it has NO arm64
+# inline assembler (no arm64-asm.c) -- that only matters if 0.9.27 is later asked
+# to assemble .s, which self-hosting does not require.
+#
+# Linking is automatic: tcc-0.9.26 was itself configured with
+# CONFIG_TCC_LIBPATHS=${LIBDIR}:${LIBDIR}/tcc and finds the installed libc.a +
+# libtcc1.a; the -D CONFIG_* flags below bake the search paths into the OUTPUT
+# 0.9.27 so stage2/stage3 link the same way.
+
+set -ex
+
+# Check tarball checksums
+checksum-transcriber sources
+sha256sum -c sources.SHA256SUM
+
+mkdir build
+cd build
+
+# Extract
+unbz2 --file ${DISTFILES}/${pkg}.tar.bz2 --output ${pkg}.tar
+untar --file ${pkg}.tar
+rm ${pkg}.tar
+cd ${pkg}
+
+# aarch64 backend fix (see patches/aarch64-const-lval-load-store.patch):
+# arm64-gen.c load()/store() lack a case for a bare absolute-address constant
+# lvalue (VT_CONST|VT_LVAL, no VT_SYM), so dereferencing a constant pointer --
+# e.g. the dead `*(sigset_t *)0 = ...` branch of patch's sigprocmask() macro --
+# hits the catch-all assert(0) and aborts the compiler. The chroot has no GNU
+# patch, so apply via simple-patch.
+simple-patch arm64-gen.c \
+    ../../simple-patches/aarch64-const-lval-load.before ../../simple-patches/aarch64-const-lval-load.after
+simple-patch arm64-gen.c \
+    ../../simple-patches/aarch64-const-lval-store.before ../../simple-patches/aarch64-const-lval-store.after
+
+# Empty config.h: every knob is passed as -D below (as in live-bootstrap).
+catm config.h
+
+# --- stage 1: tcc-0.9.26 -> tcc-0.9.27 -----------------------------------------
+tcc-0.9.26 \
+    -v \
+    -static \
+    -o tcc-0.9.27 \
+    -I . \
+    -D TCC_TARGET_ARM64=1 \
+    -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" \
+    -D CONFIG_TCC_ELFINTERP=\"/non-existent\" \
+    -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_SYSINCLUDEPATHS=\"${INCDIR}/${ARCH}\" \
+    -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" \
+    -D CONFIG_TCC_STATIC=1 \
+    -D CONFIG_USE_LIBGCC=1 \
+    -D TCC_VERSION=\"0.9.27\" \
+    -D ONE_SOURCE=1 \
+    tcc.c
+cp tcc-0.9.27 ${BINDIR}/tcc-0.9.27
+chmod 755 ${BINDIR}/tcc-0.9.27
+tcc-0.9.27 -version
+
+# --- stage 2: tcc-0.9.27(stage1) -> s2 -----------------------------------------
+tcc-0.9.27 \
+    -v \
+    -static \
+    -o tcc-0.9.27-s2 \
+    -I . \
+    -D TCC_TARGET_ARM64=1 \
+    -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" \
+    -D CONFIG_TCC_ELFINTERP=\"/non-existent\" \
+    -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_SYSINCLUDEPATHS=\"${INCDIR}/${ARCH}\" \
+    -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" \
+    -D CONFIG_TCC_STATIC=1 \
+    -D CONFIG_USE_LIBGCC=1 \
+    -D TCC_VERSION=\"0.9.27\" \
+    -D ONE_SOURCE=1 \
+    tcc.c
+cp tcc-0.9.27-s2 ${BINDIR}/tcc-0.9.27-s2
+chmod 755 ${BINDIR}/tcc-0.9.27-s2
+tcc-0.9.27-s2 -version
+
+# --- stage 3: s2 -> s3, assert s3 == s2 (byte-for-byte fixed point) ------------
+tcc-0.9.27-s2 \
+    -v \
+    -static \
+    -o tcc-0.9.27-s3 \
+    -I . \
+    -D TCC_TARGET_ARM64=1 \
+    -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" \
+    -D CONFIG_TCC_ELFINTERP=\"/non-existent\" \
+    -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_SYSINCLUDEPATHS=\"${INCDIR}/${ARCH}\" \
+    -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" \
+    -D CONFIG_TCC_STATIC=1 \
+    -D CONFIG_USE_LIBGCC=1 \
+    -D TCC_VERSION=\"0.9.27\" \
+    -D ONE_SOURCE=1 \
+    tcc.c
+sha256sum -o ${TMPDIR}/tcc927-fixedpoint.checksums tcc-0.9.27-s2
+rm tcc-0.9.27-s2
+cp tcc-0.9.27-s3 tcc-0.9.27-s2
+sha256sum -c ${TMPDIR}/tcc927-fixedpoint.checksums
+
+# --- install + cut over: 0.9.27 becomes the production `tcc` -------------------
+cp tcc-0.9.27-s3 ${BINDIR}/tcc-0.9.27
+chmod 755 ${BINDIR}/tcc-0.9.27
+cp tcc-0.9.27-s3 ${BINDIR}/tcc
+chmod 755 ${BINDIR}/tcc
+rm ${BINDIR}/tcc-0.9.27-s2
+
+# Final smoke test
+tcc -version
+
+cd ../..
+
+# Checksums
+if match x${UPDATE_CHECKSUMS} xTrue; then
+    sha256sum -o ${pkg}.${ARCH}.checksums \
+        /usr/bin/tcc \
+        /usr/bin/tcc-0.9.27
+    cp ${pkg}.${ARCH}.checksums ${SRCDIR}
+else
+    sha256sum -c ${pkg}.${ARCH}.checksums
+fi
