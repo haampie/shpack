@@ -54,8 +54,11 @@ build: coreutils-5.0
 build: oyacc-6.6
 build: dash-0.5.12
 
-# Set up the post-shell build infrastructure (repo dir, DESTDIR, MAKEJOBS).
-improve: setup_repo
+# Set up the post-shell build environment (PKGDIR store, MAKEJOBS, PATH).
+# From here on every package installs into its own prefix /opt/<name-version>
+# (a Spack-style store) and is exposed to later builds via PATH. Installed
+# trees are not checksummed during the build; verification is post-hoc (see
+# IDEAS.md: Landlock write isolation + store hashing outside the chroot).
 improve: update_env
 
 # Basic Unix utilities, all compiled by TCC 0.9.27 against musl 1.1.24.

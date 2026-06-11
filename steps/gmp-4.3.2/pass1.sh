@@ -20,5 +20,5 @@ src_compile() {
 }
 
 src_install() {
-    make install DESTDIR="${DESTDIR}"
+    make install
 }

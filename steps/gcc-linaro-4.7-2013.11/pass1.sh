@@ -35,9 +35,11 @@ src_configure() {
         --target="${TRIPLE}" \
         --with-sysroot=/ \
         --with-native-system-header-dir=/usr/include \
-        --with-gmp="${PREFIX}" \
-        --with-mpfr="${PREFIX}" \
-        --with-mpc="${PREFIX}" \
+        --with-gmp="${PKGDIR}/gmp-4.3.2" \
+        --with-mpfr="${PKGDIR}/mpfr-2.4.2" \
+        --with-mpc="${PKGDIR}/mpc-1.0.3" \
+        --with-as="${PKGDIR}/binutils-2.30/bin/as" \
+        --with-ld="${PKGDIR}/binutils-2.30/bin/ld" \
         --enable-languages=c \
         --enable-static \
         --disable-shared \
@@ -71,12 +73,14 @@ src_compile() {
 
 src_install() {
     # CWD is _build/ (set by src_configure above)
-    make install MAKEINFO=true DESTDIR="${DESTDIR}"
+    make install MAKEINFO=true
 
     # Write a specs file so every cc1/cc1plus invocation gets -fno-tree-ccp,
     # protecting all consumers built by this GCC from the tcc codegen bug.
-    # GCC reads `specs` from its libgcc directory automatically.
-    libgcc=$(find "${DESTDIR}${PREFIX}/lib/gcc" -name 'libgcc.a' | head -1)
-    libgcc_dir=$(dirname "${libgcc}")
+    # GCC reads `specs` from its libgcc directory automatically. No find(1)
+    # exists in this environment; the libgcc dir of this fixed-version build
+    # is known, and the test guards against the path drifting.
+    libgcc_dir="${PREFIX}/lib/gcc/${TRIPLE}/4.7.4"
+    test -e "${libgcc_dir}/libgcc.a"
     printf '*cc1_options:\n+ -fno-tree-ccp\n\n' > "${libgcc_dir}/specs"
 }

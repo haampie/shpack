@@ -10,181 +10,30 @@
 # Set constant umask
 umask 022
 
-# Get a list of files
-get_files() {
-    echo "."
-    _get_files "${1}"
-}
-
-_get_files() {
-    local prefix
-    prefix="${1}"
-    fs=
-    if [ -n "$(ls 2>/dev/null)" ]; then
-        fs=$(echo *)
-    fi
-    if [ -n "$(ls .[0-z]* 2>/dev/null)" ]; then
-        fs="${fs} $(echo .[0-z]*)"
-    fi
-    for f in ${fs}; do
-        # Archive symlinks to directories as symlinks
-        echo "${prefix}/${f}"
-        if [ -d "./${f}" ] && ! [ -h "./${f}" ]; then
-            cd "./${f}"
-            _get_files "${prefix}/${f}"
-            cd ..
-        fi
-    done
-}
-
-# Reset all timestamps to unix time 0
-reset_timestamp() {
-    if command -v find >/dev/null 2>&1; then
-        # find does not error out on exec error
-        find . -print0 | xargs -0 touch -h -t 197001010000.00
-    else
-        # A rudimentary find implementation that does the trick
-        fs=
-        if [ -n "$(ls 2>/dev/null)" ]; then
-            fs=$(echo ./*)
-        fi
-        if [ -n "$(ls .[0-z]* 2>/dev/null)" ]; then
-            fs="${fs} $(echo .[0-z]*)"
-        fi
-        for f in ${fs}; do
-            touch -h -t 197001010000.00 "./${f}"
-            if [ -d "./${f}" ]; then
-                cd "./${f}"
-                reset_timestamp
-                cd ..
-            fi
-        done
-    fi
-}
-
-# Fake grep
-_grep() {
-    local text="${1}"
-    local fname="${2}"
-    if command -v grep >/dev/null 2>&1; then
-        grep "${text}" "${fname}"
-    else
-        # shellcheck disable=SC2162
-        while read line; do
-            case "${line}" in *"${text}"*)
-                echo "${line}" ;;
-            esac
-        done < "${fname}"
-    fi
-}
-
 # Useful for perl extensions
 get_perl_version() {
     perl -v | sed -n -re 's/.*[ (]v([0-9\.]*)[ )].*/\1/p'
 }
 
-get_revision() {
-    local pkg=$1
-    local oldpwd="${PWD}"
-    cd "/external/repo"
-    # Get revision (n time this package has been built)
-    revision=$( (ls -1 "${pkg}"* 2>/dev/null || true) | wc -l | sed 's/ *//g')
-    cd "${oldpwd}"
-}
-
-# Installs binary packages from an earlier run
-# This is useful to speed up development cycle
-bin_preseed() {
-    if [ -d "/external/repo-preseeded" ]; then
-        get_revision "${pkg}"
-        cd "/external/repo-preseeded"
-        test -e "${pkg}_${revision}.tar.bz2" || return 1
-        if [ "${UPDATE_CHECKSUMS}" = "True" ] || src_checksum "${pkg}" $((revision)); then
-            echo "${pkg}: installing prebuilt package."
-            mv "${pkg}_${revision}.tar.bz2" /external/repo || return 1
-            cd "/external/repo"
-            rm -f /tmp/filelist.txt
-            src_apply "${pkg}" $((revision))
-            cd "${SRCDIR}"
-            return 0
-        fi
-    fi
-    return 1
-}
-
-# Removes either an existing package or file
-uninstall() {
-    local in_fs in_pkg symlinks
-    while [ $# -gt 0 ]; do
-        removing="$1"
-        case "${removing}" in
-            /*)
-                # Removing a file
-                echo "removing file: ${removing}."
-                rm -f "${removing}"
-                ;;
-            *)
-                echo "${removing}: uninstalling."
-                local oldpwd="${PWD}"
-                mkdir -p "/tmp/removing"
-                cd "/tmp/removing"
-                get_revision "${removing}"
-                local filename="/external/repo/${removing}_$((revision-1)).tar.bz2"
-                # Initial bzip2 built against meslibc has broken pipes
-                bzip2 -dc "${filename}" | tar -xf -
-                # reverse to have files before directories
-                if command -v find >/dev/null 2>&1; then
-                    find . | sort -r > ../filelist
-                else
-                    get_files . | tac > ../filelist
-                fi
-                # shellcheck disable=SC2162
-                while read file; do
-                    if [ -d "${file}" ]; then
-                        if [ -z "$(ls -A "/${file}")" ]; then
-                            rmdir "/${file}"
-                        fi
-                    elif [ -h "${file}" ]; then
-                        symlinks="${symlinks} ${file}"
-                    else
-                        # in some cases we might be uninstalling a file that has already been overwritten
-                        # in this case we don't want to remove it
-                        in_fs="$(sha256sum "${file}" 2>/dev/null | cut -d' ' -f1)"
-                        in_pkg="$(sha256sum "/${file}" 2>/dev/null | cut -d' ' -f1)"
-                        if [ "${in_fs}" = "${in_pkg}" ]; then
-                            rm -f "/${file}"
-                        fi
-                    fi
-                done < ../filelist
-                rm -f ../filelist
-                for link in ${symlinks}; do
-                    if [ ! -e "/${link}" ]; then
-                        rm -f "/${link}"
-                    fi
-                done
-                cd "${oldpwd}"
-                rm -rf "/tmp/removing"
-                ;;
-        esac
-        shift
-    done
-}
-
 # Common build steps
 # Build function provides a few common stages with default implementation
 # that can be overridden on per package basis in the build script.
-# build takes two arguments:
+# Every package installs into its own prefix ${PKGDIR}/<name-version>
+# (a Spack-style store); after a successful install the package's bin dir is
+# prepended to PATH so subsequent builds pick it up. Installed trees are not
+# checksummed here; verification is post-hoc (see IDEAS.md).
+# build takes three arguments:
 # 1) name-version of the package
-# 2) optionally specify build script. Default is pass$((revision+1)).sh
+# 2) optionally specify build script. Default is pass1.sh
 # 3) optionally specify directory to cd into
 build() {
     pkg=$1
-    get_revision "${pkg}"
-    script_name=${2:-pass$((revision+1)).sh}
+    script_name=${2:-pass1.sh}
     dirname=${3:-${pkg}}
 
-    # shellcheck disable=SC2015
-    bin_preseed && return || true # Normal build if preseed fails
+    # Per-package install prefix, visible to the sourced build script's src_*
+    # stages (configure --prefix, make install, dependency --with-* paths).
+    PREFIX="${PKGDIR}/${pkg}"
 
     cd "${SRCDIR}/${pkg}" || (echo "Cannot cd into ${pkg}!"; kill $$)
     echo "${pkg}: beginning build using script ${script_name}"
@@ -197,9 +46,12 @@ build() {
     mk_dir="${base_dir}/mk"
     files_dir="${base_dir}/files"
 
-    rm -rf "build"
-    mkdir "build"
-    cd "build"
+    # Stage in ${TMPDIR}/<name-version> (Spack-style scratch dir), keeping the
+    # recipe dir ${SRCDIR}/<name-version> read-only during the build.
+    build_dir="${TMPDIR}/${pkg}"
+    rm -rf "${build_dir}"
+    mkdir "${build_dir}"
+    cd "${build_dir}"
 
     build_script="${base_dir}/${script_name}"
     if test -e "${build_script}"; then
@@ -230,8 +82,8 @@ build() {
     build_stage=src_compile
     call $build_stage
 
-    echo "${pkg}: install to fakeroot."
-    mkdir -p "${DESTDIR}"
+    echo "${pkg}: installing to ${PREFIX}."
+    mkdir -p "${PREFIX}"
     build_stage=src_install
     call $build_stage
 
@@ -239,18 +91,16 @@ build() {
     build_stage=src_postprocess
     call $build_stage
 
-    echo "${pkg}: creating package."
-    cd "${DESTDIR}"
-    src_pkg
-
-    src_checksum "${pkg}" "${revision}"
-
     echo "${pkg}: cleaning up."
-    rm -rf "${SRCDIR}/${pkg}/build"
-    rm -rf "${DESTDIR}"
+    # Step out of the build tree before deleting it (rm refuses to operate
+    # from a working directory it cannot return to).
+    cd "${SRCDIR}"
+    rm -rf "${build_dir}"
 
-    echo "${pkg}: installing package."
-    src_apply "${pkg}" "${revision}"
+    # Make the new package available to subsequent builds.
+    if [ -d "${PREFIX}/bin" ]; then
+        export PATH="${PREFIX}/bin:${PATH}"
+    fi
 
     echo "${pkg}: build successful"
 
@@ -391,7 +241,7 @@ extract_file() {
 # Default unpacking function that unpacks all sources.
 default_src_unpack() {
     # Handle the first one differently
-    first_line=$(head -n 1 ../sources)
+    first_line=$(head -n 1 "${base_dir}/sources")
     # Again, we want to split out into words.
     # shellcheck disable=SC2086
     source_line_action extract_file ${first_line}
@@ -410,7 +260,7 @@ default_src_unpack() {
         dirname=.
     fi
     # shellcheck disable=SC2162
-    tail -n +2 ../sources | while read line; do
+    tail -n +2 "${base_dir}/sources" | while read line; do
         # shellcheck disable=SC2086
         source_line_action extract_file ${line}
     done
@@ -453,7 +303,7 @@ default_src_compile() {
 # Default installing function. PREFIX should be set by run.sh script.
 # Note that upstream makefiles might ignore PREFIX and have to be configured in configure stage.
 default_src_install() {
-    make -f Makefile install PREFIX="${PREFIX}" DESTDIR="${DESTDIR}"
+    make -f Makefile install PREFIX="${PREFIX}"
 }
 
 # Helper function for permissions
@@ -477,7 +327,7 @@ default_src_postprocess() {
     if (command -v find && command -v file && command -v strip) >/dev/null 2>&1; then
         # Logic largely taken from void linux 06-strip-and-debug-pkgs.sh
         # shellcheck disable=SC2162
-        find "${DESTDIR}" -type f | while read f; do
+        find "${PREFIX}" -type f | while read f; do
             case "$(file -bi "${f}")" in
                 application/x-executable*) _do_strip "${f}" ;;
                 application/x-sharedlib*|application/x-pie-executable*)
@@ -491,72 +341,6 @@ default_src_postprocess() {
             esac
         done
     fi
-}
-
-src_pkg() {
-    touch -t 197001010000.00 .
-    reset_timestamp
-
-    local tar_basename="${pkg}_${revision}.tar"
-    local dest_tar="/external/repo/${tar_basename}"
-
-    # Use basic tar-1.12 compatible flags: no --sort, --owner, --group or --mode.
-    # We're running unprivileged in bwrap so ownership normalisation isn't needed.
-    cd "${DESTDIR}"
-    tar -cf "${dest_tar}" .
-    cd /external/repo
-    touch -t 197001010000.00 "${tar_basename}"
-    bzip2 --best "${tar_basename}"
-}
-
-src_checksum() {
-    local pkg=$1 revision=$2
-    local rval=0
-    if ! [ "$UPDATE_CHECKSUMS" = True ] ; then
-        # We avoid using pipes as that is not supported by initial sha256sum from mescc-tools-extra
-        local checksum_file=/tmp/checksum
-        _grep "${pkg}_${revision}.tar.bz2" "${SRCDIR}/SHA256SUMS.pkgs" > "${checksum_file}" || true
-        # Check there is something in checksum_file
-        if ! [ -s "${checksum_file}" ]; then
-            echo "${pkg}: no checksum stored yet, skipping verification."
-            rm -f "${checksum_file}"
-            return 0
-        fi
-        echo "${pkg}: checksumming created package."
-        sha256sum -c "${checksum_file}" || rval=$?
-        rm "${checksum_file}"
-    fi
-    return "${rval}"
-}
-
-src_apply() {
-    local pkg="${1}" revision="${2}"
-    local TAR_PREFIX BZIP2_PREFIX
-
-    # Make sure we have at least one copy of tar
-    case "${pkg}" in tar-*)
-        mkdir -p /tmp
-        cp "${PREFIX}/bin/tar" "/tmp/tar"
-        TAR_PREFIX="/tmp/"
-    esac
-
-    # Overwriting files is mega busted, so do it manually. The list is
-    # NUL-separated; dash's read has no -d, so translate to newlines first.
-    if [ -e /tmp/filelist.txt ]; then
-        tr '\0' '\n' < /tmp/filelist.txt | while IFS= read -r file; do
-            rm -f "/${file}" >/dev/null 2>&1 || true
-        done
-    fi
-
-    # Bzip2 does not like to be overwritten
-    case "${pkg}" in bzip2-*)
-        mkdir -p /tmp
-        mv "${PREFIX}/bin/bzip2" "/tmp/bzip2"
-        BZIP2_PREFIX="/tmp/"
-    esac
-    "${BZIP2_PREFIX}bzip2" -dc "/external/repo/${pkg}_${revision}.tar.bz2" | \
-        "${TAR_PREFIX}tar" -C / -xpf -
-    rm -f "/tmp/bzip2" "/tmp/tar"
 }
 
 # Check if a shell function exists. dash has no `type -t`; for a function,

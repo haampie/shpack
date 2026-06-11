@@ -157,7 +157,6 @@ subst target/bootstrap.cfg rootfs/steps/bootstrap.cfg
 
 mkdir -p rootfs/external
 cp -r distfiles rootfs/external/
-mkdir -p rootfs/external/repo
 
 # --- Execute the bootstrap -----------------------------------------------
 # Run rootfs as / via rootless bubblewrap (default), or the original sudo chroot
@@ -175,3 +174,17 @@ case "$RUNNER" in
     chroot) sudo chroot --userspec=$(id -u):$(id -g) rootfs "$SEED" kaem.${ARCH} ;;
     *)      echo "unknown RUNNER: $RUNNER (use bwrap or chroot)" >&2; exit 1 ;;
 esac
+
+# With UPDATE_CHECKSUMS=True the in-chroot scripts rewrite (sha256sum -o) the
+# per-arch checksum files instead of verifying them. Those land inside rootfs/
+# (seed.kaem writes the configurator/script-generator ones at the rootfs root;
+# each steps/<pkg>/pass*.kaem copies its own into SRCDIR=/steps/<pkg>) and would
+# be wiped by the next build, so copy the freshly-generated values back into the
+# committed source tree.
+if [ "x${UPDATE_CHECKSUMS}" = xTrue ]; then
+    cp -f rootfs/configurator.${ARCH}.checksums     target/configurator.${ARCH}.checksums
+    cp -f rootfs/script-generator.${ARCH}.checksums target/script-generator.${ARCH}.checksums
+    for f in rootfs/steps/*/*.${ARCH}.checksums; do
+        [ -e "$f" ] && cp -f "$f" "steps/${f#rootfs/steps/}"
+    done
+fi

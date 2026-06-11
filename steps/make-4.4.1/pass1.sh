@@ -52,8 +52,8 @@ src_compile() {
 }
 
 src_install() {
-    mkdir -p "${DESTDIR}${PREFIX}/bin"
+    mkdir -p "${PREFIX}/bin"
     # Overwrite make-3.82 with 4.4.1; keep a gmake alias.
-    cp make "${DESTDIR}${PREFIX}/bin/make"
-    ln -sf make "${DESTDIR}${PREFIX}/bin/gmake"
+    cp make "${PREFIX}/bin/make"
+    ln -sf make "${PREFIX}/bin/gmake"
 }

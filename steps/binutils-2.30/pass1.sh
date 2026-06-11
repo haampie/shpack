@@ -44,9 +44,9 @@ src_configure() {
 }
 
 src_compile() {
-    make "${MAKEJOBS}" MAKEINFO=true "M4=${PREFIX}/bin/m4"
+    make "${MAKEJOBS}" MAKEINFO=true "M4=${PKGDIR}/m4-1.4.7/bin/m4"
 }
 
 src_install() {
-    make install MAKEINFO=true "M4=${PREFIX}/bin/m4" DESTDIR="${DESTDIR}"
+    make install MAKEINFO=true "M4=${PKGDIR}/m4-1.4.7/bin/m4"
 }

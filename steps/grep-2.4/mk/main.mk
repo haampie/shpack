@@ -28,6 +28,6 @@ grep: $(GREP_OBJECTS)
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 install: all
-	install -D grep $(DESTDIR)$(PREFIX)/bin/grep
-	ln -sf $(PREFIX)/bin/grep $(DESTDIR)$(PREFIX)/bin/egrep
-	ln -sf $(PREFIX)/bin/grep $(DESTDIR)$(PREFIX)/bin/fgrep
+	install -D grep $(PREFIX)/bin/grep
+	ln -sf $(PREFIX)/bin/grep $(PREFIX)/bin/egrep
+	ln -sf $(PREFIX)/bin/grep $(PREFIX)/bin/fgrep

@@ -15,8 +15,8 @@ src_configure() {
         --prefix="${PREFIX}" \
         --build="${TRIPLE}" \
         --host="${TRIPLE}" \
-        --with-gmp="${PREFIX}" \
-        --with-mpfr="${PREFIX}" \
+        --with-gmp="${PKGDIR}/gmp-4.3.2" \
+        --with-mpfr="${PKGDIR}/mpfr-2.4.2" \
         --enable-static \
         --disable-shared
 }
@@ -26,5 +26,5 @@ src_compile() {
 }
 
 src_install() {
-    make install DESTDIR="${DESTDIR}"
+    make install
 }
