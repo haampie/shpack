@@ -5,7 +5,7 @@
 DISTFILES=/external/distfiles
 PREFIX=/usr
 BINDIR=${PREFIX}/bin
-LIBDIR=${PREFIX}/lib/tcc
-INCDIR=${PREFIX}/include/tcc
+LIBDIR=${PREFIX}/lib
+INCDIR=${PREFIX}/include
 SRCDIR=/steps
 TMPDIR=/tmp

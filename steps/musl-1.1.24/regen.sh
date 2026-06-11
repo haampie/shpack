@@ -8,12 +8,14 @@
 #       musl's three generated headers for the arch (the chroot has no sed/awk).
 #       alltypes.h carries the __musl_va_list_t form from the va_list patch.
 #       (<arch> is the chroot-facing name: amd64 / aarch64.)
-#   sysinclude.tar
-#       ONE combined, flat, merged PUBLIC header set with per-arch subtrees
-#       amd64/<headers> and aarch64/<headers>, untarred into tcc's include dir in
-#       the chroot (the in-chroot `cp` has no -r, so the bits/ overlay -- generic
-#       then arch then generated -- is flattened here once). Headers only; the
-#       musl *sources* are never repackaged (pristine tarball is the distfile).
+#   sysinclude-<arch>.tar  (one per arch: sysinclude-amd64.tar, sysinclude-aarch64.tar)
+#       A FLAT, merged PUBLIC header set per arch (stdio.h etc. at the top, no arch
+#       prefix), untarred straight into /usr/include in the chroot -- the standard
+#       system header dir gcc and every ./configure expect. One tar per arch because
+#       the two arches' bits/ headers differ and can't share one flat tree; the
+#       in-chroot `cp` has no -r, so the bits/ overlay -- generic then arch then
+#       generated -- is flattened here once. Headers only; the musl *sources* are
+#       never repackaged (pristine tarball is the distfile).
 #       The header set needs NO cross-toolchain (only `make -n` below does), so
 #       BOTH arch subtrees are always rebuilt here -- a single regen produces the
 #       complete combined tar regardless of which ARCH is passed.
@@ -93,7 +95,11 @@ stage_headers() {  # $1=musl-arch  $2=out_dir  $3=patched-tree
     sed -n 's/__NR_/SYS_/p' "$t/arch/$a/bits/syscall.h.in" >> "$d/bits/syscall.h"
 }
 
-echo "== sysinclude.tar (combined flat public headers: amd64 + aarch64) =="
+echo "== sysinclude-<arch>.tar (per-arch FLAT public headers) =="
+# One tar per arch, each FLAT (stdio.h at top, no arch prefix), so the kaem step
+# untars it straight into /usr/include -- the standard system header dir gcc and
+# every ./configure expect. (A single combined tar would force an amd64/ subdir,
+# and the two arches' bits/ headers differ, so they can't share one flat tree.)
 rm -rf "$STAGE"; mkdir -p "$STAGE"
 # Reuse $W/patched for whichever arch matches; build a fresh tree for the other.
 for a in x86_64 aarch64; do
@@ -105,11 +111,11 @@ for a in x86_64 aarch64; do
         patch_tree "$a" "$t"
     fi
     stage_headers "$a" "$o" "$t"
+    # Reproducible tar (fixed mtime/owner, sorted names) so re-runs are byte-stable.
+    ( cd "$STAGE/$o" && find . -type f | LC_ALL=C sort | sed 's#^\./##' \
+        | tar --format=ustar --mtime=@0 --owner=0 --group=0 --numeric-owner \
+              -cf "$HERE/sysinclude-$o.tar" -T - )
 done
-# Reproducible tar (fixed mtime/owner, sorted names) so re-runs are byte-stable.
-( cd "$STAGE" && find . -type f | LC_ALL=C sort | sed 's#^\./##' \
-    | tar --format=ustar --mtime=@0 --owner=0 --group=0 --numeric-owner \
-          -cf "$HERE/sysinclude.tar" -T - )
 
 echo "== full source list (make -n; complex + arch-asm math removed first) =="
 # Remove src/complex (tcc can't parse _Complex) and the arch asm math shims so

@@ -84,10 +84,24 @@ if match ${ARCH} aarch64; then
     tcc -c -o ${LIBDIR}/crtn.o crt/aarch64/crtn.c
 fi
 
-# Reinstall the full public header set into tcc's system-include dir (the tcc
-# step already merged it; harmless to refresh against the final libc).
+# musl folds libm, librt, libpthread, libdl, libutil, libresolv, libxnet and
+# libcrypt into libc.a, but tcc and ld still need the named archives to satisfy
+# -lm/-lpthread/etc. (gcc's build-time generators link -lm). Create stub archives
+# next to libc.a; the real symbols resolve from libc.a, these only need to exist.
+tcc -c ${MSRC}/libstub.c -o ${TMPDIR}/libstub.o
+tcc -ar rc ${LIBDIR}/libm.a ${TMPDIR}/libstub.o
+tcc -ar rc ${LIBDIR}/libpthread.a ${TMPDIR}/libstub.o
+tcc -ar rc ${LIBDIR}/librt.a ${TMPDIR}/libstub.o
+tcc -ar rc ${LIBDIR}/libdl.a ${TMPDIR}/libstub.o
+tcc -ar rc ${LIBDIR}/libutil.a ${TMPDIR}/libstub.o
+tcc -ar rc ${LIBDIR}/libresolv.a ${TMPDIR}/libstub.o
+tcc -ar rc ${LIBDIR}/libxnet.a ${TMPDIR}/libstub.o
+tcc -ar rc ${LIBDIR}/libcrypt.a ${TMPDIR}/libstub.o
+
+# Reinstall the full public header set into the standard system-include dir
+# (${INCDIR} == /usr/include; the tcc step already merged it -- harmless refresh).
 cd ${INCDIR}
-untar --non-strict --file ${MSRC}/sysinclude.tar
+untar --non-strict --file ${MSRC}/sysinclude-${ARCH}.tar
 
 # Smoke test: link hello-float.c against the full libc + real startfiles and run
 # it. A nonzero exit (or a failed link) aborts kaem. %f correctness itself was

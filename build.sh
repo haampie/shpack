@@ -42,6 +42,11 @@ case "$ARCH" in
         ;;
 esac
 
+# Parallelism for the shell-phase package builds (make -j${JOBS}). The kaem phase
+# (tcc/musl) is serial regardless. Defaults to the host core count; override with
+# JOBS=N ./build.sh ...
+JOBS="${JOBS:-$(nproc 2>/dev/null || echo 1)}"
+
 # The kaem scripts and bootstrap.cfg in target/ are shared between arches;
 # instantiate them by replacing the @ARCH@/@S0ARCH@/@TCC_ARCH_FLAG@ tokens.
 # (Host sed, like the host cp/mkdir used below, is part of the staging step,
@@ -50,6 +55,7 @@ subst() {
     sed -e "s|@ARCH@|${ARCH}|g" \
         -e "s|@S0ARCH@|${S0ARCH}|g" \
         -e "s|@TCC_ARCH_FLAG@|${TCC_ARCH_FLAG}|g" \
+        -e "s|@JOBS@|${JOBS}|g" \
         "$1" > "$2"
 }
 
@@ -151,6 +157,7 @@ subst target/bootstrap.cfg rootfs/steps/bootstrap.cfg
 
 mkdir -p rootfs/external
 cp -r distfiles rootfs/external/
+mkdir -p rootfs/external/repo
 
 # --- Execute the bootstrap -----------------------------------------------
 # Run rootfs as / via rootless bubblewrap (default), or the original sudo chroot

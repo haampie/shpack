@@ -1,0 +1,62 @@
+From 27170acd63219698aa572d4143f71ad7d0ad757d Mon Sep 17 00:00:00 2001
+From: Harmen Stoppels <harmen@stoppels.ch>
+Date: Tue, 2 Jun 2026 07:31:39 +0200
+Subject: [PATCH] 0001: libiberty rename C_alloca -> alloca (musl/tcc compat)
+
+Same as Guix fix-alloca. include/libiberty.h + libiberty/alloca.c.
+---
+ include/libiberty.h | 4 ++--
+ libiberty/alloca.c  | 6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/include/libiberty.h b/include/libiberty.h
+index cacde800e..b24458863 100644
+--- a/include/libiberty.h
++++ b/include/libiberty.h
+@@ -652,7 +652,7 @@ extern void stack_limit_increase (unsigned long);
+    USE_C_ALLOCA yourself.  The canonical autoconf macro C_ALLOCA is
+    also set/unset as it is often used to indicate whether code needs
+    to call alloca(0).  */
+-extern void *C_alloca (size_t) ATTRIBUTE_MALLOC;
++extern void *alloca (size_t) ATTRIBUTE_MALLOC;
+ #undef alloca
+ #if GCC_VERSION >= 2000 && !defined USE_C_ALLOCA
+ # define alloca(x) __builtin_alloca(x)
+@@ -663,7 +663,7 @@ extern void *C_alloca (size_t) ATTRIBUTE_MALLOC;
+    char *const libiberty_nptr = (char *const) alloca (libiberty_len); \
+    (char *) memcpy (libiberty_nptr, libiberty_optr, libiberty_len); }))
+ #else
+-# define alloca(x) C_alloca(x)
++# define alloca(x) alloca(x)
+ # undef USE_C_ALLOCA
+ # define USE_C_ALLOCA 1
+ # undef C_ALLOCA
+diff --git a/libiberty/alloca.c b/libiberty/alloca.c
+index 9b2e9cb12..0d818caf3 100644
+--- a/libiberty/alloca.c
++++ b/libiberty/alloca.c
+@@ -56,7 +56,7 @@ the possibility of a GCC built-in function.
+ #endif
+ 
+ /* These variables are used by the ASTRDUP implementation that relies
+-   on C_alloca.  */
++   on alloca.  */
+ #ifdef __cplusplus
+ extern "C" {
+ #endif /* __cplusplus */
+@@ -156,10 +156,10 @@ static header *last_alloca_header = NULL;	/* -> last alloca header.  */
+    caller, but that method cannot be made to work for some
+    implementations of C, for example under Gould's UTX/32.  */
+ 
+-/* @undocumented C_alloca */
++/* @undocumented alloca */
+ 
+ PTR
+-C_alloca (size_t size)
++alloca (size_t size)
+ {
+   auto char probe;		/* Probes stack depth: */
+   register char *depth = ADDRESS_FUNCTION (probe);
+-- 
+2.43.0
+

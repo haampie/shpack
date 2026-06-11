@@ -20,8 +20,8 @@
 #   eg, uninstall: /usr/bin/lex /usr/bin/flex
 #
 # The following directives have special significance:
-# - build directives beginning with "bash" (as well as jumps) trigger the generation of
-#   a new script
+# - build directives beginning with "dash" (the first shell; as well as jumps)
+#   trigger the generation of a new script
 # - the first improve directive containing "network" is used by generator.py to deduce
 #   what source files need to be downloaded in advance (files referenced after that will
 #   be downloaded during bootstrap, unless --external-sources is given)
@@ -40,7 +40,10 @@ build: musl-1.1.24
 
 # Core userland, built by the production tcc against full musl (live-bootstrap's
 # post-tcc kaem phase). make first (needs only tcc + mescc-tools), then patch
-# (every later package applies real unified diffs), up to a working /bin/bash.
+# (every later package applies real unified diffs), up to a working /bin/sh.
+# dash is the LAST kaem-phase package and becomes /bin/sh; the script-generator
+# splits a new (shell) script at the "dash-" prefix, so everything after dash
+# runs under dash instead of kaem.
 build: make-3.82
 build: patch-2.5.9
 build: gzip-1.2.4
@@ -49,5 +52,37 @@ build: sed-4.0.9
 build: bzip2-1.0.8
 build: coreutils-5.0
 build: oyacc-6.6
-build: bash-2.05b
+build: dash-0.5.12
+
+# Set up the post-shell build infrastructure (repo dir, DESTDIR, MAKEJOBS).
+improve: setup_repo
+improve: update_env
+
+# Basic Unix utilities, all compiled by TCC 0.9.27 against musl 1.1.24.
+# Skips the live-bootstrap perl+autoconf+automake chain entirely — we use
+# tarballs with pre-generated configure scripts so none of that is needed.
+# These build under the bootstrap make-3.82 and provide grep/sed/gawk that
+# make-4.4.1's configure (next) needs.
+build: grep-2.4
+build: m4-1.4.7
+build: diffutils-2.7
+build: gawk-3.0.4
+
+# Replace bootstrap make-3.82 with make-4.4.1: fixes 3.82's parallel-build
+# races and adds the robust fifo jobserver, so the heavy steps below
+# (binutils/gmp/mpfr/mpc/gcc) build correctly in parallel. Built under dash with
+# its bundled ./build.sh (shell + tcc only, no make-to-build-make).
+build: make-4.4.1
+
+# Toolchain for GCC: assembler/linker first, then GCC's arithmetic prerequisites.
+# All compiled by TCC 0.9.27 against musl. No autoconf/automake chain needed —
+# these tarballs ship pre-generated configure scripts.
+build: binutils-2.30
+build: gmp-4.3.2
+build: mpfr-2.4.2
+build: mpc-1.0.3
+
+# First real C compiler: GCC 4.7 Linaro (native aarch64/amd64, C only).
+# Linaro 4.7-2013.11 is used because FSF GCC 4.7 lacks native aarch64 support.
+build: gcc-linaro-4.7-2013.11
 

@@ -405,19 +405,12 @@ FILE *start_script(int id, int bash_build) {
 	}
 
 	if (bash_build) {
-		fputs("#!/bin/bash\n", out);
-		if (strcmp(get_var("INTERACTIVE"), "True") == 0) {
-			if (bash_build != 1) {
-				fputs("set -eEo pipefail\ntrap 'env PS1=\"[TRAP] \\w # \" bash -i' ERR\n", out);
-			} else {
-				/* FIXME early bash has buggy ERR trap handling */
-				fputs("set -e\ntrap 'bash -c '\"'\"'while true; do printf \""
-				"[TRAP - use Ctrl+D] $(pwd) # \"; eval \"$(cat)\"; done'\"'\"'' EXIT\n",
-				out);
-			}
-		} else {
-			fputs("set -e\n", out);
-		}
+		/* "bash_build" is a historical name: it just means the shell phase.
+		 * The shell is now dash, so the generated scripts are #!/bin/sh. dash
+		 * has no bash-style interactive ERR/EXIT debug trap, so the old
+		 * INTERACTIVE drop-into-a-shell feature is gone; we always set -e. */
+		fputs("#!/bin/sh\n", out);
+		fputs("set -e\n", out);
 		fputs("cd /steps\n", out);
 		fputs(". ./bootstrap.cfg\n", out);
 		fputs(". ./env\n", out);
@@ -447,7 +440,7 @@ void output_call_script(FILE *out, char *type, char *name, int bash_build, int s
 		if (source) {
 			fputs(". ", out);
 		} else {
-			fputs("bash ", out);
+			fputs("sh ", out);
 		}
 	} else {
 		fputs("kaem --file ", out);
@@ -480,7 +473,7 @@ void generate_preseed_jump(int id) {
 	FILE *out = fopen("/preseed-jump.kaem", "w");
 	fputs("set -ex\n", out);
 	fputs("PATH=/usr/bin\n", out);
-	fprintf(out, "bash /steps/%d.sh\n", id);
+	fprintf(out, "sh /steps/%d.sh\n", id);
 	fclose(out);
 }
 
@@ -490,12 +483,12 @@ void generate(Directive *directives) {
 	 * smaller scripts. The following conditions call for the creation of
 	 * a new script:
 	 * - a jump
-	 * - build of bash
+	 * - build of dash (the first shell)
 	 */
 
 	int counter = 0;
 
-	/* Initially, we use kaem, not bash. */
+	/* Initially, we use kaem, not a shell. */
 	int bash_build = 0;
 
 	FILE *out = start_script(counter, bash_build);
@@ -515,11 +508,12 @@ void generate(Directive *directives) {
 				}
 			}
 			output_build(out, directive, pass_no, bash_build);
-			if (strncmp(directive->arg, "bash-", 5) == 0) {
+			if (strncmp(directive->arg, "dash-", 5) == 0) {
 				if (!bash_build) {
 					/*
-					 * We are transitioning from bash to kaem, the point at which "early
-					 * preseed" occurs. So generate the preseed jump script at this point.
+					 * We are transitioning from kaem to the shell (dash), the point at
+					 * which "early preseed" occurs. So generate the preseed jump script
+					 * at this point.
 					 */
 					generate_preseed_jump(counter);
 				}
@@ -567,7 +561,7 @@ void generate(Directive *directives) {
 					fputs("Error opening /init\n", stderr);
 					exit(1);
 				}
-				fputs("#!/bin/bash\n", out);
+				fputs("#!/bin/sh\n", out);
 			} else {
 				out = fopen(filename, "w");
 				if (out == NULL) {

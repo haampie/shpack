@@ -80,7 +80,7 @@ CFLAGS  = -I . -I lib \
 
 SRC_DIR=src
 
-COREUTILS = basename cat chmod cksum csplit cut dirname echo expand expr factor false fmt fold head hostname id join kill link ln logname mkfifo mkdir mknod nl od paste pathchk pr printf ptx pwd readlink rmdir seq sleep sort split sum tail tee tr tsort unexpand uniq unlink wc whoami tac test touch true yes
+COREUTILS = basename cat chmod cksum csplit cut dirname echo env expand expr factor false fmt fold head hostname id join kill link ln logname mkfifo mkdir mknod nl od paste pathchk pr printf ptx pwd readlink rmdir seq sleep sort split sum tail tee tr tsort unexpand uniq unlink wc whoami tac test touch true yes
 
 BINARIES = $(addprefix $(SRC_DIR)/, $(COREUTILS))
 

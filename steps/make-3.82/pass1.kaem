@@ -35,8 +35,13 @@ tcc -c -I. -DHAVE_INTTYPES_H -DHAVE_SA_RESTART expand.c
 tcc -c -I. -DHAVE_INTTYPES_H -DHAVE_SA_RESTART -DFILE_TIMESTAMP_HI_RES=0 file.c
 tcc -c -I. -DHAVE_INTTYPES_H -DHAVE_SA_RESTART -Dvfork=fork function.c
 tcc -c -I. -DHAVE_INTTYPES_H -DHAVE_SA_RESTART implicit.c
-tcc -c -I. -DHAVE_INTTYPES_H -DHAVE_SA_RESTART -DHAVE_DUP2 -DHAVE_STRCHR -Dvfork=fork job.c
-tcc -c -I. -DHAVE_INTTYPES_H -DHAVE_SA_RESTART -DLOCALEDIR=\"/fake-locale\" -DPACKAGE=\"fake-make\" -DHAVE_MKTEMP -DHAVE_GETCWD main.c
+# MAKE_JOBSERVER enables make's recursive -j coordination (the pipe + the
+# --jobserver-fds it passes to sub-makes). Without it, every recursive $(MAKE)
+# runs -j1, so heavily-recursive builds (gcc!) go fully serial. The jobserver
+# needs non-blocking child reaping: WAIT_NOHANG via waitpid(WNOHANG) (HAVE_WAITPID
+# + <sys/wait.h> via HAVE_SYS_WAIT_H) -- all present in musl.
+tcc -c -I. -DHAVE_INTTYPES_H -DHAVE_SA_RESTART -DHAVE_DUP2 -DHAVE_STRCHR -DMAKE_JOBSERVER -DHAVE_WAITPID -DHAVE_SYS_WAIT_H -Dvfork=fork job.c
+tcc -c -I. -DHAVE_INTTYPES_H -DHAVE_SA_RESTART -DLOCALEDIR=\"/fake-locale\" -DPACKAGE=\"fake-make\" -DHAVE_MKTEMP -DHAVE_GETCWD -DMAKE_JOBSERVER -DHAVE_WAITPID -DHAVE_SYS_WAIT_H main.c
 tcc -c -I. -DHAVE_INTTYPES_H -DHAVE_SA_RESTART -DHAVE_STRERROR -DHAVE_VPRINTF -DHAVE_ANSI_COMPILER -DHAVE_STDARG_H misc.c
 tcc -c -I. -Iglob -DHAVE_INTTYPES_H -DHAVE_SA_RESTART -DINCLUDEDIR=\"${PREFIX}/include\" read.c
 tcc -c -I. -DHAVE_INTTYPES_H -DHAVE_SA_RESTART -DFILE_TIMESTAMP_HI_RES=0 -DHAVE_FCNTL_H -DLIBDIR=\"${PREFIX}/lib\" remake.c

@@ -1,0 +1,84 @@
+From 42e6e54fdff4663b82dccd2afa12fd32ce93fbcf Mon Sep 17 00:00:00 2001
+From: Harmen Stoppels <harmen@stoppels.ch>
+Date: Sun, 31 May 2026 21:54:52 +0200
+Subject: [PATCH 2/2] bfd/elfnn-aarch64.c: hoist #if/#else out of HOWTO args
+ (tcc 0.9.26 workaround)
+
+tcc 0.9.26 cannot expand a macro call whose argument list contains
+at the first directive and drops the rest. The three TLS HOWTOs
+(DTPMOD/DTPREL/TPREL) select their name string via an in-args #if,
+so the resulting initializer is malformed (bare "64," tokens leak
+into the array). Move the name-string choice into helper macros
+defined once at the top of the file.xxx
+
+Signed-off-by: Harmen Stoppels <harmen@stoppels.ch>
+---
+ bfd/elfnn-aarch64.c | 31 ++++++++++++++++---------------
+ 1 file changed, 16 insertions(+), 15 deletions(-)
+
+diff --git a/bfd/elfnn-aarch64.c b/bfd/elfnn-aarch64.c
+index d5711e0e..dafb389f 100644
+--- a/bfd/elfnn-aarch64.c
++++ b/bfd/elfnn-aarch64.c
+@@ -167,6 +167,19 @@
+ #define R_AARCH64_P32_TLSDESC_ADD_LO12		R_AARCH64_P32_TLSDESC_ADD_LO12_NC
+ #endif
+ 
++/* tcc 0.9.26 cannot handle #if/#else/#endif inside a macro argument list,
++   so the conditional name string for the three TLS HOWTOs is hoisted into
++   plain macros instead.  */
++#if ARCH_SIZE == 64
++#define AARCH64_NAME_TLS_DTPMOD AARCH64_R_STR (TLS_DTPMOD64)
++#define AARCH64_NAME_TLS_DTPREL AARCH64_R_STR (TLS_DTPREL64)
++#define AARCH64_NAME_TLS_TPREL  AARCH64_R_STR (TLS_TPREL64)
++#else
++#define AARCH64_NAME_TLS_DTPMOD AARCH64_R_STR (TLS_DTPMOD)
++#define AARCH64_NAME_TLS_DTPREL AARCH64_R_STR (TLS_DTPREL)
++#define AARCH64_NAME_TLS_TPREL  AARCH64_R_STR (TLS_TPREL)
++#endif
++
+ #define IS_AARCH64_TLS_RELOC(R_TYPE)				\
+   ((R_TYPE) == BFD_RELOC_AARCH64_TLSGD_ADD_LO12_NC		\
+    || (R_TYPE) == BFD_RELOC_AARCH64_TLSGD_ADR_PAGE21		\
+@@ -1750,11 +1763,7 @@ static reloc_howto_type elfNN_aarch64_howto_table[] =
+ 	 0,			/* bitpos */
+ 	 complain_overflow_dont,	/* complain_on_overflow */
+ 	 bfd_elf_generic_reloc,	/* special_function */
+-#if ARCH_SIZE == 64
+-	 AARCH64_R_STR (TLS_DTPMOD64),	/* name */
+-#else
+-	 AARCH64_R_STR (TLS_DTPMOD),	/* name */
+-#endif
++	 AARCH64_NAME_TLS_DTPMOD,	/* name */
+ 	 FALSE,			/* partial_inplace */
+ 	 0,			/* src_mask */
+ 	 ALL_ONES,		/* dst_mask */
+@@ -1768,11 +1777,7 @@ static reloc_howto_type elfNN_aarch64_howto_table[] =
+ 	 0,			/* bitpos */
+ 	 complain_overflow_dont,	/* complain_on_overflow */
+ 	 bfd_elf_generic_reloc,	/* special_function */
+-#if ARCH_SIZE == 64
+-	 AARCH64_R_STR (TLS_DTPREL64),	/* name */
+-#else
+-	 AARCH64_R_STR (TLS_DTPREL),	/* name */
+-#endif
++	 AARCH64_NAME_TLS_DTPREL,	/* name */
+ 	 FALSE,			/* partial_inplace */
+ 	 0,			/* src_mask */
+ 	 ALL_ONES,		/* dst_mask */
+@@ -1786,11 +1791,7 @@ static reloc_howto_type elfNN_aarch64_howto_table[] =
+ 	 0,			/* bitpos */
+ 	 complain_overflow_dont,	/* complain_on_overflow */
+ 	 bfd_elf_generic_reloc,	/* special_function */
+-#if ARCH_SIZE == 64
+-	 AARCH64_R_STR (TLS_TPREL64),	/* name */
+-#else
+-	 AARCH64_R_STR (TLS_TPREL),	/* name */
+-#endif
++	 AARCH64_NAME_TLS_TPREL,	/* name */
+ 	 FALSE,			/* partial_inplace */
+ 	 0,			/* src_mask */
+ 	 ALL_ONES,		/* dst_mask */
+-- 
+2.43.0
+
