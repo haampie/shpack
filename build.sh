@@ -146,6 +146,19 @@ subst target/bootstrap.cfg rootfs/steps/bootstrap.cfg
 mkdir -p rootfs/external
 cp -r distfiles rootfs/external/
 
-# --- Execute in chroot ---------------------------------------------------
-sudo chroot --userspec=$(id -u):$(id -g) rootfs \
-    /bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed kaem.${ARCH}
+# --- Execute the bootstrap -----------------------------------------------
+# Run rootfs as / via rootless bubblewrap (default), or the original sudo chroot
+# (RUNNER=chroot, or when bwrap is missing). Both run as the real, non-root uid:
+# nothing in the chain needs privilege, and staying non-root keeps GNU tar from
+# trying to restore archive ownership (which fails in bwrap's single-uid userns).
+# aarch64 relies on the qemu-aarch64 binfmt handler being registered with the F
+# flag, so it fires inside the namespace without qemu present in rootfs.
+SEED=/bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed
+RUNNER="${RUNNER:-$(command -v bwrap >/dev/null 2>&1 && echo bwrap || echo chroot)}"
+
+case "$RUNNER" in
+    bwrap)  bwrap --unshare-all --bind rootfs / --dev /dev --proc /proc --chdir / \
+                "$SEED" kaem.${ARCH} ;;
+    chroot) sudo chroot --userspec=$(id -u):$(id -g) rootfs "$SEED" kaem.${ARCH} ;;
+    *)      echo "unknown RUNNER: $RUNNER (use bwrap or chroot)" >&2; exit 1 ;;
+esac
