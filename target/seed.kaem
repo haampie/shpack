@@ -2,7 +2,7 @@
 
 set -ex
 
-PATH=/usr/bin
+PATH=@SEED_PATH@
 
 tcc_cc @TCC_ARCH_FLAG@ -o /tmp/configurator.sl64 /src/stdlib.c /src/configurator.c
 stack_c -i /@ARCH@/stack_c_intro.M1 /tmp/configurator.sl64 -o /tmp/configurator.M1

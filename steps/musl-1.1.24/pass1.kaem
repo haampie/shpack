@@ -99,7 +99,7 @@ tcc -ar rc ${LIBDIR}/libxnet.a ${TMPDIR}/libstub.o
 tcc -ar rc ${LIBDIR}/libcrypt.a ${TMPDIR}/libstub.o
 
 # Reinstall the full public header set into the standard system-include dir
-# (${INCDIR} == /usr/include; the tcc step already merged it -- harmless refresh).
+# (${INCDIR} == /opt/musl-1.1.24/include; the tcc step already merged it -- harmless refresh).
 cd ${INCDIR}
 untar --non-strict --file ${MSRC}/sysinclude-${ARCH}.tar
 

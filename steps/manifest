@@ -61,7 +61,7 @@ build: dash-0.5.12
 # IDEAS.md: Landlock write isolation + store hashing outside the chroot).
 improve: update_env
 
-# Basic Unix utilities, all compiled by TCC 0.9.27 against musl 1.1.24.
+# Basic Unix utilities, all compiled by TCC 0.9.26 against musl 1.1.24.
 # Skips the live-bootstrap perl+autoconf+automake chain entirely — we use
 # tarballs with pre-generated configure scripts so none of that is needed.
 # These build under the bootstrap make-3.82 and provide grep/sed/gawk that
@@ -78,7 +78,7 @@ build: gawk-3.0.4
 build: make-4.4.1
 
 # Toolchain for GCC: assembler/linker first, then GCC's arithmetic prerequisites.
-# All compiled by TCC 0.9.27 against musl. No autoconf/automake chain needed —
+# All compiled by TCC 0.9.26 against musl. No autoconf/automake chain needed —
 # these tarballs ship pre-generated configure scripts.
 build: binutils-2.30
 build: gmp-4.3.2

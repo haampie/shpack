@@ -2,32 +2,36 @@
 
 set +x
 
+# Seed tools live in their /opt prefixes; find them by bare name on PATH.
+PATH=@SEED_PATH@
+
 cd src
 
-# Build equal using tcc_cc + mescc-tools pipeline
-/usr/bin/tcc_cc @TCC_ARCH_FLAG@ -o /tmp/equal.sl64 equal.c
-/usr/bin/stack_c -i /@ARCH@/stack_c_intro.M1 /tmp/equal.sl64 -o /tmp/equal.M1
-/usr/bin/blood-elf --64 --little-endian -f /tmp/equal.M1 -o /tmp/equal-footer.M1
-/usr/bin/M1 --architecture @ARCH@ --little-endian -f /tmp/equal.M1 -f /tmp/equal-footer.M1 -o /tmp/equal.hex2
-/usr/bin/hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f /M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f /tmp/equal.hex2 -o /usr/bin/equal
+# Build equal using tcc_cc + mescc-tools pipeline (equal is a check-only helper,
+# so it lands in /tmp rather than getting its own store prefix).
+tcc_cc @TCC_ARCH_FLAG@ -o /tmp/equal.sl64 equal.c
+stack_c -i /@ARCH@/stack_c_intro.M1 /tmp/equal.sl64 -o /tmp/equal.M1
+blood-elf --64 --little-endian -f /tmp/equal.M1 -o /tmp/equal-footer.M1
+M1 --architecture @ARCH@ --little-endian -f /tmp/equal.M1 -f /tmp/equal-footer.M1 -o /tmp/equal.hex2
+hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f /M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f /tmp/equal.hex2 -o /tmp/equal
 
 # tcc_cc reproduces its own sl64 (self-hosting check)
-/usr/bin/tcc_cc @TCC_ARCH_FLAG@ -o /tmp/tcc_cc.sl64 stdlib.c tcc_cc.c
-/usr/bin/equal /src/tcc_cc.@ARCH@.sl64 /tmp/tcc_cc.sl64
+tcc_cc @TCC_ARCH_FLAG@ -o /tmp/tcc_cc.sl64 stdlib.c tcc_cc.c
+/tmp/equal /src/tcc_cc.@ARCH@.sl64 /tmp/tcc_cc.sl64
 
 # stack_c cross-path equivalence check.
-# The running /usr/bin/stack_c was compiled by M2-Planet; build a second stack_c
-# the production (tcc_cc) way, then require both binaries to produce identical M1
+# The running stack_c was compiled by M2-Planet; build a second stack_c the
+# production (tcc_cc) way, then require both binaries to produce identical M1
 # on the same input. Their M1 cannot be byte-equal (different compilers), so we
 # compare behaviour rather than the build artifacts.
-/usr/bin/tcc_cc @TCC_ARCH_FLAG@ -o /tmp/stack_c.sl64 stdlib.c stack_c_@ARCH@.c
-/usr/bin/stack_c -i /@ARCH@/stack_c_intro.M1 /tmp/stack_c.sl64 -o /tmp/stack_c.M1
-/usr/bin/blood-elf --64 --little-endian -f /tmp/stack_c.M1 -o /tmp/stack_c-footer.M1
-/usr/bin/M1 --architecture @ARCH@ --little-endian -f /tmp/stack_c.M1 -f /tmp/stack_c-footer.M1 -o /tmp/stack_c.hex2
-/usr/bin/hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f /M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f /tmp/stack_c.hex2 -o /tmp/stack_c_tcc
+tcc_cc @TCC_ARCH_FLAG@ -o /tmp/stack_c.sl64 stdlib.c stack_c_@ARCH@.c
+stack_c -i /@ARCH@/stack_c_intro.M1 /tmp/stack_c.sl64 -o /tmp/stack_c.M1
+blood-elf --64 --little-endian -f /tmp/stack_c.M1 -o /tmp/stack_c-footer.M1
+M1 --architecture @ARCH@ --little-endian -f /tmp/stack_c.M1 -f /tmp/stack_c-footer.M1 -o /tmp/stack_c.hex2
+hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f /M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f /tmp/stack_c.hex2 -o /tmp/stack_c_tcc
 
-/usr/bin/stack_c -i /@ARCH@/stack_c_intro.M1 /src/tcc_cc.@ARCH@.sl64 -o /tmp/stack_c_a.M1
+stack_c -i /@ARCH@/stack_c_intro.M1 /src/tcc_cc.@ARCH@.sl64 -o /tmp/stack_c_a.M1
 /tmp/stack_c_tcc -i /@ARCH@/stack_c_intro.M1 /src/tcc_cc.@ARCH@.sl64 -o /tmp/stack_c_b.M1
-/usr/bin/equal /tmp/stack_c_a.M1 /tmp/stack_c_b.M1
+/tmp/equal /tmp/stack_c_a.M1 /tmp/stack_c_b.M1
 
 cd ..

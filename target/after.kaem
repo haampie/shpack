@@ -9,7 +9,7 @@
 
 set -ex
 
-PATH=/usr/bin
+PATH=@SEED_PATH@
 
 catm seed-full.kaem /steps/bootstrap.cfg /steps/env seed.kaem
 kaem --file seed-full.kaem

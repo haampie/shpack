@@ -157,8 +157,8 @@ tcc_cc \
     -D TCC_VERSION=\"0.9.26\" \
     -D ONE_SOURCE=1 \
     /src/stdlib.c tcc.c
-# Seed tools (stack_c/blood-elf/M1/hex2, like tcc_cc above) live in /usr/bin and
-# are found via PATH; only the tcc_s output goes into this package's ${BINDIR}.
+# Seed tools (stack_c/blood-elf/M1/hex2, like tcc_cc above) live in their /opt
+# seed prefixes and are found via PATH; only the tcc_s output goes into ${BINDIR}.
 stack_c -i /${ARCH}/stack_c_intro.M1 ${TMPDIR}/tcc.sl -o ${TMPDIR}/tcc_s.M1
 blood-elf --64 --little-endian -f ${TMPDIR}/tcc_s.M1 -o ${TMPDIR}/tcc_s.blood_elf
 M1 --architecture ${ARCH} --little-endian -f ${TMPDIR}/tcc_s.M1 -f ${TMPDIR}/tcc_s.blood_elf -o ${TMPDIR}/tcc_s.macro
@@ -171,8 +171,9 @@ tcc_s -version
 # amd64: a stripped subset of real musl 1.1.24 (mes-free).
 M=${SRCDIR}/${TCC_TAR}/build/musl-1.1.24
 # Install the flat public header set into the standard system-include dir
-# (${INCDIR} == /usr/include -- where gcc and every ./configure expect libc
-# headers). One untar; cp has no -r and kaem has no globbing, so the headers ship
+# (${INCDIR} == the musl store prefix's include dir, /opt/musl-1.1.24/include;
+# gcc/binutils point their sysroot's header dir here, see steps/env and the
+# gcc-linaro/binutils pass1.sh). One untar; cp has no -r and kaem has no globbing, so the headers ship
 # pre-merged in a per-arch FLAT tar (sysinclude-${ARCH}.tar, regenerated host-side
 # by regen.sh). It has no arch prefix, so this drops stdio.h etc. straight into
 # ${INCDIR}, and tcc's CONFIG_TCC_SYSINCLUDEPATHS below points at ${INCDIR}.

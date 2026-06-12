@@ -42,6 +42,16 @@ case "$ARCH" in
         ;;
 esac
 
+# PATH to the seed tools' per-package /opt prefixes (a Spack-style store, like the
+# rest of the build). The stage0-posix seed tools are split by their upstream
+# package + version, plus our two unique seeds (tcc_cc, stack_c). The kaem-phase
+# scripts reference every seed tool by bare name and resolve it through this PATH
+# (set once in seed.kaem/after.kaem, inherited by every child kaem and 0.sh); the
+# shell phase rebuilds PATH from /opt/*/bin and picks these up automatically.
+# The version numbers must match the staged stage0-posix submodules (mescc-tools,
+# mescc-tools-extra, M2-Mesoplanet) - bump here when those are updated.
+SEED_PATH="/opt/mescc-tools-1.7.0/bin:/opt/mescc-tools-extra-1.4.0/bin:/opt/M2-Mesoplanet-1.13.0/bin:/opt/tcc_cc/bin:/opt/stack_c/bin"
+
 # Parallelism for the shell-phase package builds (make -j${JOBS}). The kaem phase
 # (tcc/musl) is serial regardless. Defaults to the host core count; override with
 # JOBS=N ./build.sh ...
@@ -57,6 +67,7 @@ subst() {
         -e "s|@TCC_ARCH_FLAG@|${TCC_ARCH_FLAG}|g" \
         -e "s|@JOBS@|${JOBS}|g" \
         -e "s|@UPDATE_CHECKSUMS@|${UPDATE_CHECKSUMS:-False}|g" \
+        -e "s|@SEED_PATH@|${SEED_PATH}|g" \
         "$1" > "$2"
 }
 
