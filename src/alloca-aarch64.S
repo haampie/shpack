@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-or-later
+/* SPDX-License-Identifier: MIT
  *
  * AArch64 alloca, the analogue of upstream tcc's lib/alloca86_64.S. The
  * bootstrappable tcc 0.9.26 fork does not inline alloca(); a source-level

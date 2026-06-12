@@ -1,0 +1,38 @@
+#!/kaem --verbose --strict
+# SPDX-License-Identifier: MIT
+#
+# GNU tar 1.12, the last tar that builds without autoconf output under
+# tcc+musl. Replaces the seed `untar` for every later package. Vendored
+# third-party (live-bootstrap, GPL) inputs under ${PKG}:
+# - mk/main.mk: the makefile;
+# - files/getdate_stub.c: stubs out the yacc-generated getdate.y date parser
+#   (no yacc exists yet; tar never needs date parsing in the bootstrap);
+# - files/stat_override.c: prepended to src/create.c, same plain-stat
+#   wrapper as gzip's.
+# This is the first package extracted with our own gzip instead of the seed
+# ungz, exercising it right after its build.
+
+BLD=${TMPDIR}/build/${pkg}
+mkdir -p ${BLD}
+cd ${BLD}
+
+sha256sum -c ${PKG}/sources.sha256
+
+cp ${DISTFILES}/${pkg}.tar.gz ${pkg}.tar.gz
+gzip -d -f ${pkg}.tar.gz
+untar --non-strict --file ${pkg}.tar
+rm ${pkg}.tar
+cd ${pkg}
+
+cp ${PKG}/mk/main.mk Makefile
+cp ${PKG}/files/getdate_stub.c lib/getdate_stub.c
+catm src/create.c.new ${PKG}/files/stat_override.c src/create.c
+cp src/create.c.new src/create.c
+
+make -f Makefile
+
+cp tar ${BINDIR}/tar
+chmod 755 ${BINDIR}/tar
+
+# Smoke test
+tar --version

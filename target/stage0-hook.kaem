@@ -59,5 +59,6 @@
 # Verify self-hosting: tcc_cc reproduces itself and stack_c
 ./opt/mescc-tools-1.7.0/bin/kaem --verbose --file ./@ARCH@/check-tools.kaem
 
-# Run steps: configurator, script-generator, tcc-0.9.26, musl, ...
-./opt/mescc-tools-1.7.0/bin/kaem --verbose --strict --file ./@ARCH@/after.kaem
+# Run the static kaem-phase package chain (tcc-0.9.26, musl, ..., dash),
+# which ends by handing the bootstrap to shpack.
+./opt/mescc-tools-1.7.0/bin/kaem --verbose --strict --file ./shpack/bootstrap/0.kaem

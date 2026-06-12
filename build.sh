@@ -53,10 +53,9 @@ esac
 SEED_PATH="/opt/mescc-tools-1.7.0/bin:/opt/mescc-tools-extra-1.4.0/bin:/opt/M2-Mesoplanet-1.13.0/bin:/opt/tcc_cc/bin:/opt/stack_c/bin"
 
 # The PATH floor for the shell phase (shpack/etc/config BASEPATH): every
-# kaem-phase /opt prefix, newest first, then the seed prefixes. This is the
-# static equivalent of what build-dag.sh composed from the generated
-# base-packages list; the kaem phase is a fixed chain, so it is known here.
-BASEPATH="/opt/dash-0.5.12/bin:/opt/oyacc-6.6/bin:/opt/coreutils-5.0/bin:/opt/bzip2-1.0.8/bin:/opt/sed-4.0.9/bin:/opt/tar-1.12/bin:/opt/gzip-1.2.4/bin:/opt/patch-2.5.9/bin:/opt/make-3.82/bin:/opt/tcc-0.9.27/bin:/opt/musl-1.1.24/bin:/opt/tcc-0.9.26/bin:/opt/simple-patch-1.0/bin:/opt/checksum-transcriber-1.0/bin:${SEED_PATH}"
+# kaem-phase /opt prefix, newest first, then the seed prefixes. The kaem
+# phase is the fixed chain in shpack/bootstrap/0.kaem, so it is known here.
+BASEPATH="/opt/dash-0.5.12/bin:/opt/oyacc-6.6/bin:/opt/coreutils-5.0/bin:/opt/bzip2-1.0.8/bin:/opt/sed-4.0.9/bin:/opt/tar-1.12/bin:/opt/gzip-1.2.4/bin:/opt/patch-2.5.9/bin:/opt/make-3.82/bin:/opt/tcc-0.9.27/bin:/opt/musl-1.1.24/bin:/opt/tcc-0.9.26/bin:/opt/simple-patch-1.0/bin:${SEED_PATH}"
 
 # Parallelism for the shell-phase package builds (make -j${JOBS}). The kaem phase
 # (tcc/musl) is serial regardless. Defaults to the host core count; override with
@@ -72,7 +71,6 @@ subst() {
         -e "s|@S0ARCH@|${S0ARCH}|g" \
         -e "s|@TCC_ARCH_FLAG@|${TCC_ARCH_FLAG}|g" \
         -e "s|@JOBS@|${JOBS}|g" \
-        -e "s|@UPDATE_CHECKSUMS@|${UPDATE_CHECKSUMS:-False}|g" \
         -e "s|@SEED_PATH@|${SEED_PATH}|g" \
         -e "s|@BASEPATH@|${BASEPATH}|g" \
         "$1" > "$2"
@@ -135,7 +133,6 @@ subst target/stage0-hook.kaem rootfs/after.kaem
 mkdir -p rootfs/${ARCH}
 
 subst target/check-tools.kaem rootfs/${ARCH}/check-tools.kaem
-subst target/after.kaem       rootfs/${ARCH}/after.kaem
 
 # Committed seeds (our unique tcc_cc/stack_c layer).
 # Both arches compile stack_c from C source via M2-Planet, so there is no
@@ -149,8 +146,6 @@ cp -f -t rootfs/src \
     src/bootstrappable.c \
     src/sys_syscall.h \
     src/tcc_cc.${ARCH}.sl64 \
-    src/configurator.c \
-    src/script-generator.c \
     src/equal.c \
     src/tcc_cc.c \
     src/stack_c_${ARCH}.c
@@ -162,21 +157,18 @@ if [ "$ARCH" = aarch64 ]; then
         src/alloca-aarch64.S
 fi
 
-# --- Script and step support ---------------------------------------------
-subst target/seed.kaem rootfs/seed.kaem
-cp -f target/configurator.${ARCH}.checksums rootfs/
-cp -f target/script-generator.${ARCH}.checksums rootfs/
-
 mkdir -p rootfs/usr
 mkdir -p rootfs/usr/bin
 mkdir -p rootfs/tmp
 
-cp -r steps rootfs/
-subst target/bootstrap.cfg rootfs/steps/bootstrap.cfg
-
-# --- shpack: the shell-phase package manager (see shpack/README.md) -------
+# --- shpack: the package manager (see shpack/README.md) -------------------
+# bootstrap/ is the static kaem-phase chain; 0.kaem.in is instantiated with
+# the host-known config (this replaces live-bootstrap's in-chroot
+# configurator + script-generator).
 mkdir -p rootfs/shpack/etc
-cp -r shpack/bin shpack/lib shpack/packages rootfs/shpack/
+cp -r shpack/bin shpack/lib shpack/packages shpack/bootstrap rootfs/shpack/
+subst shpack/bootstrap/0.kaem.in rootfs/shpack/bootstrap/0.kaem
+rm -f rootfs/shpack/bootstrap/0.kaem.in
 subst shpack/etc/config.in rootfs/shpack/etc/config
 cp -f shpack/etc/externals.in rootfs/shpack/etc/externals
 
@@ -220,17 +212,3 @@ case "$RUNNER" in
         ;;
     *)      echo "unknown RUNNER: $RUNNER (use bwrap or chroot)" >&2; exit 1 ;;
 esac
-
-# With UPDATE_CHECKSUMS=True the in-chroot scripts rewrite (sha256sum -o) the
-# per-arch checksum files instead of verifying them. Those land inside rootfs/
-# (seed.kaem writes the configurator/script-generator ones at the rootfs root;
-# each steps/<pkg>/pass*.kaem copies its own into SRCDIR=/steps/<pkg>) and would
-# be wiped by the next build, so copy the freshly-generated values back into the
-# committed source tree.
-if [ "x${UPDATE_CHECKSUMS}" = xTrue ]; then
-    cp -f rootfs/configurator.${ARCH}.checksums     target/configurator.${ARCH}.checksums
-    cp -f rootfs/script-generator.${ARCH}.checksums target/script-generator.${ARCH}.checksums
-    for f in rootfs/steps/*/*.${ARCH}.checksums; do
-        [ -e "$f" ] && cp -f "$f" "steps/${f#rootfs/steps/}"
-    done
-fi

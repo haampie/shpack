@@ -1,0 +1,32 @@
+#!/kaem --verbose --strict
+# SPDX-License-Identifier: MIT
+#
+# GNU sed 4.0.9, built from the vendored third-party (live-bootstrap, GPL)
+# makefile with an empty config.h. LIBC=musl selects the makefile's
+# non-mes branch: musl already has getline (the bundled gnulib getline.c's
+# K&R size_t signature clashes with musl's ssize_t prototype), so only the
+# alloca shim is built from the compat set.
+# First package extracted with our own tar(1).
+
+BLD=${TMPDIR}/build/${pkg}
+mkdir -p ${BLD}
+cd ${BLD}
+
+sha256sum -c ${PKG}/sources.sha256
+
+cp ${DISTFILES}/${pkg}.tar.gz ${pkg}.tar.gz
+gzip -d -f ${pkg}.tar.gz
+tar xf ${pkg}.tar
+rm ${pkg}.tar
+cd ${pkg}
+
+cp ${PKG}/mk/main.mk Makefile
+catm config.h
+
+make -f Makefile LIBC=musl
+
+cp sed/sed ${BINDIR}/sed
+chmod 755 ${BINDIR}/sed
+
+# Smoke test
+sed --version

@@ -1,0 +1,149 @@
+#!/kaem --verbose --strict
+# SPDX-License-Identifier: MIT
+#
+# The kaem-phase package chain: a static, hand-written driver that takes the
+# system from the stage0 seed tools to the first shell, then hands over to
+# shpack. This file is the whole "package manager" of the kaem phase -- the
+# package order is fixed, so nothing needs to be computed in-chroot: build.sh
+# substitutes the @TOKEN@ values when staging the rootfs.
+#
+# Per package: install prefix /opt/<name-version>, one PATH prepend, one
+# child kaem running /shpack/bootstrap/<name-version>/kaem.run. The scripts
+# build in ${TMPDIR}/build/<name-version> and reference their inputs
+# absolutely: ${DISTFILES} (tarballs), ${PKG} (the package's asset dir --
+# project-original scripts plus vendored third-party makefiles/patches).
+#
+# The chain: simple-patch -> tcc-0.9.26 (+ subset musl) -> full musl ->
+# tcc-0.9.27 -> make -> patch -> gzip -> tar -> sed -> bzip2 -> coreutils ->
+# oyacc -> dash. dash is the first shell; the last line execs shpack, which
+# concretizes and builds everything else up to gcc-linaro (see shpack/README.md).
+
+# Globals, inherited through the environment by every kaem.run child.
+PATH=@SEED_PATH@
+ARCH=@ARCH@
+DISTFILES=/external/distfiles
+TMPDIR=/tmp
+BOOT=/shpack/bootstrap
+# The libc's own store prefix. Expanded once here (not derived from any
+# package's PREFIX): tcc bakes LIBDIR/INCDIR in as its crt-prefix and
+# sysinclude path, and binutils/gcc-linaro later point their sysroot here.
+LIBC_PREFIX=/opt/musl-1.1.24
+LIBDIR=/opt/musl-1.1.24/lib
+INCDIR=/opt/musl-1.1.24/include
+
+# simple-patch: exact-match patcher, used until GNU patch exists.
+pkg=simple-patch-1.0
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+# tcc 0.9.26: the seed-grown C compiler, plus the bring-up subset musl.
+pkg=tcc-0.9.26
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+# Full musl 1.1.24, replacing the subset libc.a (float-correct strtod; must
+# precede tcc-0.9.27, which statically links the strtod of the libc it sees).
+pkg=musl-1.1.24
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+# tcc 0.9.27: the production compiler for the rest of the bootstrap.
+pkg=tcc-0.9.27
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+# make 3.82: first build tool; everything below builds with a real makefile.
+pkg=make-3.82
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+# patch: every later package applies real unified diffs.
+pkg=patch-2.5.9
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+pkg=gzip-1.2.4
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+pkg=tar-1.12
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+pkg=sed-4.0.9
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+pkg=bzip2-1.0.8
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+pkg=coreutils-5.0
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+# oyacc: yacc for binutils/gcc grammar files in the shell phase.
+pkg=oyacc-6.6
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+# dash: the first shell, installed as /bin/sh.
+pkg=dash-0.5.12
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
+# A shell exists: hand the bootstrap to shpack, which concretizes the package
+# DAG and builds everything up to gcc-linaro into hashed store prefixes.
+exec /bin/sh /shpack/bin/shpack install gcc-linaro

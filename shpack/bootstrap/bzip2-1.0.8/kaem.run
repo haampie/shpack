@@ -1,0 +1,37 @@
+#!/kaem --verbose --strict
+# SPDX-License-Identifier: MIT
+#
+# bzip2 1.0.8, using its upstream Makefile directly (CC/AR/LDFLAGS
+# overridden for tcc + static musl). One vendored third-party (live-bootstrap,
+# GPL) patch, coreutils.patch, which drops the Makefile's
+# test-suite and install chmod/ln frills the bootstrap lacks tools for.
+#
+# live-bootstrap's mes-libc.patch is intentionally NOT applied: it removes
+# the utime() call and ships a fake <utime.h> that #defines fchown/fchmod
+# away -- mes-libc workarounds. musl has all three, and the fake header
+# would shadow musl's <utime.h> via -I., macro-rewriting the real fchown
+# prototype in unistd.h into a syntax error.
+
+BLD=${TMPDIR}/build/${pkg}
+mkdir -p ${BLD}
+cd ${BLD}
+
+sha256sum -c ${PKG}/sources.sha256
+
+cp ${DISTFILES}/${pkg}.tar.gz ${pkg}.tar.gz
+gzip -d -f ${pkg}.tar.gz
+tar xf ${pkg}.tar
+rm ${pkg}.tar
+cd ${pkg}
+
+patch -Np1 -i ${PKG}/patches/coreutils.patch
+
+make CC=tcc AR="tcc -ar" LDFLAGS="-static" bzip2
+
+cp bzip2 ${BINDIR}/bzip2
+cp bzip2 ${BINDIR}/bunzip2
+chmod 755 ${BINDIR}/bzip2
+chmod 755 ${BINDIR}/bunzip2
+
+# Smoke test
+bzip2 --help

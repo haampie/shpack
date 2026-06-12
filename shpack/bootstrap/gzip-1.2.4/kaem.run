@@ -1,0 +1,42 @@
+#!/kaem --verbose --strict
+# SPDX-License-Identifier: MIT
+#
+# gzip 1.2.4. Old enough to be plain K&R-ish C that tcc compiles directly.
+# Three vendored third-party (live-bootstrap, GPL) inputs under ${PKG}:
+# - mk/main.mk: the makefile;
+# - files/stat_override.c: prepended to gzip.c -- gzip's lstat()-based name
+#   handling needs a plain stat wrapper under musl's syscall layout;
+# - patches: upstream generates util.c's CRC table with shell IO redirection
+#   that kaem-era tooling cannot do; removecrc.patch drops the baked table
+#   and makecrc-write-to-file.patch makes the generator write crc.c itself,
+#   which is then appended to util.c (catm) before building.
+
+BLD=${TMPDIR}/build/${pkg}
+mkdir -p ${BLD}
+cd ${BLD}
+
+sha256sum -c ${PKG}/sources.sha256
+
+ungz --file ${DISTFILES}/${pkg}.tar.gz --output ${pkg}.tar
+untar --non-strict --file ${pkg}.tar
+rm ${pkg}.tar
+cd ${pkg}
+
+cp ${PKG}/mk/main.mk Makefile
+catm gzip.c.new ${PKG}/files/stat_override.c gzip.c
+cp gzip.c.new gzip.c
+
+patch -Np1 -i ${PKG}/patches/removecrc.patch
+patch -Np1 -i ${PKG}/patches/makecrc-write-to-file.patch
+
+tcc -static -o makecrc sample/makecrc.c
+./makecrc
+catm util.c.new util.c crc.c
+cp util.c.new util.c
+
+make
+
+cp gzip ${BINDIR}/gzip
+cp gzip ${BINDIR}/gunzip
+chmod 755 ${BINDIR}/gzip
+chmod 755 ${BINDIR}/gunzip

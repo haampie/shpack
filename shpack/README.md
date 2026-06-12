@@ -3,13 +3,9 @@
 A package manager shaped like [Spack](https://spack.io), implemented in
 portable POSIX shell, sized for the earliest moment a bootstrap has a shell
 at all. It drives this repository's build chain from the first `/bin/sh`
-(dash, built by the kaem phase) up to a real compiler toolchain — and is
+(dash, built by the kaem phase) up to a real compiler toolchain -- and is
 designed so that once Python and Spack's other dependencies are bootstrapped,
 the actual Spack can take over the store it built.
-
-shpack is an original work (MIT). It deliberately borrows Spack's *model* —
-recipes per package, declared dependencies, hashed per-package install
-prefixes, build-system base classes, externals — and none of anyone's code.
 
 ## The model
 
@@ -39,7 +35,7 @@ prefixes, build-system base classes, externals — and none of anyone's code.
 
 - **Store**: every package installs into its own prefix
   `$STORE/<name>-<version>-<hash7>`, with metadata in `.shpack/` (spec, dep
-  edges, the hash manifest, the recipe, the build log) — exactly what a
+  edges, the hash manifest, the recipe, the build log) -- exactly what a
   future `spack reindex` needs to reconstruct concrete specs from the store.
 
 - **Externals**: packages the kaem phase already installed (unhashed
@@ -59,14 +55,14 @@ prefixes, build-system base classes, externals — and none of anyone's code.
 
 ## Build systems and phases
 
-Every build runs: `fetch` (sha256-verify distfiles) → `stage` (unpack to a
-scratch dir) → `patch` → build-system phases → `finalize` (write `.shpack/`
+Every build runs: `fetch` (sha256-verify distfiles) -> `stage` (unpack to a
+scratch dir) -> `patch` -> build-system phases -> `finalize` (write `.shpack/`
 metadata). The build-system phases, each overridable by defining a function
 of the same name in the recipe:
 
 | build_system | phases | argument hooks |
 |---|---|---|
-| `generic` | `install` (required) | — |
+| `generic` | `install` (required) | -- |
 | `makefile` | `edit build install` | `build_targets`, `install_targets` |
 | `autotools` | `configure build install` | `configure_args`, `build_args`, `install_targets` |
 
@@ -100,7 +96,7 @@ shpack core runs under the first bootstrap shell: **dash 0.5.12, coreutils
 awk, find, xargs or mktemp at that point, and `expr`/`cut`/`tac` are avoided
 to keep the budget small; `tests/t-lint.sh` enforces this. Configuration
 (`etc/config`: ARCH, JOBS, STORE, DISTFILES, BASEPATH) is substituted on the
-host by `build.sh` when staging the rootfs — there is no in-chroot
+host by `build.sh` when staging the rootfs -- there is no in-chroot
 configurator.
 
 ## Tests

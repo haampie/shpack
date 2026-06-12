@@ -1,0 +1,31 @@
+#!/kaem --verbose --strict
+# SPDX-License-Identifier: MIT
+#
+# GNU patch 2.5.9. From here on packages can apply real unified diffs
+# (before this, fixes go through simple-patch). 2.5.9 is the newest patch
+# that compiles under tcc+musl without autoconf output: an empty config.h
+# and an empty patchlevel.h suffice, the rest is plain C. The vendored
+# makefile (mk/main.mk) is a third-party (live-bootstrap, GPL) input.
+
+BLD=${TMPDIR}/build/${pkg}
+mkdir -p ${BLD}
+cd ${BLD}
+
+sha256sum -c ${PKG}/sources.sha256
+
+ungz --file ${DISTFILES}/${pkg}.tar.gz --output ${pkg}.tar
+untar --non-strict --file ${pkg}.tar
+rm ${pkg}.tar
+cd ${pkg}
+
+cp ${PKG}/mk/main.mk Makefile
+catm config.h
+catm patchlevel.h
+
+make -f Makefile PREFIX=${PREFIX}
+
+cp patch ${BINDIR}/patch
+chmod 755 ${BINDIR}/patch
+
+# Smoke test
+patch --version

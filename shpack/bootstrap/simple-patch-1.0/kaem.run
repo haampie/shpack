@@ -1,0 +1,23 @@
+#!/kaem --verbose --strict
+# SPDX-License-Identifier: MIT
+#
+# simple-patch: a minimal exact-match patcher (replaces one verbatim chunk,
+# given as a pair of before/after files). It exists because GNU patch is not
+# built until after tcc and musl, but the tcc/musl sources themselves need
+# fixes applied in-chroot. The C source is vendored third-party material
+# (live-bootstrap, GPL) under ${PKG}/src; it is compiled with the seed
+# tcc_cc -> stack_c -> blood-elf/M1/hex2 chain like the other pre-tcc tools.
+
+BLD=${TMPDIR}/build/${pkg}
+mkdir -p ${BLD}
+cd ${BLD}
+
+# simple-patch.c includes ../../../src/bootstrappable.c relative to its own
+# location; ${BLD} sits three levels below /, so compiling a local copy
+# resolves that to /src/ exactly like the original layout did.
+cp ${PKG}/src/simple-patch.c simple-patch.c
+tcc_cc -a ${ARCH} -o simple-patch.sl /src/stdlib.c simple-patch.c
+stack_c -i /${ARCH}/stack_c_intro.M1 simple-patch.sl -o simple-patch.M1
+blood-elf --64 --little-endian -f simple-patch.M1 -o simple-patch.blood_elf
+M1 --architecture ${ARCH} --little-endian -f simple-patch.M1 -f simple-patch.blood_elf -o simple-patch.macro
+hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f /M2libc/${ARCH}/ELF-${ARCH}-debug.hex2 -f simple-patch.macro -o ${BINDIR}/simple-patch
