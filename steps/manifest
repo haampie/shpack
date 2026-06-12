@@ -34,14 +34,21 @@
 build: checksum-transcriber-1.0
 build: simple-patch-1.0
 build: tcc-0.9.26
-# Upgrade the seed-grown 0.9.26 to the 0.9.27 release (built by 0.9.26), the
-# production compiler from here on (amd64 + aarch64). 0.9.27's post-snapshot
-# tccgen.c fixes give cleaner codegen for the gcc 4.7 build (0.9.26 ICEs gcc's
-# libgcc real.c / TFmode path on aarch64).
-build: tcc-0.9.27
 # Grow the bring-up subset libc into FULL musl 1.1.24 (amd64 + aarch64), built by
-# the production tcc, for the downstream binutils/gcc bootstrap.
+# the seed-grown tcc 0.9.26, for the downstream binutils/gcc bootstrap.
+#
+# This MUST run before tcc-0.9.27: tcc parses decimal float literals via the
+# strtod() that is statically linked into the tcc binary. The bring-up SUBSET
+# musl's strtod mis-parses any mantissa with >=20 significant digits (e.g. gcc
+# real.c's M_LOG10_2 = 0.30102999566398119521), so a tcc linked against it
+# miscompiles gcc/real.c (cc1 ICEs at real.c:1724). Building full musl first means
+# the next tcc links the CORRECT full-musl strtod. (This is also the real reason
+# 0.9.26 "ICEs gcc's real.c" -- same strtod bug, not a tccgen/codegen difference.)
 build: musl-1.1.24
+# Upgrade the seed-grown 0.9.26 to the 0.9.27 release, now built by 0.9.26 against
+# the FULL musl (float-correct strtod). Production compiler from here on (amd64 +
+# aarch64); 0.9.27 also carries post-snapshot tccgen.c fixes for cleaner codegen.
+build: tcc-0.9.27
 
 # Core userland, built by the production tcc against full musl (live-bootstrap's
 # post-tcc kaem phase). make first (needs only tcc + mescc-tools), then patch
