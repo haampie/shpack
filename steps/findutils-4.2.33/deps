@@ -1,8 +1,0 @@
-# Direct build dependencies (one name-version per line). tcc-0.9.27/musl-1.1.24
-# are the kaem-phase base (sysroot libc + compiler); grep is needed by the
-# shipped ./configure. find is only consumed downstream by gcc's libstdc++
-# libtool (static convenience-archive merge), so findutils just needs to exist
-# before gcc-linaro.
-tcc-0.9.27
-musl-1.1.24
-grep-2.4

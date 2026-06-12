@@ -4,7 +4,11 @@
 # upstream's or a replacement shipped in the package's files/ directory.
 #
 # Phases: edit build install. Hooks: build_targets, install_targets (extra
-# words for the respective make invocation).
+# words for the respective make invocation, one per line).
+#
+# make is always invoked with `-f Makefile`: some tarballs ship a
+# GNUmakefile, which GNU make would otherwise prefer over a replacement
+# Makefile installed by edit.
 
 SHPACK_PHASES="edit build install"
 
@@ -18,11 +22,16 @@ default_edit() {
 }
 
 default_build() {
-    make $MAKEJOBS PREFIX="$PREFIX" $(hook_words build_targets)
+    with_hook_args build_targets make -f Makefile $MAKEJOBS PREFIX="$PREFIX"
 }
 
 default_install() {
+    IFS='
+'
+    set -f
     set -- $(hook_words install_targets)
+    set +f
+    unset IFS
     if [ $# -eq 0 ]; then set -- install; fi
-    make PREFIX="$PREFIX" "$@"
+    make -f Makefile PREFIX="$PREFIX" "$@"
 }

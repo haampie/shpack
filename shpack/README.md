@@ -26,7 +26,7 @@ prefixes, build-system base classes, externals — and none of anyone's code.
   patch arm64-elfnn-howto.patch arch=aarch64
 
   configure_args() {
-      echo --with-sysroot="$(prefix_of musl)" --disable-nls
+      printf '%s\n' --with-sysroot="$(prefix_of musl)" --disable-nls
   }
   ```
 
@@ -70,7 +70,9 @@ of the same name in the recipe:
 | `makefile` | `edit build install` | `build_targets`, `install_targets` |
 | `autotools` | `configure build install` | `configure_args`, `build_args`, `install_targets` |
 
-Plus `setup_build_environment`, run before the first phase. Recipes see:
+Argument hooks emit **one argument per output line** (so arguments may
+contain spaces: `printf '%s\n' 'AR=tcc -ar'`). Plus `setup_build_environment`,
+run before the first phase. Recipes see:
 `name`, `version`, `id`, `PREFIX`, `package_dir`, `stage_dir`, `ARCH`,
 `JOBS`, `MAKEJOBS`, and `prefix_of <dep-name>`. `parallel false` disables
 `-j` for the package's make. Caveat: a recipe that overrides `install()` and

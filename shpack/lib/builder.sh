@@ -30,6 +30,22 @@ hook_words() {
     if is_function "$1"; then "$1"; fi
 }
 
+# with_hook_args HOOK CMD [ARG...] -- run CMD with the fixed args followed by
+# the hook's output, one argument per output LINE (so hook-provided arguments
+# may contain spaces, e.g. `AR=tcc -ar`).
+with_hook_args() {
+    local hook
+    hook=$1
+    shift
+    IFS='
+'
+    set -f
+    set -- "$@" $(hook_words "$hook")
+    set +f
+    unset IFS
+    "$@"
+}
+
 # prefix_of NAME -> the store prefix of a dependency (direct or transitive).
 prefix_of() {
     local d

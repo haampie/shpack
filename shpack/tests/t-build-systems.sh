@@ -58,7 +58,8 @@ version 2.0 sha256=$sha url=http://example.invalid/atpkg-2.0.tar.gz
 build_system autotools
 parallel false
 configure_args() {
-    echo --disable-nls --enable-static
+    # One argument per line; arguments may contain spaces.
+    printf '%s\n' --disable-nls --enable-static 'CXXCPP=tcc -E'
 }
 install_targets() {
     echo install
@@ -77,5 +78,7 @@ out=$TESTDIR/store/atpkg-2.0-$ah/share/out.txt
 assert_file "$out"
 assert_contains "$out" "--prefix=$TESTDIR/store/atpkg-2.0-$ah"
 assert_contains "$out" "--disable-nls"
+# A hook line with spaces must arrive as ONE argument (one line in out.txt).
+assert_contains "$out" "CXXCPP=tcc -E"
 
 echo OK

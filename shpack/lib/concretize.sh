@@ -213,6 +213,10 @@ emit_dagmk() {
 cmd_concretize() {
     local s
     if [ $# -lt 1 ]; then die "usage: shpack concretize <spec>..."; fi
+    # Concretization itself runs on the base layer, independent of whatever
+    # PATH the caller grew during the kaem phase.
+    PATH=$BASEPATH
+    export PATH
     rm -rf "$VAR/spec" "$VAR/recipe"
     rm -f "$VAR/topo" "$VAR/roots" "$VAR/index" "$VAR/dag.mk"
     mkdir -p "$VAR/spec" "$VAR/recipe"

@@ -52,6 +52,12 @@ esac
 # mescc-tools-extra, M2-Mesoplanet) - bump here when those are updated.
 SEED_PATH="/opt/mescc-tools-1.7.0/bin:/opt/mescc-tools-extra-1.4.0/bin:/opt/M2-Mesoplanet-1.13.0/bin:/opt/tcc_cc/bin:/opt/stack_c/bin"
 
+# The PATH floor for the shell phase (shpack/etc/config BASEPATH): every
+# kaem-phase /opt prefix, newest first, then the seed prefixes. This is the
+# static equivalent of what build-dag.sh composed from the generated
+# base-packages list; the kaem phase is a fixed chain, so it is known here.
+BASEPATH="/opt/dash-0.5.12/bin:/opt/oyacc-6.6/bin:/opt/coreutils-5.0/bin:/opt/bzip2-1.0.8/bin:/opt/sed-4.0.9/bin:/opt/tar-1.12/bin:/opt/gzip-1.2.4/bin:/opt/patch-2.5.9/bin:/opt/make-3.82/bin:/opt/tcc-0.9.27/bin:/opt/musl-1.1.24/bin:/opt/tcc-0.9.26/bin:/opt/simple-patch-1.0/bin:/opt/checksum-transcriber-1.0/bin:${SEED_PATH}"
+
 # Parallelism for the shell-phase package builds (make -j${JOBS}). The kaem phase
 # (tcc/musl) is serial regardless. Defaults to the host core count; override with
 # JOBS=N ./build.sh ...
@@ -68,6 +74,7 @@ subst() {
         -e "s|@JOBS@|${JOBS}|g" \
         -e "s|@UPDATE_CHECKSUMS@|${UPDATE_CHECKSUMS:-False}|g" \
         -e "s|@SEED_PATH@|${SEED_PATH}|g" \
+        -e "s|@BASEPATH@|${BASEPATH}|g" \
         "$1" > "$2"
 }
 
@@ -166,6 +173,12 @@ mkdir -p rootfs/tmp
 
 cp -r steps rootfs/
 subst target/bootstrap.cfg rootfs/steps/bootstrap.cfg
+
+# --- shpack: the shell-phase package manager (see shpack/README.md) -------
+mkdir -p rootfs/shpack/etc
+cp -r shpack/bin shpack/lib shpack/packages rootfs/shpack/
+subst shpack/etc/config.in rootfs/shpack/etc/config
+cp -f shpack/etc/externals.in rootfs/shpack/etc/externals
 
 mkdir -p rootfs/external
 cp -r distfiles rootfs/external/
