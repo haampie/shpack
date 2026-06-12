@@ -52,10 +52,10 @@ member() {
     return 1
 }
 
-# Read a package's direct deps (one name-version per line, # comments, blanks
-# allowed) into a space-separated string.
-read_deps() {
-    f="/steps/$1/deps"
+# Read a list file (one name-version per line, # comments and blank lines
+# allowed) into a space-separated string. Missing file -> empty.
+read_list() {
+    f="$1"
     out=""
     [ -f "${f}" ] || { printf '%s' ""; return; }
     while IFS= read -r line || [ -n "${line}" ]; do
@@ -67,6 +67,27 @@ read_deps() {
     done < "${f}"
     printf '%s' "${out}"
 }
+
+# A package's direct build deps: steps/<name>/deps.
+read_deps() {
+    read_list "/steps/$1/deps"
+}
+
+# Deliverables: the packages `all` must build. Their transitive closures pull in
+# everything else, so pure dependencies need not be listed. Explicit list in
+# steps/targets; if absent/empty, fall back to every shell package (build all,
+# as before). Each target must be a shell-phase package.
+TARGETS=$(read_list /steps/targets)
+if [ -z "${TARGETS}" ]; then
+    TARGETS=${SHELL_PKGS}
+else
+    for t in ${TARGETS}; do
+        member "${t}" ${SHELL_PKGS} || {
+            echo "targets: '${t}' is not a shell-phase package" >&2
+            exit 1
+        }
+    done
+fi
 
 # BASEPATH: the base layer (kaem /opt prefixes) newest-first, then the seed
 # prefixes. Replaces the runtime /opt/*/bin glob the old update_env.sh used.
@@ -118,7 +139,7 @@ done
     printf 'BASEPATH := %s\n\n' "${BASEPATH}"
     echo ".PHONY: all"
     printf 'all:'
-    for p in ${SHELL_PKGS}; do
+    for p in ${TARGETS}; do
         printf ' $(S)/%s' "${p}"
     done
     printf '\n\n'

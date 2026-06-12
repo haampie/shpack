@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Shell-phase build deliverables: the DAG roots `make all` must build. Their
+# transitive dependency closures (steps/<name>/deps) pull in everything else, so
+# pure dependencies need not be listed here. One package per line (name-version);
+# '#' comments and blank lines are allowed. Each must be a shell-phase package
+# (i.e. appear in steps/manifest after dash-).
+#
+# If this file is absent or empty, build-dag.sh falls back to building every
+# shell-phase package.
+gcc-linaro-4.7-2013.11
