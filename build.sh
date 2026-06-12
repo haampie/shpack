@@ -56,6 +56,7 @@ subst() {
         -e "s|@S0ARCH@|${S0ARCH}|g" \
         -e "s|@TCC_ARCH_FLAG@|${TCC_ARCH_FLAG}|g" \
         -e "s|@JOBS@|${JOBS}|g" \
+        -e "s|@UPDATE_CHECKSUMS@|${UPDATE_CHECKSUMS:-False}|g" \
         "$1" > "$2"
 }
 
