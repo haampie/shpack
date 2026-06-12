@@ -1,0 +1,5 @@
+tcc-0.9.27
+musl-1.1.24
+# grep is the first shell-phase tool; every GNU ./configure needs it and it is
+# NOT part of the kaem base, so it must be an explicit dep (not just BASEPATH).
+grep-2.4

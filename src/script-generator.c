@@ -32,6 +32,20 @@ struct Directive {
 };
 typedef struct Directive Directive;
 
+/* --- Shell-phase DAG: package lists ------------------------------------ *
+ * The shell phase (everything after dash) is built as a dependency DAG driven
+ * by GNU make rather than a linear list of build calls (see DAG.md). All the
+ * graph logic -- reading steps/<pkg>/deps, transitive closures, emitting
+ * dag.mk, the two-stage make -- lives in the readable POSIX-shell
+ * steps/build-dag.sh, which runs in the shell phase where dash + coreutils +
+ * sed are available. This file only does what it is already good at (parse the
+ * manifest, evaluate predicates, know the kaem/shell split) and hands the
+ * resulting ordered package lists to build-dag.sh. */
+#define MAX_PKGS 128
+char *pkg_names[MAX_PKGS];   /* every build: package, in manifest order */
+int pkg_is_shell[MAX_PKGS];  /* 0 = kaem-phase (the implicit base), 1 = shell */
+int n_pkgs;
+
 /* Tokenizer. */
 
 /* Skip over a comment. */
@@ -489,6 +503,68 @@ void generate_preseed_jump(int id) {
 	fclose(out);
 }
 
+/* Walk the (already predicate-filtered) directives and record every build:
+ * package in manifest order, flagging which phase it is in. Packages up to and
+ * including the first dash- one are the kaem phase (the implicit base layer);
+ * everything after is the shell phase, which becomes the DAG. */
+void collect_packages(Directive *directives) {
+	int shell = 0;
+	Directive *d;
+	for (d = directives; d != NULL; d = d->next) {
+		if (d->type == TYPE_BUILD) {
+			if (n_pkgs >= MAX_PKGS) {
+				fputs("too many packages; bump MAX_PKGS\n", stderr);
+				exit(1);
+			}
+			pkg_names[n_pkgs] = d->arg;
+			pkg_is_shell[n_pkgs] = shell;
+			n_pkgs += 1;
+			if (strncmp(d->arg, "dash-", 5) == 0) {
+				/* dash is the last kaem package; the next is shell-phase. */
+				shell = 1;
+			}
+		}
+	}
+}
+
+/* Hand the ordered package lists to build-dag.sh: the kaem-phase packages (the
+ * implicit base layer, in manifest order) and the shell-phase packages (the DAG
+ * nodes, in manifest order). build-dag.sh reads steps/<pkg>/deps, computes
+ * closures, and emits dag.mk from these. */
+void write_package_lists(void) {
+	FILE *base = fopen("/steps/base-packages", "w");
+	FILE *shell = fopen("/steps/shell-packages", "w");
+	if (base == NULL || shell == NULL) {
+		fputs("Error opening package list files\n", stderr);
+		exit(1);
+	}
+	for (int i = 0; i < n_pkgs; i++) {
+		if (pkg_is_shell[i]) {
+			fputs(pkg_names[i], shell);
+			fputs("\n", shell);
+		} else {
+			fputs(pkg_names[i], base);
+			fputs("\n", base);
+		}
+	}
+	fclose(base);
+	fclose(shell);
+}
+
+/* Emit the thin shell-phase driver /steps/<id>.sh that runs build-dag.sh. */
+void emit_driver(int id) {
+	char *filename = calloc(MAX_STRING, sizeof(char));
+	sprintf(filename, "/steps/%d.sh", id);
+	FILE *out = fopen(filename, "w");
+	if (out == NULL) {
+		fputs("Error opening driver script\n", stderr);
+		exit(1);
+	}
+	fputs("#!/bin/sh\n", out);
+	fputs("exec sh /steps/build-dag.sh\n", out);
+	fclose(out);
+}
+
 void generate(Directive *directives) {
 	/*
 	 * We are separating the stages given in the mainfest into a bunch of
@@ -496,7 +572,12 @@ void generate(Directive *directives) {
 	 * a new script:
 	 * - a jump
 	 * - build of dash (the first shell)
+	 *
+	 * The shell phase that begins at dash is no longer a linear list of build
+	 * calls: it is built as a make DAG by steps/build-dag.sh, which we hand the
+	 * ordered package lists collected here.
 	 */
+	collect_packages(directives);
 
 	int counter = 0;
 
@@ -521,22 +602,26 @@ void generate(Directive *directives) {
 			}
 			output_build(out, directive, pass_no, shell_build);
 			if (strncmp(directive->arg, "dash-", 5) == 0) {
-				if (!shell_build) {
-					/*
-					 * We are transitioning from kaem to the shell (dash), the point at
-					 * which "early preseed" occurs. So generate the preseed jump script
-					 * at this point.
-					 */
-					generate_preseed_jump(counter);
-				}
+				/*
+				 * dash is the last kaem-phase package and the first shell. We are
+				 * transitioning from kaem to the shell, the point at which "early
+				 * preseed" occurs, so generate the preseed jump script here.
+				 *
+				 * Everything after dash is the shell phase, built as a make DAG by
+				 * steps/build-dag.sh rather than a linear script: hand it the
+				 * package lists, emit the driver (/steps/<counter>.sh) that runs it,
+				 * call the driver from 0.sh, and stop -- all remaining (shell-phase)
+				 * directives are covered by the DAG.
+				 */
+				generate_preseed_jump(counter);
 				shell_build += 1;
-				/* Create call to new script. */
+				write_package_lists();
+				emit_driver(counter);
 				char s_counter[10];
 				sprintf(s_counter, "%d", counter);
 				output_call_script(out, "", s_counter, shell_build, 0);
 				fclose(out);
-				out = start_script(counter, shell_build);
-				counter += 1;
+				return;
 			}
 		} else if (directive->type == TYPE_IMPROVE) {
 			output_call_script(out, "improve", directive->arg, shell_build, 1);

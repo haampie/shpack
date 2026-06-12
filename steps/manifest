@@ -66,12 +66,13 @@ build: coreutils-5.0
 build: oyacc-6.6
 build: dash-0.5.12
 
-# Set up the post-shell build environment (PKGDIR store, MAKEJOBS, PATH).
-# From here on every package installs into its own prefix /opt/<name-version>
-# (a Spack-style store) and is exposed to later builds via PATH. Installed
-# trees are not checksummed during the build; verification is post-hoc (see
-# IDEAS.md: Landlock write isolation + store hashing outside the chroot).
-improve: update_env
+# From here on (the shell phase) every package installs into its own prefix
+# /opt/<name-version> (a Spack-style store). Build order and per-package PATH are
+# no longer linear: the script-generator emits /steps/dag.mk from each package's
+# steps/<name-version>/deps file and GNU make schedules the DAG (see DAG.md). The
+# store-env setup that the old `improve: update_env` did is now static (steps/env
+# + build-one.sh); the runtime /opt/*/bin PATH glob is gone. Installed trees are
+# not checksummed during the build; verification is post-hoc (see IDEAS.md).
 
 # Basic Unix utilities, all compiled by TCC 0.9.26 against musl 1.1.24.
 # Skips the live-bootstrap perl+autoconf+automake chain entirely — we use

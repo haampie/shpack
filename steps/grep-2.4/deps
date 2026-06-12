@@ -1,0 +1,5 @@
+# Direct build dependencies (one name-version per line). Must each appear
+# EARLIER in steps/manifest. tcc-0.9.27/musl-1.1.24 are kaem-phase (the
+# implicit base also carries them); declared for metadata + sysroot.
+tcc-0.9.27
+musl-1.1.24

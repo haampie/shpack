@@ -15,3 +15,10 @@ LIBDIR=${LIBC_PREFIX}/lib
 INCDIR=${LIBC_PREFIX}/include
 SRCDIR=/steps
 TMPDIR=/tmp
+# Shell-phase store root + inner-make parallelism. Plain assignments (no
+# `export`) so this file stays kaem-parseable for the kaem phase, which embeds
+# it verbatim; build-one.sh re-sources env and exports what subprocesses need.
+# The old improve/update_env.sh PATH glob is gone: PATH is composed per package
+# by the dag.mk recipes (closure + BASEPATH) the script-generator emits.
+PKGDIR=/opt
+MAKEJOBS=-j${JOBS}
