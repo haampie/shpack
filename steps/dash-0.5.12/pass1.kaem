@@ -49,6 +49,11 @@ cp ../../files/syntax.h src/syntax.h
 cp ../../files/token.h src/token.h
 cp ../../files/token_vars.h src/token_vars.h
 
+# Drop the empty inline-asm reordering barrier in error.h: tcc cannot parse the
+# asm operand list and, being non-optimising, needs no such barrier. See
+# patches/drop-asm-barrier.patch for the full rationale.
+patch -Np1 -i ../../patches/drop-asm-barrier.patch
+
 cd src
 
 # Compile. Same flags dash's own COMPILE uses; config.h is force-included and

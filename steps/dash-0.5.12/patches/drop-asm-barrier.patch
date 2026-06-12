@@ -1,0 +1,32 @@
+dash 0.5.12, AArch64: drop the empty inline-asm reordering barrier tcc cannot parse.
+
+error.h defines barrier() as an empty ``__asm__ __volatile__ ("": : :"memory")``
+statement. It emits no instructions: it is a pure *compiler* barrier used inside
+the INTOFF/INTON/FORCEINTON/RESTOREINT macros to stop an optimising compiler from
+reordering memory accesses (notably the suppressint store) across the async-signal
+critical-section boundary, or caching suppressint in a register.
+
+tcc rejects the asm operand list ("AArch64 asm not implemented"), and as a
+non-optimising, single-pass compiler it never reorders memory accesses across
+statements and never keeps a global in a register across a sequence point. The
+ordering property the barrier exists to enforce therefore already holds for any
+code tcc generates, and INTOFF/INTON only ever guard same-thread async signal
+delivery (no cross-core fence is involved). Defining barrier() as ((void)0)
+yields a behaviourally identical binary.
+
+--- dash-0.5.12/src/error.h.orig
++++ dash-0.5.12/src/error.h
+@@ -80,7 +80,12 @@
+ extern int suppressint;
+ extern volatile sig_atomic_t intpending;
+
+-#define barrier() ({ __asm__ __volatile__ ("": : :"memory"); })
++/* Upstream uses an empty inline-asm statement purely as a compiler
++ * reordering/clobber barrier around the suppressint critical sections.
++ * tcc cannot parse the asm operand list, and as a non-optimising compiler
++ * it never reorders memory accesses or caches globals in registers across
++ * statements, so the guarantee the barrier provides already holds. Drop it. */
++#define barrier() ((void)0)
+ #define INTOFF \
+ 	({ \
+ 		suppressint++; \
