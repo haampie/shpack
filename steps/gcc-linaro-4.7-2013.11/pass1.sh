@@ -4,6 +4,13 @@ src_prepare() {
     # libiberty's C_alloca conflicts with musl's alloca/__builtin_alloca.
     # Rename C_alloca -> alloca throughout libiberty (same fix as Guix).
     patch -Np1 < "${patch_dir}/0001-alloca.patch"
+
+    # Work around a tcc 0.9.27 AArch64 spill-slot collision that miscompiles a
+    # nested 16-byte-struct-return call in set_lattice_value, crashing the
+    # tcc-built cc1 inside the tree-ccp pass (libgcc2.c __cmpti2). Splitting the
+    # call into a temporary avoids it; lets us build libgcc with -O2 tree-ccp on.
+    # See bugs/tcc-aarch64-nested-struct-return-spill.md.
+    patch -Np1 < "${patch_dir}/0002-tree-ssa-ccp-spill.patch"
 }
 
 src_configure() {
@@ -66,21 +73,10 @@ src_configure() {
 
 src_compile() {
     # CWD is _build/ (set by src_configure above)
-    # CFLAGS_FOR_TARGET: tcc-compiled GCC miscompiles the tree-ccp pass,
-    # causing ICEs on TImode and silent miscompilation of target code.
-    make "${MAKEJOBS}" MAKEINFO=true "CFLAGS_FOR_TARGET=-O2 -fno-tree-ccp"
+    make "${MAKEJOBS}" MAKEINFO=true
 }
 
 src_install() {
     # CWD is _build/ (set by src_configure above)
     make install MAKEINFO=true
-
-    # Write a specs file so every cc1/cc1plus invocation gets -fno-tree-ccp,
-    # protecting all consumers built by this GCC from the tcc codegen bug.
-    # GCC reads `specs` from its libgcc directory automatically. No find(1)
-    # exists in this environment; the libgcc dir of this fixed-version build
-    # is known, and the test guards against the path drifting.
-    libgcc_dir="${PREFIX}/lib/gcc/${TRIPLE}/4.7.4"
-    test -e "${libgcc_dir}/libgcc.a"
-    printf '*cc1_options:\n+ -fno-tree-ccp\n\n' > "${libgcc_dir}/specs"
 }

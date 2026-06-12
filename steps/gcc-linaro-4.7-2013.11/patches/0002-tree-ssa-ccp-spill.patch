@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Harmen Stoppels <harmen@stoppels.ch>
+Date: Thu, 12 Jun 2026 16:00:00 +0200
+Subject: [PATCH] 0002: tree-ssa-ccp avoid nested 16B-struct-return call
+ (tcc spill bug)
+
+tcc 0.9.27 (AArch64) miscompiles set_lattice_value's
+  new_val.mask = double_int_ior (new_val.mask,
+                                 double_int_ior (old_val->mask, diff));
+It assigns the same stack spill slot to the saved &new_val.mask pointer
+(new_val is a 32-byte by-reference struct param) and to a scalar spilled
+while evaluating the inner double_int_ior (high half of old_val->mask).
+The scalar store clobbers the pointer; the later reload dereferences a
+data value -> SIGSEGV inside the tree-ccp pass (crashes the tcc-built cc1
+while compiling libgcc2.c's __cmpti2/__ucmpti2).
+
+Splitting the inner call into a named temporary removes the live-range
+overlap and makes tcc emit correct code. Functionally identical.
+
+See bugs/tcc-aarch64-nested-struct-return-spill.md for the full analysis
+and a self-contained reproducer.
+---
+ gcc/tree-ssa-ccp.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+--- a/gcc/tree-ssa-ccp.c
++++ b/gcc/tree-ssa-ccp.c
+@@ -448,10 +448,11 @@
+       && TREE_CODE (old_val->value) == INTEGER_CST)
+     {
+       double_int diff;
++      double_int tmp_mask;
+       diff = double_int_xor (tree_to_double_int (new_val.value),
+ 			     tree_to_double_int (old_val->value));
+-      new_val.mask = double_int_ior (new_val.mask,
+-				     double_int_ior (old_val->mask, diff));
++      tmp_mask = double_int_ior (old_val->mask, diff);
++      new_val.mask = double_int_ior (new_val.mask, tmp_mask);
+     }
+
+   gcc_assert (valid_lattice_transition (*old_val, new_val));
