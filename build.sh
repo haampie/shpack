@@ -183,7 +183,28 @@ RUNNER="${RUNNER:-$(command -v bwrap >/dev/null 2>&1 && echo bwrap || echo chroo
 case "$RUNNER" in
     bwrap)  bwrap --unshare-all --bind rootfs / --dev /dev --proc /proc --chdir / \
                 "$SEED" kaem.${ARCH} ;;
-    chroot) sudo chroot --userspec=$(id -u):$(id -g) rootfs "$SEED" kaem.${ARCH} ;;
+    chroot)
+        # Plain chroot leaves the rootfs with no /dev. The build framework's
+        # fn_exists() (steps/helpers.sh) probes functions with
+        # `command -v NAME 2>/dev/null`; with no /dev/null that redirect fails,
+        # fn_exists returns false for every name, and each package's custom
+        # src_* stage is silently skipped in favour of the default (e.g.
+        # diffutils loses its `touch config.h` and fails on #include <config.h>).
+        # Mirror bwrap's `--dev /dev` with a minimal device set, then remove it:
+        # the nodes are root-owned, so leaving them would make the next non-root
+        # `rm -rf rootfs` choke.
+        sudo mkdir -p rootfs/dev
+        sudo mknod -m 666 rootfs/dev/null    c 1 3
+        sudo mknod -m 666 rootfs/dev/zero    c 1 5
+        sudo mknod -m 666 rootfs/dev/full    c 1 7
+        sudo mknod -m 666 rootfs/dev/random  c 1 8
+        sudo mknod -m 666 rootfs/dev/urandom c 1 9
+        sudo mknod -m 666 rootfs/dev/tty     c 5 0
+        trap 'sudo rm -rf rootfs/dev' EXIT
+        sudo chroot --userspec=$(id -u):$(id -g) rootfs "$SEED" kaem.${ARCH}
+        sudo rm -rf rootfs/dev
+        trap - EXIT
+        ;;
     *)      echo "unknown RUNNER: $RUNNER (use bwrap or chroot)" >&2; exit 1 ;;
 esac
 
