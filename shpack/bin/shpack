@@ -1,0 +1,84 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# shpack -- a Spack-shaped package manager in portable POSIX shell.
+#
+# shpack drives the post-kaem part of the bootstrap: it concretizes a package
+# DAG from per-package recipes (packages/<name>/package.sh), assigns every
+# node a Merkle hash, installs each package into its own store prefix
+# $STORE/<name>-<version>-<hash7>, and schedules independent builds in
+# parallel through GNU make. Once Python and the rest of Spack's dependencies
+# are bootstrapped, the real Spack takes over the same store.
+#
+# Constraint: this code must run under the first bootstrap shell -- dash with
+# coreutils 5.0, sed, make 3.82 and the stage0 sha256sum. In particular there
+# is no grep, awk, find or xargs at that point; nothing here may use them.
+
+set -e
+
+die() {
+    printf 'shpack: error: %s\n' "$*" >&2
+    exit 1
+}
+
+# Locate our own tree: $0 is .../bin/shpack, the root is one level up.
+SHPACK_ROOT=$(dirname "$(dirname "$0")")
+case $SHPACK_ROOT in
+    /*) ;;
+    *) SHPACK_ROOT=$PWD/$SHPACK_ROOT ;;
+esac
+
+SHPACK_LIB=$SHPACK_ROOT/lib
+
+# Overridable locations, so tests (and a future multi-repo setup) can point
+# shpack at a scratch state dir, another package repo, or another config.
+VAR=${SHPACK_VAR:-/tmp/shpack}
+REPO=${SHPACK_REPO:-$SHPACK_ROOT/packages}
+EXTERNALS=${SHPACK_EXTERNALS:-$SHPACK_ROOT/etc/externals}
+CONFIG=${SHPACK_CONFIG:-$SHPACK_ROOT/etc/config}
+
+[ -f "$CONFIG" ] || die "no config at $CONFIG (set SHPACK_CONFIG?)"
+. "$CONFIG"
+
+for v in ARCH JOBS STORE DISTFILES BASEPATH; do
+    eval "val=\${$v:-}"
+    [ -n "$val" ] || die "config $CONFIG does not set $v"
+done
+
+. "$SHPACK_LIB/spec.sh"
+. "$SHPACK_LIB/repo.sh"
+. "$SHPACK_LIB/concretize.sh"
+. "$SHPACK_LIB/builder.sh"
+
+mkdir -p "$VAR"
+
+# Children spawned from dag.mk recipes must see the same world.
+export SHPACK_VAR="$VAR" SHPACK_REPO="$REPO" SHPACK_EXTERNALS="$EXTERNALS" \
+       SHPACK_CONFIG="$CONFIG"
+
+usage() {
+    cat <<'EOF'
+usage: shpack <command> [args]
+
+  install <spec>...     concretize and build the given packages and their
+                        dependency closures (spec: name or name@version)
+  concretize <spec>...  resolve the DAG and emit dag.mk, but do not build
+  build-one <id>        build a single concretized node (internal; invoked
+                        from dag.mk recipes)
+  env <name|id>         print the composed build environment of a node
+  find                  list concretized/installed packages
+EOF
+}
+
+cmd=${1:-help}
+if [ $# -gt 0 ]; then shift; fi
+
+case $cmd in
+    install)        cmd_install "$@" ;;
+    concretize)     cmd_concretize "$@" ;;
+    build-one)      cmd_build_one "$@" ;;
+    env)            cmd_env "$@" ;;
+    find)           cmd_find "$@" ;;
+    help|-h|--help) usage ;;
+    *)              usage >&2; die "unknown command '$cmd'" ;;
+esac

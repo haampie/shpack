@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+#
+# Packages the kaem phase already installed, registered Spack-externals
+# style: "name@version prefix". depends_on resolves against these before
+# considering recipes; on a version tie the external wins.
+
+tcc@0.9.26      /opt/tcc-0.9.26
+tcc@0.9.27      /opt/tcc-0.9.27
+musl@1.1.24     /opt/musl-1.1.24
+gmake@3.82      /opt/make-3.82
+patch@2.5.9     /opt/patch-2.5.9
+gzip@1.2.4      /opt/gzip-1.2.4
+tar@1.12        /opt/tar-1.12
+sed@4.0.9       /opt/sed-4.0.9
+bzip2@1.0.8     /opt/bzip2-1.0.8
+coreutils@5.0   /opt/coreutils-5.0
+oyacc@6.6       /opt/oyacc-6.6
+dash@0.5.12     /opt/dash-0.5.12

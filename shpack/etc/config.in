@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT
+#
+# shpack configuration. @TOKEN@ placeholders are substituted by build.sh on
+# the host when staging the rootfs (this replaces live-bootstrap's in-chroot
+# configurator). Plain POSIX-shell assignments; sourced by bin/shpack.
+
+ARCH=@ARCH@
+JOBS=@JOBS@
+
+# Store: one prefix per package, /opt/<name>-<version>-<hash7>. The kaem
+# phase installs its packages as unhashed /opt/<name>-<version> prefixes,
+# registered in etc/externals.
+STORE=/opt
+
+DISTFILES=/external/distfiles
+
+# The PATH floor under every composed build PATH: the kaem-phase prefixes
+# (newest first) and the stage0 seed dirs.
+BASEPATH=@BASEPATH@
+
+# When this spec occurs in a DAG, shpack builds it first, serially, under the
+# bootstrap-era make (3.82, whose -j has races), then schedules the rest -jN
+# under it.
+SHPACK_BOOTSTRAP_MAKE=gmake@4.4.1
