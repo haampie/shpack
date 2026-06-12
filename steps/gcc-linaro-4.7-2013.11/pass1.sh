@@ -11,6 +11,17 @@ src_prepare() {
     # call into a temporary avoids it; lets us build libgcc with -O2 tree-ccp on.
     # See bugs/tcc-aarch64-nested-struct-return-spill.md.
     patch -Np1 < "${patch_dir}/0002-tree-ssa-ccp-spill.patch"
+
+    # libstdc++'s gnu-linux os_defines.h uses __GLIBC_PREREQ(2,15), which musl
+    # does not define; the bare macro name breaks the preprocessor on every
+    # libsupc++/EH object. Guard it so the gets() check evaluates false on musl.
+    patch -Np1 < "${patch_dir}/0003-libstdcxx-musl-glibc-prereq.patch"
+
+    # gnu-linux ctype uses glibc-internal mask names (_ISupper, ...) and
+    # __ctype_b_loc(), absent on musl -> every libstdc++ TU fails. Swap in the
+    # portable config/os/generic ctype (own mask bits, classify via isXXX()).
+    # Same approach as Alpine / musl-cross-make. Proven on amd64 + aarch64.
+    patch -Np1 < "${patch_dir}/0004-libstdcxx-generic-ctype.patch"
 }
 
 src_configure() {
@@ -47,7 +58,7 @@ src_configure() {
         --with-mpc="${PKGDIR}/mpc-1.0.3" \
         --with-as="${PKGDIR}/binutils-2.30/bin/as" \
         --with-ld="${PKGDIR}/binutils-2.30/bin/ld" \
-        --enable-languages=c \
+        --enable-languages=c,c++ \
         --enable-static \
         --disable-shared \
         --enable-threads=single \

@@ -1,0 +1,32 @@
+From 0e85cf783d6471da929cdff0218bd44d56ec558f Mon Sep 17 00:00:00 2001
+From: Harmen Stoppels <harmen@stoppels.ch>
+Date: Tue, 2 Jun 2026 07:31:39 +0200
+Subject: [PATCH] 0003: libstdc++ guard __GLIBC_PREREQ for musl
+
+musl does not define __GLIBC_PREREQ; an unguarded #if __GLIBC_PREREQ(2,15)
+expands to a syntax error (missing binary operator before '('). Wrap in
+#if defined(__GLIBC_PREREQ).
+---
+ libstdc++-v3/config/os/gnu-linux/os_defines.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/libstdc++-v3/config/os/gnu-linux/os_defines.h b/libstdc++-v3/config/os/gnu-linux/os_defines.h
+index c4aa30548..3c5d10f65 100644
+--- a/libstdc++-v3/config/os/gnu-linux/os_defines.h
++++ b/libstdc++-v3/config/os/gnu-linux/os_defines.h
+@@ -42,8 +42,12 @@
+ // Provide a declaration for the possibly deprecated gets function, as
+ // glibc 2.15 and later does not declare gets for ISO C11 when
+ // __GNU_SOURCE is defined.
++// musl does not define __GLIBC_PREREQ; guard so the undefined macro name
++// is not expanded to 0(2,15) ("missing binary operator before token (").
++#if defined(__GLIBC_PREREQ)
+ #if __GLIBC_PREREQ(2,15) && defined(_GNU_SOURCE)
+ # undef _GLIBCXX_HAVE_GETS
+ #endif
++#endif
+ 
+ #endif
+-- 
+2.43.0
+

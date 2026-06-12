@@ -1,0 +1,427 @@
+From ed02ce622f793ca598afb98f36ce55b941eed08d Mon Sep 17 00:00:00 2001
+From: Harmen Stoppels <harmen@stoppels.ch>
+Date: Tue, 2 Jun 2026 07:31:39 +0200
+Subject: [PATCH] 0004: libstdc++ use generic (libc-agnostic) ctype on musl
+
+gnu-linux ctype uses glibc-internal mask names (_ISupper, ...) and
+__ctype_b_loc(), absent on musl -> 'X was not declared' in every libstdc++ TU.
+Replace ctype_base.h, ctype_inline.h, ctype_configure_char.cc with the
+portable config/os/generic versions (own mask bits, classify via standard
+isXXX()). os_defines.h kept. Same approach as Alpine / musl-cross-make.
+---
+ libstdc++-v3/config/os/gnu-linux/ctype_base.h |  33 ++--
+ .../os/gnu-linux/ctype_configure_char.cc      | 151 ++++--------------
+ .../config/os/gnu-linux/ctype_inline.h        | 116 ++++++++++++--
+ 3 files changed, 145 insertions(+), 155 deletions(-)
+
+diff --git a/libstdc++-v3/config/os/gnu-linux/ctype_base.h b/libstdc++-v3/config/os/gnu-linux/ctype_base.h
+index eb2b14c58..72aa6f2cc 100644
+--- a/libstdc++-v3/config/os/gnu-linux/ctype_base.h
++++ b/libstdc++-v3/config/os/gnu-linux/ctype_base.h
+@@ -1,6 +1,6 @@
+ // Locale support -*- C++ -*-
+ 
+-// Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2009, 2010
++// Copyright (C) 1997, 1998, 1999, 2003, 2009, 2010
+ // Free Software Foundation, Inc.
+ //
+ // This file is part of the GNU ISO C++ Library.  This library is free
+@@ -23,16 +23,11 @@
+ // see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ // <http://www.gnu.org/licenses/>.
+ 
+-/** @file bits/ctype_base.h
+- *  This is an internal header file, included by other library headers.
+- *  Do not attempt to use it directly. @headername{locale}
+- */
+-
+ //
+ // ISO C++ 14882: 22.1  Locales
+ //
+ 
+-// Information as gleaned from /usr/include/ctype.h
++// Default information, may not be appropriate for specific host.
+ 
+ namespace std _GLIBCXX_VISIBILITY(default)
+ {
+@@ -46,18 +41,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 
+     // NB: Offsets into ctype<char>::_M_table force a particular size
+     // on the mask type. Because of this, we don't use an enum.
+-    typedef unsigned short 	mask;
+-    static const mask upper    	= _ISupper;
+-    static const mask lower 	= _ISlower;
+-    static const mask alpha 	= _ISalpha;
+-    static const mask digit 	= _ISdigit;
+-    static const mask xdigit 	= _ISxdigit;
+-    static const mask space 	= _ISspace;
+-    static const mask print 	= _ISprint;
+-    static const mask graph 	= _ISalpha | _ISdigit | _ISpunct;
+-    static const mask cntrl 	= _IScntrl;
+-    static const mask punct 	= _ISpunct;
+-    static const mask alnum 	= _ISalpha | _ISdigit;
++    typedef unsigned int 	mask;
++    static const mask upper    	= 1 << 0;
++    static const mask lower 	= 1 << 1;
++    static const mask alpha 	= 1 << 2;
++    static const mask digit 	= 1 << 3;
++    static const mask xdigit 	= 1 << 4;
++    static const mask space 	= 1 << 5;
++    static const mask print 	= 1 << 6;
++    static const mask graph 	= (1 << 2) | (1 << 3) | (1 << 9); // alnum|punct
++    static const mask cntrl 	= 1 << 8;
++    static const mask punct 	= 1 << 9;
++    static const mask alnum 	= (1 << 2) | (1 << 3);  // alpha|digit
+   };
+ 
+ _GLIBCXX_END_NAMESPACE_VERSION
+diff --git a/libstdc++-v3/config/os/gnu-linux/ctype_configure_char.cc b/libstdc++-v3/config/os/gnu-linux/ctype_configure_char.cc
+index 5eadeaaac..0daedf543 100644
+--- a/libstdc++-v3/config/os/gnu-linux/ctype_configure_char.cc
++++ b/libstdc++-v3/config/os/gnu-linux/ctype_configure_char.cc
+@@ -38,140 +38,43 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 
+ // Information as gleaned from /usr/include/ctype.h
+ 
+-#if _GLIBCXX_C_LOCALE_GNU
+   const ctype_base::mask*
+   ctype<char>::classic_table() throw()
+-  { return _S_get_c_locale()->__ctype_b; }
+-#else
+-  const ctype_base::mask*
+-  ctype<char>::classic_table() throw()
+-  {
+-    const ctype_base::mask* __ret;
+-    char* __old = setlocale(LC_CTYPE, NULL);
+-    char* __sav = NULL;
+-    if (__builtin_strcmp(__old, "C"))
+-      {
+-	const size_t __len = __builtin_strlen(__old) + 1;
+-	__sav = new char[__len];
+-	__builtin_memcpy(__sav, __old, __len);
+-	setlocale(LC_CTYPE, "C");
+-      }
+-#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+-    __ret = *__ctype_b_loc();
+-#else
+-    __ret = __ctype_b;
+-#endif
+-    if (__sav)
+-      {
+-	setlocale(LC_CTYPE, __sav);
+-	delete [] __sav;
+-      }
+-    return __ret;
+-  }
+-#endif
+-
+-#if _GLIBCXX_C_LOCALE_GNU
+-  ctype<char>::ctype(__c_locale __cloc, const mask* __table, bool __del,
+-		     size_t __refs)
+-  : facet(__refs), _M_c_locale_ctype(_S_clone_c_locale(__cloc)),
+-  _M_del(__table != 0 && __del),
+-  _M_toupper(_M_c_locale_ctype->__ctype_toupper),
+-  _M_tolower(_M_c_locale_ctype->__ctype_tolower),
+-  _M_table(__table ? __table : _M_c_locale_ctype->__ctype_b),
+-  _M_widen_ok(0), _M_narrow_ok(0)
+-  {
+-    __builtin_memset(_M_widen, 0, sizeof(_M_widen));
+-    __builtin_memset(_M_narrow, 0, sizeof(_M_narrow));
+-  }
+-#else
+-  ctype<char>::ctype(__c_locale, const mask* __table, bool __del,
+-		     size_t __refs)
+-  : facet(__refs), _M_c_locale_ctype(_S_get_c_locale()),
+-  _M_del(__table != 0 && __del), _M_widen_ok(0), _M_narrow_ok(0)
+-  {
+-    char* __old = setlocale(LC_CTYPE, NULL);
+-    char* __sav = NULL;
+-    if (__builtin_strcmp(__old, "C"))
+-      {
+-	const size_t __len = __builtin_strlen(__old) + 1;
+-	__sav = new char[__len];
+-	__builtin_memcpy(__sav, __old, __len);
+-	setlocale(LC_CTYPE, "C");
+-      }
+-#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+-    _M_toupper = *__ctype_toupper_loc();
+-    _M_tolower = *__ctype_tolower_loc();
+-    _M_table = __table ? __table : *__ctype_b_loc();
+-#else
+-    _M_toupper = __ctype_toupper;
+-    _M_tolower = __ctype_tolower;
+-    _M_table = __table ? __table : __ctype_b;
+-#endif
+-    if (__sav)
+-      {
+-	setlocale(LC_CTYPE, __sav);
+-	delete [] __sav;
+-      }
+-    __builtin_memset(_M_widen, 0, sizeof(_M_widen));
+-    __builtin_memset(_M_narrow, 0, sizeof(_M_narrow));
++  { return 0; }
++
++  ctype<char>::ctype(__c_locale, const mask* __table, bool __del, 
++		     size_t __refs) 
++  : facet(__refs), _M_del(__table != 0 && __del), 
++  _M_toupper(NULL), _M_tolower(NULL), 
++  _M_table(__table ? __table : classic_table()) 
++  { 
++    memset(_M_widen, 0, sizeof(_M_widen));
++    _M_widen_ok = 0;
++    memset(_M_narrow, 0, sizeof(_M_narrow));
++    _M_narrow_ok = 0;
+   }
+-#endif
+-
+-#if _GLIBCXX_C_LOCALE_GNU
+-  ctype<char>::ctype(const mask* __table, bool __del, size_t __refs)
+-  : facet(__refs), _M_c_locale_ctype(_S_get_c_locale()),
+-  _M_del(__table != 0 && __del),
+-  _M_toupper(_M_c_locale_ctype->__ctype_toupper),
+-  _M_tolower(_M_c_locale_ctype->__ctype_tolower),
+-  _M_table(__table ? __table : _M_c_locale_ctype->__ctype_b),
+-  _M_widen_ok(0), _M_narrow_ok(0)
+-  {
+-    __builtin_memset(_M_widen, 0, sizeof(_M_widen));
+-    __builtin_memset(_M_narrow, 0, sizeof(_M_narrow));
+-  }
+-#else
+-  ctype<char>::ctype(const mask* __table, bool __del, size_t __refs)
+-  : facet(__refs), _M_c_locale_ctype(_S_get_c_locale()),
+-  _M_del(__table != 0 && __del), _M_widen_ok(0), _M_narrow_ok(0)
+-  {
+-    char* __old = setlocale(LC_CTYPE, NULL);
+-    char* __sav = NULL;
+-    if (__builtin_strcmp(__old, "C"))
+-      {
+-	const size_t __len = __builtin_strlen(__old) + 1;
+-	__sav = new char[__len];
+-	__builtin_memcpy(__sav, __old, __len);
+-	setlocale(LC_CTYPE, "C");
+-      }
+-#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+-    _M_toupper = *__ctype_toupper_loc();
+-    _M_tolower = *__ctype_tolower_loc();
+-    _M_table = __table ? __table : *__ctype_b_loc();
+-#else
+-    _M_toupper = __ctype_toupper;
+-    _M_tolower = __ctype_tolower;
+-    _M_table = __table ? __table : __ctype_b;
+-#endif
+-    if (__sav)
+-      {
+-	setlocale(LC_CTYPE, __sav);
+-	delete [] __sav;
+-      }
+-    __builtin_memset(_M_widen, 0, sizeof(_M_widen));
+-    __builtin_memset(_M_narrow, 0, sizeof(_M_narrow));
++
++  ctype<char>::ctype(const mask* __table, bool __del, size_t __refs) 
++  : facet(__refs), _M_del(__table != 0 && __del), 
++  _M_toupper(NULL), _M_tolower(NULL), 
++  _M_table(__table ? __table : classic_table())
++  { 
++    memset(_M_widen, 0, sizeof(_M_widen));
++    _M_widen_ok = 0;
++    memset(_M_narrow, 0, sizeof(_M_narrow));
++    _M_narrow_ok = 0;
+   }
+-#endif
+ 
+   char
+   ctype<char>::do_toupper(char __c) const
+-  { return _M_toupper[static_cast<unsigned char>(__c)]; }
++  { return ::toupper((int) __c); }
+ 
+   const char*
+   ctype<char>::do_toupper(char* __low, const char* __high) const
+   {
+     while (__low < __high)
+       {
+-	*__low = _M_toupper[static_cast<unsigned char>(*__low)];
++	*__low = ::toupper((int) *__low);
+ 	++__low;
+       }
+     return __high;
+@@ -179,14 +82,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 
+   char
+   ctype<char>::do_tolower(char __c) const
+-  { return _M_tolower[static_cast<unsigned char>(__c)]; }
++  { return ::tolower((int) __c); }
+ 
+-  const char*
++  const char* 
+   ctype<char>::do_tolower(char* __low, const char* __high) const
+   {
+     while (__low < __high)
+       {
+-	*__low = _M_tolower[static_cast<unsigned char>(*__low)];
++	*__low = ::tolower((int) *__low);
+ 	++__low;
+       }
+     return __high;
+diff --git a/libstdc++-v3/config/os/gnu-linux/ctype_inline.h b/libstdc++-v3/config/os/gnu-linux/ctype_inline.h
+index 7e83a9e75..ae54f2968 100644
+--- a/libstdc++-v3/config/os/gnu-linux/ctype_inline.h
++++ b/libstdc++-v3/config/os/gnu-linux/ctype_inline.h
+@@ -1,6 +1,6 @@
+ // Locale support -*- C++ -*-
+ 
+-// Copyright (C) 2000, 2002, 2009, 2010 Free Software Foundation, Inc.
++// Copyright (C) 2000, 2003, 2009, 2010 Free Software Foundation, Inc.
+ //
+ // This file is part of the GNU ISO C++ Library.  This library is free
+ // software; you can redistribute it and/or modify it under the
+@@ -30,9 +30,16 @@
+ //
+ // ISO C++ 14882: 22.1  Locales
+ //
+-
++  
+ // ctype bits to be inlined go here. Non-inlinable (ie virtual do_*)
+ // functions go in ctype.cc
++  
++// The following definitions are portable, but insanely slow. If one
++// cares at all about performance, then specialized ctype
++// functionality should be added for the native os in question: see
++// the config/os/bits/ctype_*.h files.
++
++// Constructing a synthetic "C" table should be seriously considered...
+ 
+ namespace std _GLIBCXX_VISIBILITY(default)
+ {
+@@ -41,14 +48,91 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   bool
+   ctype<char>::
+   is(mask __m, char __c) const
+-  { return _M_table[static_cast<unsigned char>(__c)] & __m; }
+-
++  { 
++    if (_M_table)
++      return _M_table[static_cast<unsigned char>(__c)] & __m;
++    else
++      {
++	bool __ret = false;
++	const size_t __bitmasksize = 15; 
++	size_t __bitcur = 0; // Lowest bitmask in ctype_base == 0
++	for (; __bitcur <= __bitmasksize; ++__bitcur)
++	  {
++	    const mask __bit = static_cast<mask>(1 << __bitcur);
++	    if (__m & __bit)
++	      {
++		bool __testis;
++		switch (__bit)
++		  {
++		  case space:
++		    __testis = isspace(__c);
++		    break;
++		  case print:
++		    __testis = isprint(__c);
++		    break;
++		  case cntrl:
++		    __testis = iscntrl(__c);
++		    break;
++		  case upper:
++		    __testis = isupper(__c);
++		    break;
++		  case lower:
++		    __testis = islower(__c);
++		    break;
++		  case alpha:
++		    __testis = isalpha(__c);
++		    break;
++		  case digit:
++		    __testis = isdigit(__c);
++		    break;
++		  case punct:
++		    __testis = ispunct(__c);
++		    break;
++		  case xdigit:
++		    __testis = isxdigit(__c);
++		    break;
++		  case alnum:
++		    __testis = isalnum(__c);
++		    break;
++		  case graph:
++		    __testis = isgraph(__c);
++		    break;
++		  default:
++		    __testis = false;
++		    break;
++		  }
++		__ret |= __testis;
++	      }
++	  }
++	return __ret;
++      }
++  }
++   
+   const char*
+   ctype<char>::
+   is(const char* __low, const char* __high, mask* __vec) const
+   {
+-    while (__low < __high)
+-      *__vec++ = _M_table[static_cast<unsigned char>(*__low++)];
++    if (_M_table)
++      while (__low < __high)
++	*__vec++ = _M_table[static_cast<unsigned char>(*__low++)];
++    else
++      {
++	// Highest bitmask in ctype_base == 10.
++	const size_t __bitmasksize = 15; 
++	for (;__low < __high; ++__vec, ++__low)
++	  {
++	    mask __m = 0;
++	    // Lowest bitmask in ctype_base == 0
++	    size_t __i = 0; 
++	    for (;__i <= __bitmasksize; ++__i)
++	      {
++		const mask __bit = static_cast<mask>(1 << __i);
++		if (this->is(__bit, *__low))
++		  __m |= __bit;
++	      }
++	    *__vec = __m;
++	  }
++      }
+     return __high;
+   }
+ 
+@@ -56,9 +140,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   ctype<char>::
+   scan_is(mask __m, const char* __low, const char* __high) const
+   {
+-    while (__low < __high
+-	   && !(_M_table[static_cast<unsigned char>(*__low)] & __m))
+-      ++__low;
++    if (_M_table)
++      while (__low < __high
++	     && !(_M_table[static_cast<unsigned char>(*__low)] & __m))
++	++__low;
++    else
++      while (__low < __high && !this->is(__m, *__low))
++	++__low;
+     return __low;
+   }
+ 
+@@ -66,9 +154,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   ctype<char>::
+   scan_not(mask __m, const char* __low, const char* __high) const
+   {
+-    while (__low < __high
+-	   && (_M_table[static_cast<unsigned char>(*__low)] & __m) != 0)
+-      ++__low;
++    if (_M_table)
++      while (__low < __high
++	     && (_M_table[static_cast<unsigned char>(*__low)] & __m) != 0)
++	++__low;
++    else
++      while (__low < __high && this->is(__m, *__low) != 0)
++	++__low;
+     return __low;
+   }
+ 
+-- 
+2.43.0
+
