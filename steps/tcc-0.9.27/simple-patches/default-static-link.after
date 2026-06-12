@@ -1,0 +1,11 @@
+    s->alacarte_link = 1;
+    /* Bootstrap default: link static. This environment has no dynamic loader
+       (tcc built with CONFIG_TCC_ELFINTERP=/non-existent) and ships only static
+       .a libs, so every output must be static. Upstream 0.9.27 only sets
+       static_link on an explicit -static; the bootstrappable 0.9.26 fork
+       defaults it on (#if BOOTSTRAP in tcc_new). Without this, packages whose
+       Makefiles link without -static (grep, m4, diffutils, gawk, make-4.4.1)
+       take tcc's dynamic-output path and segfault in fill_local_got_entries()
+       on aarch64 while building the GOT. */
+    s->static_link = 1;
+    s->nocommon = 1;

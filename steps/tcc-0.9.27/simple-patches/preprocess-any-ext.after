@@ -1,0 +1,15 @@
+            else if (!PATHCMP(ext, "c") || !PATHCMP(ext, "i"))
+                filetype = AFF_TYPE_C;
+            else if (s->output_type == TCC_OUTPUT_PREPROCESS)
+                /* Bootstrap/0.9.26 behavior: under -E, preprocess any file
+                   whatever its extension (GNU cpp does the same). gcc 4.7 is
+                   the last GCC buildable by a C compiler alone, but its
+                   configure still runs a reflexive AC_PROG_CXXCPP probe that
+                   feeds tcc a .cpp file. Upstream 0.9.27 classifies that by
+                   extension as a binary object and rejects it ("unrecognized
+                   file type"), aborting the C-only build though no C++ is ever
+                   compiled. Treating it as C source under -E lets `tcc -E`
+                   satisfy the probe with no -x c hack. */
+                filetype = AFF_TYPE_C;
+            else
+                flags |= AFF_TYPE_BIN;

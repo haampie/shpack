@@ -34,6 +34,11 @@
 build: checksum-transcriber-1.0
 build: simple-patch-1.0
 build: tcc-0.9.26
+# Upgrade the seed-grown 0.9.26 to the 0.9.27 release (built by 0.9.26), the
+# production compiler from here on (amd64 + aarch64). 0.9.27's post-snapshot
+# tccgen.c fixes give cleaner codegen for the gcc 4.7 build (0.9.26 ICEs gcc's
+# libgcc real.c / TFmode path on aarch64).
+build: tcc-0.9.27
 # Grow the bring-up subset libc into FULL musl 1.1.24 (amd64 + aarch64), built by
 # the production tcc, for the downstream binutils/gcc bootstrap.
 build: musl-1.1.24

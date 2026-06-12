@@ -1,0 +1,4 @@
+            else if (!PATHCMP(ext, "c") || !PATHCMP(ext, "i"))
+                filetype = AFF_TYPE_C;
+            else
+                flags |= AFF_TYPE_BIN;

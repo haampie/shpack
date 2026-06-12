@@ -1,0 +1,15 @@
+        return;
+    }
+
+    if (svr == (VT_CONST | VT_LVAL)) {
+        arm64_movimm(30, svcul); // use x30 for address
+        if (IS_FREG(r))
+            arm64_strv(arm64_type_size(svtt), fltr(r), 30, 0);
+        else
+            arm64_strx(arm64_type_size(svtt), intr(r), 30, 0);
+        return;
+    }
+
+    printf("store(%x, (%x, %x, %llx))\n", r, svtt, sv->r, (long long)svcul);
+    assert(0);
+}

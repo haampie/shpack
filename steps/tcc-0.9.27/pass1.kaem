@@ -1,0 +1,171 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# tcc 0.9.27 (amd64 + aarch64), the production C compiler for the rest of the
+# bootstrap, built with the seed-grown tcc 0.9.26 (the preceding step).
+#
+# The 0.9.27 release carries the SymAttr refactor and ~1900 lines of tccgen.c
+# fixes that postdate our 0.9.26 mob snapshot (tcc-0.9.26-1147-gee75a10c, which
+# predates SymAttr). The per-arch backends (arm64-gen.c / x86_64) are
+# near-identical between the two, so the backend patches port almost verbatim.
+# We switch to 0.9.27 for cleaner codegen in the downstream gcc 4.7 build (the
+# 0.9.26 cc1 ICEs gcc's libgcc real.c / TFmode path on aarch64).
+#
+# This is a plain "tcc compiles tcc.c" build -- NONE of the 0.9.26 step's
+# scaffolding is needed: no M2-Planet/hex seed path, no subset-musl glue, and no
+# boot0->boot3 float-fixpoint dance (that exists only because 0.9.26's first
+# compiler, tcc_s, is HAVE_FLOAT=0 and folds float constants to 0; the 0.9.26 tcc
+# building 0.9.27 here is already float-correct). The HAVE_FLOAT strtof/ldexp
+# tccpp guards are likewise stage-1-only and dropped; the aarch64
+# tcc-aarch64-04 long-double suffix patch is superseded by 0.9.27's rewritten
+# LONG_SIZE-aware integer-suffix logic.
+#
+# Installs into /opt/tcc-0.9.27/bin (on PATH ahead of /opt/tcc-0.9.26 for every
+# later package) and overwrites ${LIBDIR}/tcc/libtcc1.a with 0.9.27's runtime.
+
+set -ex
+
+# Check tarball checksums
+checksum-transcriber sources
+sha256sum -c sources.SHA256SUM
+
+# Extract (unbz2 is a seed tool, available this early -- make-3.82 uses it too).
+mkdir -p build
+cd build
+unbz2 --file ${DISTFILES}/tcc-0.9.27.tar.bz2 --output tcc-0.9.27.tar
+untar --non-strict --file tcc-0.9.27.tar
+cd tcc-0.9.27
+
+# Empty config.h: every CONFIG_* below is passed via -D and tcc.h has #ifndef
+# fallbacks, so the configure-generated config.h is not needed.
+catm config.h
+
+# Generic (arch-independent) fix: tcc's -ar armap builder (tcctools.c) only
+# indexes STB_GLOBAL symbols (st_info 0x10/0x11/0x12), dropping every STB_WEAK
+# one (0x20/0x21/0x22). Real ranlib indexes weak defs too. musl relies on this:
+# __init_tls, __stdio_exit_needed and the ___errno_location weak_alias are all
+# WEAK, so a libc.a built by an unpatched 0.9.27 tcc -ar leaves them out of the
+# index and the static linker reports them undefined at the first link.
+simple-patch tcctools.c \
+    ../../simple-patches/ar-index-weak.before ../../simple-patches/ar-index-weak.after
+
+# Generic (arch-independent) fix: default to static linking. The bootstrap has
+# no dynamic loader and only static .a libs; upstream 0.9.27 links dynamic
+# unless -static is given, and several package Makefiles (grep, m4, diffutils,
+# gawk, make-4.4.1) omit it. The bootstrappable 0.9.26 fork defaults static_link
+# on; we restore that here so those links don't hit the dynamic GOT path (which
+# segfaults in fill_local_got_entries on aarch64).
+simple-patch libtcc.c \
+    ../../simple-patches/default-static-link.before ../../simple-patches/default-static-link.after
+
+# Generic (arch-independent) fix: under -E, preprocess a file of any extension
+# as C (0.9.26 / GNU cpp behavior). gcc 4.7's configure runs a vestigial
+# AC_PROG_CXXCPP probe on a .cpp file; upstream 0.9.27 takes the unknown
+# extension for a binary object and aborts ("unrecognized file type") even
+# though the build is C-only. This lets `tcc -E` answer the probe with no C++
+# compiler and no -x c hack in the gcc step.
+simple-patch libtcc.c \
+    ../../simple-patches/preprocess-any-ext.before ../../simple-patches/preprocess-any-ext.after
+
+# Per-arch tcc backend selector.
+if match ${ARCH} amd64; then
+    TCC_TARGET_ARCH=X86_64
+fi
+if match ${ARCH} aarch64; then
+    TCC_TARGET_ARCH=ARM64
+fi
+
+# aarch64: drop in the minimal data-directive assembler (tcc has no real arm64
+# inline-asm) and apply the backend fixes ported from the tcc-0.9.26 step:
+#  02 codegen  -- const-lval load/store (string/float literals) + ftof mask
+#  03 varargs  -- AAPCS64 va builtin loop + va_list param/array decay
+if match ${ARCH} aarch64; then
+    cp /src/aarch64-asm.c aarch64-asm.c
+    simple-patch tcc.h \
+        ../../simple-patches/aarch64-asm-defs.before ../../simple-patches/aarch64-asm-defs.after
+    simple-patch libtcc.c \
+        ../../simple-patches/aarch64-asm-include.before ../../simple-patches/aarch64-asm-include.after
+    simple-patch arm64-gen.c \
+        ../../simple-patches/tcc-aarch64-02_arm64-gen.c_00.before ../../simple-patches/tcc-aarch64-02_arm64-gen.c_00.after
+    simple-patch arm64-gen.c \
+        ../../simple-patches/tcc-aarch64-02_arm64-gen.c_01.before ../../simple-patches/tcc-aarch64-02_arm64-gen.c_01.after
+    simple-patch arm64-gen.c \
+        ../../simple-patches/tcc-aarch64-02_arm64-gen.c_02.before ../../simple-patches/tcc-aarch64-02_arm64-gen.c_02.after
+    simple-patch arm64-gen.c \
+        ../../simple-patches/tcc-aarch64-03_arm64-gen.c_00.before ../../simple-patches/tcc-aarch64-03_arm64-gen.c_00.after
+    simple-patch arm64-gen.c \
+        ../../simple-patches/tcc-aarch64-03_arm64-gen.c_01.before ../../simple-patches/tcc-aarch64-03_arm64-gen.c_01.after
+fi
+
+# amd64: same two upstream fixes the 0.9.26 step needed, re-anchored to 0.9.27.
+#  static-plt    -- relocate_plt() is not called for static EXEs, leaving PLT
+#                   stubs with wrong RIP-relative offsets (musl exercises it)
+#  x86_64-mxcsr  -- teach the asm ldmxcsr/stmxcsr (musl's fenv.s needs them)
+if match ${ARCH} amd64; then
+    simple-patch tccelf.c \
+        ../../simple-patches/static-plt.before ../../simple-patches/static-plt.after
+    simple-patch x86_64-asm.h \
+        ../../simple-patches/x86_64-mxcsr.before ../../simple-patches/x86_64-mxcsr.after
+fi
+
+# Compile the 0.9.27 compiler with the production 0.9.26 tcc. ONE_SOURCE pulls
+# the per-arch gen/link (+ aarch64-asm.c) in through the patched include chains.
+# Links against the boot0-rebuilt subset libc.a + 0.9.26 libtcc1.a (the same
+# runtime the 0.9.26 tcc itself used to build the current chain).
+tcc \
+    -g \
+    -static \
+    -o tcc-0.9.27 \
+    -I . \
+    -I ${INCDIR} \
+    -D TCC_TARGET_${TCC_TARGET_ARCH}=1 \
+    -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" \
+    -D CONFIG_SYSROOT=\"/\" \
+    -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" \
+    -D CONFIG_TCC_ELFINTERP=\"/non-existent\" \
+    -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_SYSINCLUDEPATHS=\"${INCDIR}\" \
+    -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" \
+    -D TCC_LIBTCC1=\"libtcc1.a\" \
+    -D CONFIG_TCC_STATIC=1 \
+    -D CONFIG_USE_LIBGCC=1 \
+    -D CONFIG_TCCBOOT=1 \
+    -D TCC_VERSION=\"0.9.27\" \
+    -D ONE_SOURCE=1 \
+    -L . \
+    -L ${LIBDIR} \
+    tcc.c
+
+# Sanity: the new compiler runs and reports its version.
+./tcc-0.9.27 -version
+
+# 0.9.27 libtcc1.a, overwriting the 0.9.26 one so the new tcc links its own
+# runtime. aarch64: lib/lib-arm64.c (TFmode soft-float helpers) + our raw-word
+# alloca trampoline. amd64: lib/libtcc1.c + lib/alloca86_64.S.
+mkdir -p ${LIBDIR}/tcc
+if match ${ARCH} aarch64; then
+    ./tcc-0.9.27 -c -D TCC_TARGET_ARM64=1 -I include -o ${TMPDIR}/lib-arm64.o lib/lib-arm64.c
+    ./tcc-0.9.27 -c -D TCC_TARGET_ARM64=1 -o ${TMPDIR}/alloca-aarch64.o /src/alloca-aarch64.S
+    ./tcc-0.9.27 -ar cr ${LIBDIR}/tcc/libtcc1.a ${TMPDIR}/lib-arm64.o ${TMPDIR}/alloca-aarch64.o
+fi
+if match ${ARCH} amd64; then
+    ./tcc-0.9.27 -c -D TCC_TARGET_X86_64=1 -o ${TMPDIR}/libtcc1.o lib/libtcc1.c
+    ./tcc-0.9.27 -c -o ${TMPDIR}/alloca86_64.o lib/alloca86_64.S
+    ./tcc-0.9.27 -ar cr ${LIBDIR}/tcc/libtcc1.a ${TMPDIR}/libtcc1.o ${TMPDIR}/alloca86_64.o
+fi
+
+# Install as the production tcc. /opt/tcc-0.9.27/bin is prepended to PATH for
+# this and every later package, so `tcc` resolves here from musl onward.
+cp tcc-0.9.27 ${BINDIR}/tcc
+chmod 755 ${BINDIR}/tcc
+cp tcc-0.9.27 ${BINDIR}/tcc-0.9.27
+chmod 755 ${BINDIR}/tcc-0.9.27
+
+# Smoke test: compile + static link + run a trivial program with the installed
+# compiler + the freshly written libtcc1.a. A failed link or nonzero exit aborts.
+cp ${SRCDIR}/tcc-0.9.27/files/hello.c hello.c
+tcc -static -o ${TMPDIR}/hello hello.c
+${TMPDIR}/hello
+
+cd ../..

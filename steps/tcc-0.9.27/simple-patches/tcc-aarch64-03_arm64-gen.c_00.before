@@ -1,0 +1,7 @@
+{
+    int r;
+    --vtop; // we don't need the "arg"
+    gaddrof();
+    r = intr(gv(RC_INT));
+
+    if (arm64_func_va_list_stack) {
