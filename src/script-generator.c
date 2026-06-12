@@ -391,7 +391,7 @@ Directive *interpreter(Directive *directives) {
 }
 
 /* Script generator. */
-FILE *start_script(int id, int bash_build) {
+FILE *start_script(int id, int shell_build) {
 	/* Create the file /steps/$id.sh */
 	char *filename = calloc(MAX_STRING, sizeof(char));
 	sprintf(filename, "/steps/%d.sh", id);
@@ -404,10 +404,10 @@ FILE *start_script(int id, int bash_build) {
 		exit(1);
 	}
 
-	if (bash_build) {
-		/* "bash_build" is a historical name: it just means the shell phase.
-		 * The shell is now dash, so the generated scripts are #!/bin/sh. dash
-		 * has no bash-style interactive ERR/EXIT debug trap, so the old
+	if (shell_build) {
+		/* shell_build means the POSIX-shell phase (everything after dash, the
+		 * first shell). The shell is dash, so the generated scripts are
+		 * #!/bin/sh. dash has no interactive ERR/EXIT debug trap, so the old
 		 * INTERACTIVE drop-into-a-shell feature is gone; we always set -e. */
 		fputs("#!/bin/sh\n", out);
 		fputs("set -e\n", out);
@@ -435,8 +435,8 @@ FILE *start_script(int id, int bash_build) {
 	return out;
 }
 
-void output_call_script(FILE *out, char *type, char *name, int bash_build, int source) {
-	if (bash_build) {
+void output_call_script(FILE *out, char *type, char *name, int shell_build, int source) {
+	if (shell_build) {
 		if (source) {
 			fputs(". ", out);
 		} else {
@@ -454,8 +454,8 @@ void output_call_script(FILE *out, char *type, char *name, int bash_build, int s
 	fputs(".sh\n", out);
 }
 
-void output_build(FILE *out, Directive *directive, int pass_no, int bash_build) {
-	if (bash_build) {
+void output_build(FILE *out, Directive *directive, int pass_no, int shell_build) {
+	if (shell_build) {
 		fputs("build ", out);
 		fputs(directive->arg, out);
 		fprintf(out, " pass%d.sh\n", pass_no);
@@ -489,9 +489,9 @@ void generate(Directive *directives) {
 	int counter = 0;
 
 	/* Initially, we use kaem, not a shell. */
-	int bash_build = 0;
+	int shell_build = 0;
 
-	FILE *out = start_script(counter, bash_build);
+	FILE *out = start_script(counter, shell_build);
 	counter += 1;
 
 	Directive *directive;
@@ -507,9 +507,9 @@ void generate(Directive *directives) {
 					pass_no += 1;
 				}
 			}
-			output_build(out, directive, pass_no, bash_build);
+			output_build(out, directive, pass_no, shell_build);
 			if (strncmp(directive->arg, "dash-", 5) == 0) {
-				if (!bash_build) {
+				if (!shell_build) {
 					/*
 					 * We are transitioning from kaem to the shell (dash), the point at
 					 * which "early preseed" occurs. So generate the preseed jump script
@@ -517,17 +517,17 @@ void generate(Directive *directives) {
 					 */
 					generate_preseed_jump(counter);
 				}
-				bash_build += 1;
+				shell_build += 1;
 				/* Create call to new script. */
 				char s_counter[10];
 				sprintf(s_counter, "%d", counter);
-				output_call_script(out, "", s_counter, bash_build, 0);
+				output_call_script(out, "", s_counter, shell_build, 0);
 				fclose(out);
-				out = start_script(counter, bash_build);
+				out = start_script(counter, shell_build);
 				counter += 1;
 			}
 		} else if (directive->type == TYPE_IMPROVE) {
-			output_call_script(out, "improve", directive->arg, bash_build, 1);
+			output_call_script(out, "improve", directive->arg, shell_build, 1);
 		} else if (directive->type == TYPE_JUMP) {
 			/*
 			 * Create /init to call new script.
@@ -535,7 +535,7 @@ void generate(Directive *directives) {
 			 * moving that to /init at the appropriate time.
 			 */
 			filename = calloc(MAX_STRING, sizeof(char));
-			if (bash_build) {
+			if (shell_build) {
 				fputs("mv /init /init.bak\n", out);
 				/* Move new init to /init. */
 				sprintf(filename, "/init.%d", counter);
@@ -552,10 +552,10 @@ void generate(Directive *directives) {
 				fputs("chmod 755 /init\n", out);
 			}
 
-			output_call_script(out, "jump", directive->arg, bash_build, 1);
+			output_call_script(out, "jump", directive->arg, shell_build, 1);
 			fclose(out);
 
-			if (bash_build) {
+			if (shell_build) {
 				out = fopen(filename, "w");
 				if (out == NULL) {
 					fputs("Error opening /init\n", stderr);
@@ -572,9 +572,9 @@ void generate(Directive *directives) {
 			}
 			char s_counter[10];
 			sprintf(s_counter, "%d", counter);
-			output_call_script(out, "", s_counter, bash_build, 0);
+			output_call_script(out, "", s_counter, shell_build, 0);
 			fclose(out);
-			out = start_script(counter, bash_build);
+			out = start_script(counter, shell_build);
 			counter += 1;
 		} else if (directive->type == TYPE_UNINSTALL) {
 			fputs("uninstall ", out);
