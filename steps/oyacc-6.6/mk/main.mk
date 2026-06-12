@@ -9,8 +9,8 @@ LDFLAGS =   -static
 # musl provides getopt in libc; live-bootstrap's separate -lgetopt does not exist here.
 LIBS =
 PREFIX =	/usr
-BINDIR =    /usr/bin
-MANDIR =	/usr/share/man
+BINDIR =	${PREFIX}/bin
+MANDIR =	${PREFIX}/share/man
 PROG =		yacc
 
 OBJS =	closure.o error.o lalr.o lr0.o main.o mkpar.o output.o reader.o \

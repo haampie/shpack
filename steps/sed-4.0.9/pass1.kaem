@@ -41,7 +41,7 @@ cd ../..
 # Checksums
 if match x${UPDATE_CHECKSUMS} xTrue; then
     sha256sum -o ${pkg}.${ARCH}.checksums \
-        /usr/bin/sed
+        ${BINDIR}/sed
 
     cp ${pkg}.${ARCH}.checksums ${SRCDIR}
 else

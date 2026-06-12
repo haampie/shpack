@@ -138,7 +138,7 @@ if match ${ARCH} aarch64; then
 fi
 
 
-${BINDIR}/tcc_cc \
+tcc_cc \
     -a ${ARCH} \
     -o ${TMPDIR}/tcc.sl \
     -D BOOTSTRAP=1 \
@@ -157,10 +157,12 @@ ${BINDIR}/tcc_cc \
     -D TCC_VERSION=\"0.9.26\" \
     -D ONE_SOURCE=1 \
     /src/stdlib.c tcc.c
-${BINDIR}/stack_c -i /${ARCH}/stack_c_intro.M1 ${TMPDIR}/tcc.sl -o ${TMPDIR}/tcc_s.M1
-${BINDIR}/blood-elf --64 --little-endian -f ${TMPDIR}/tcc_s.M1 -o ${TMPDIR}/tcc_s.blood_elf
-${BINDIR}/M1 --architecture ${ARCH} --little-endian -f ${TMPDIR}/tcc_s.M1 -f ${TMPDIR}/tcc_s.blood_elf -o ${TMPDIR}/tcc_s.macro
-${BINDIR}/hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f /M2libc/${ARCH}/ELF-${ARCH}-debug.hex2 -f ${TMPDIR}/tcc_s.macro -o /usr/bin/tcc_s
+# Seed tools (stack_c/blood-elf/M1/hex2, like tcc_cc above) live in /usr/bin and
+# are found via PATH; only the tcc_s output goes into this package's ${BINDIR}.
+stack_c -i /${ARCH}/stack_c_intro.M1 ${TMPDIR}/tcc.sl -o ${TMPDIR}/tcc_s.M1
+blood-elf --64 --little-endian -f ${TMPDIR}/tcc_s.M1 -o ${TMPDIR}/tcc_s.blood_elf
+M1 --architecture ${ARCH} --little-endian -f ${TMPDIR}/tcc_s.M1 -f ${TMPDIR}/tcc_s.blood_elf -o ${TMPDIR}/tcc_s.macro
+hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f /M2libc/${ARCH}/ELF-${ARCH}-debug.hex2 -f ${TMPDIR}/tcc_s.macro -o ${BINDIR}/tcc_s
 
 # test tcc_s
 tcc_s -version

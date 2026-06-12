@@ -16,7 +16,7 @@ hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f /M2libc
 # Checksums
 if match x${UPDATE_CHECKSUMS} xTrue; then
     sha256sum -o ${pkg}.${ARCH}.checksums \
-        /usr/bin/simple-patch
+        ${BINDIR}/simple-patch
 
     cp ${pkg}.${ARCH}.checksums ${SRCDIR}
 else

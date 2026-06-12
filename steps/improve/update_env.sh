@@ -20,7 +20,9 @@ for dir in ${PKGDIR}/*/bin; do
     fi
 done
 export SOURCE_DATE_EPOCH=0
-export SHELL=/usr/bin/dash
+# dash now lives in its own store prefix (/opt/dash-0.5.12/bin, on PATH via the
+# glob above); /bin/sh is the stable copy installed in its pass1.kaem.
+export SHELL=/bin/sh
 EOF
 
 . /steps/env

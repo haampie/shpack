@@ -5,7 +5,13 @@
 DISTFILES=/external/distfiles
 PREFIX=/usr
 BINDIR=${PREFIX}/bin
-LIBDIR=${PREFIX}/lib
-INCDIR=${PREFIX}/include
+# The libc (musl) lives in its own store prefix, just like every other package.
+# INCDIR/LIBDIR are the libc's header/lib dirs; they are expanded once here (not
+# tied to PREFIX), so the kaem phase can override PREFIX/BINDIR per package while
+# every step still finds musl under LIBC_PREFIX. tcc bakes these in as its
+# sysinclude / crt-prefix, and gcc-linaro/binutils point their sysroot here.
+LIBC_PREFIX=/opt/musl-1.1.24
+LIBDIR=${LIBC_PREFIX}/lib
+INCDIR=${LIBC_PREFIX}/include
 SRCDIR=/steps
 TMPDIR=/tmp

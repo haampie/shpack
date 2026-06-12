@@ -460,9 +460,21 @@ void output_build(FILE *out, Directive *directive, int pass_no, int shell_build)
 		fputs(directive->arg, out);
 		fprintf(out, " pass%d.sh\n", pass_no);
 	} else {
+		/* kaem phase: install each package into its own store prefix
+		 * /opt/<pkg> (a Spack-style store, matching the shell phase). BINDIR is
+		 * prepended to PATH *before* the build so a package that installs a tool
+		 * and then runs it within the same pass1.kaem (e.g. tcc: tcc_s ->
+		 * tcc-boot0 -> ... -> tcc) finds its own freshly-installed binaries, and
+		 * so every later package finds this one. LIBDIR/INCDIR are NOT re-derived
+		 * here, so they stay at the fixed libc prefix while PREFIX/BINDIR move
+		 * per package. */
 		fputs("pkg=", out);
 		fputs(directive->arg, out);
 		fputs("\n", out);
+		fputs("PREFIX=/opt/${pkg}\n", out);
+		fputs("BINDIR=${PREFIX}/bin\n", out);
+		fputs("mkdir -p ${BINDIR}\n", out);
+		fputs("PATH=${BINDIR}:${PATH}\n", out);
 		fputs("cd ${pkg}\n", out);
 		fprintf(out, "kaem --file pass%d.kaem\n", pass_no);
 		fputs("cd ..\n", out);

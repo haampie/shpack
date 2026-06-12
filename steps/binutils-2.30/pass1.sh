@@ -32,7 +32,7 @@ src_configure() {
         --build="${TRIPLE}" \
         --host="${TRIPLE}" \
         --target="${TRIPLE}" \
-        --with-sysroot=/ \
+        --with-sysroot="${LIBC_PREFIX}" \
         --disable-dependency-tracking \
         --enable-64-bit-bfd \
         --disable-nls \

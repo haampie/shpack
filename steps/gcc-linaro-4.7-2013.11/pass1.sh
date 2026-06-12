@@ -33,8 +33,8 @@ src_configure() {
         --build="${TRIPLE}" \
         --host="${TRIPLE}" \
         --target="${TRIPLE}" \
-        --with-sysroot=/ \
-        --with-native-system-header-dir=/usr/include \
+        --with-sysroot="${LIBC_PREFIX}" \
+        --with-native-system-header-dir=/include \
         --with-gmp="${PKGDIR}/gmp-4.3.2" \
         --with-mpfr="${PKGDIR}/mpfr-2.4.2" \
         --with-mpc="${PKGDIR}/mpc-1.0.3" \

@@ -89,8 +89,9 @@ tcc -c -DHAVE_CONFIG_H -I. -I.. -include ../config.h -DBSD=1 -DSHELL -o times.o 
 # Link
 tcc -static -o ${BINDIR}/dash alias.o arith_yacc.o arith_yylex.o cd.o error.o eval.o exec.o expand.o histedit.o input.o jobs.o mail.o main.o memalloc.o miscbltin.o mystring.o options.o parser.o redir.o show.o trap.o output.o system.o var.o builtins.o init.o nodes.o signames.o syntax.o printf.o test.o times.o
 
-# Install as the system shell. dash is the only shell from here on: /usr/bin/sh
-# and /bin/sh both point at it so later #!/bin/sh scripts and ./configure resolve.
+# Install as the system shell. dash is the only shell from here on; it lives in
+# its own store prefix (${BINDIR} == /opt/dash-0.5.12/bin, picked up via PATH),
+# and /bin/sh points at it so later #!/bin/sh scripts and ./configure resolve.
 cp ${BINDIR}/dash ${BINDIR}/sh
 mkdir -p /bin
 cp ${BINDIR}/dash /bin/sh
@@ -104,7 +105,7 @@ cd ../../..
 # Checksums
 if match x${UPDATE_CHECKSUMS} xTrue; then
     sha256sum -o ${pkg}.${ARCH}.checksums \
-        /usr/bin/dash
+        ${BINDIR}/dash
 
     cp ${pkg}.${ARCH}.checksums ${SRCDIR}
 else

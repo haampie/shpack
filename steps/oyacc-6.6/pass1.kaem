@@ -29,16 +29,16 @@ patch -Np1 -i ../../patches/tcc.patch
 # Build
 make
 
-# Install
-make install
+# Install into this package's store prefix (mk derives BINDIR/MANDIR from PREFIX).
+make install PREFIX=${PREFIX}
 
 cd ../..
 
 # Checksums
 if match x${UPDATE_CHECKSUMS} xTrue; then
     sha256sum -o ${pkg}.${ARCH}.checksums \
-        /usr/bin/yacc \
-        /usr/bin/yyfix
+        ${BINDIR}/yacc \
+        ${BINDIR}/yyfix
 
     install ${pkg}.${ARCH}.checksums ${SRCDIR}
 else
