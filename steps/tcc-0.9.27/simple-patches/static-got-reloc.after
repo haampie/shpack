@@ -1,0 +1,2 @@
+        if (s->reloc)
+        /* On X86_64 gdb 7.3 will crash if SHF_ALLOC checking is present */

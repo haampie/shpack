@@ -98,13 +98,26 @@ if match ${ARCH} aarch64; then
         ../../simple-patches/tcc-aarch64-03_arm64-gen.c_01.before ../../simple-patches/tcc-aarch64-03_arm64-gen.c_01.after
 fi
 
-# amd64: same two upstream fixes the 0.9.26 step needed, re-anchored to 0.9.27.
-#  static-plt    -- relocate_plt() is not called for static EXEs, leaving PLT
-#                   stubs with wrong RIP-relative offsets (musl exercises it)
-#  x86_64-mxcsr  -- teach the asm ldmxcsr/stmxcsr (musl's fenv.s needs them)
+# amd64: the upstream fixes the 0.9.26 step needed, re-anchored to 0.9.27.
+#  static-plt       -- relocate_plt() is not called for static EXEs, leaving PLT
+#                      stubs with wrong RIP-relative offsets (musl exercises it)
+#  x86_64-mxcsr     -- teach the asm ldmxcsr/stmxcsr (musl's fenv.s needs them)
+#  static-got-reloc -- 0.9.27 (unlike our 0.9.26 mob snapshot) excludes .got from
+#                      final_sections_reloc ("s != s1->got"), deferring all GOT
+#                      fill to fill_got(). But fill_got() only writes the
+#                      address-taken (R_GLOB_DAT) slots; the JMP_SLOT slots behind
+#                      a PLT keep got_offset==0 and fill_got_entry() early-returns,
+#                      so for a STATIC exe every PLT-backed GOT entry stays zero
+#                      and the first call through it jumps to 0 (SIGSEGV). On
+#                      x86_64 those PLTs exist because absolute (tcc_add_symbol)
+#                      symbols can't use PC32. Restore the 0.9.26 behaviour:
+#                      relocate the .got too, so its JMP_SLOT relocs fill the
+#                      slots. (aarch64 doesn't take this path, so amd64-only.)
 if match ${ARCH} amd64; then
     simple-patch tccelf.c \
         ../../simple-patches/static-plt.before ../../simple-patches/static-plt.after
+    simple-patch tccelf.c \
+        ../../simple-patches/static-got-reloc.before ../../simple-patches/static-got-reloc.after
     simple-patch x86_64-asm.h \
         ../../simple-patches/x86_64-mxcsr.before ../../simple-patches/x86_64-mxcsr.after
 fi
