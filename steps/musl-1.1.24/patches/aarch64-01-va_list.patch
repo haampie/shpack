@@ -14,7 +14,7 @@ diff --git a/arch/aarch64/bits/alltypes.h.in b/arch/aarch64/bits/alltypes.h.in
 index d56abda..0252c5c 100644
 --- a/arch/aarch64/bits/alltypes.h.in
 +++ b/arch/aarch64/bits/alltypes.h.in
-@@ -2,8 +2,18 @@
+@@ -2,8 +2,32 @@
  #define _Int64 long
  #define _Reg long
  
@@ -24,12 +24,26 @@ index d56abda..0252c5c 100644
 +typedef struct __va_list_struct { void *__stack; void *__gr_top; void *__vr_top; int __gr_offs; int __vr_offs; } __musl_va_list_t;
 +#define __DEFINED___musl_va_list_t
 +#endif
++/* tcc (__TINYC__) has no __builtin_va_list, so it gets the explicit AAPCS64
++   __va_list_struct array form. A real compiler (gcc-stage0 building against
++   this sysroot) gets __builtin_va_list -- on aarch64 a >16-byte aggregate is
++   passed indirectly (a pointer to a caller-made copy), so at the call ABI it
++   matches the array form's pointer decay -- and gcc's own <stdarg.h> va_list
++   typedef is then identical to this one, so they no longer conflict. */
 +#if defined(__NEED_va_list) && !defined(__DEFINED_va_list)
++#ifdef __TINYC__
 +typedef __musl_va_list_t va_list[1];
++#else
++typedef __builtin_va_list va_list;
++#endif
 +#define __DEFINED_va_list
 +#endif
 +#if defined(__NEED___isoc_va_list) && !defined(__DEFINED___isoc_va_list)
++#ifdef __TINYC__
 +typedef __musl_va_list_t __isoc_va_list[1];
++#else
++typedef __builtin_va_list __isoc_va_list;
++#endif
 +#define __DEFINED___isoc_va_list
 +#endif
  
