@@ -1,12 +1,17 @@
-This project builds on top of [MES replacement][1] and some (but not all) of
-the ideas of [live-bootstrap][2], to bootstrap a Linux toolchain from a few
-hundred bytes of binary seed, with a focus on speed.
+# shpack
 
-It supports 64-bit CPU architectures natively (`x86_64` and `AArch64`), whereas
-live-bootstrap is focused on 32-bit `x86`.
+`shpack` bootstraps a basic, reproducible Linux environment natively from a few hundred bytes of
+binary seed to a working GCC 4.7 (C and C++) in 2 minutes and 30 seconds.
 
-It gets you to GCC 4.7 with a working C and C++ compiler in 2 minutes and 30
-seconds, starting from a single, tiny binary seed
+Building on [MES replacement][1] and concepts from [live-bootstrap][2], shpack provides a fast,
+natively 64-bit bootstrap path (currently targeting `x86_64` and `AArch64`, with RISC-V planned).
+
+It borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes, Merkle-hashed
+dependency graphs, and single, declarative `package.sh` recipes parametrized over all versions.
+The main difference is that the language is POSIX shell, since that is one of the earliest
+scripting languages available in the bootstrap chain.
+
+Try it out:
 
 ```sh
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
@@ -15,24 +20,13 @@ cd shpack
 ./build.sh aarch64
 ```
 
-The contribution is `shpack/`: a Spack-shaped package manager in POSIX shell,
-small enough to run under the first shell a bootstrap has, that assembles a
-dependency graph with Merkle-hashed store prefixes and builds everything up to
-GCC in parallel. Recipes are similar to Spack's `package.py`, so a bootstrapped
-Spack can take over the store it built once `python` is bootstrapped.
-Everything else is a vendored layer of the stack shpack grows and drives -- the
-tcc/stack-machine seed compiler, a patched `kaem`, and the upstream binary
-seeds -- kept under `vendor/` with its provenance (see `vendor/README.md`).
-
 Bootstrapping speed is achieved by:
 
 * dropping the detour that GNU mes takes to Scheme: a small C compiler
   (`vendor/mes-replacement/tcc_cc.c`) plus a stack-machine transpiler
   (`vendor/mes-replacement/stack_c_*.c`) grow TCC and musl directly out of
   [stage0-posix][3]
-* using GNU make as a driver to expose package-level parallelism
-* relaxing the requirement around generated scripts/sources (e.g. configure
-  scripts bundled in release tarballs)
+* using early GNU make as a driver to expose package-level parallelism
 
 Packages install into immutable per-package store prefixes
 (`/opt/<name>-<version>[-<hash>]`), Spack-style, driven by two pieces:
@@ -42,7 +36,7 @@ Packages install into immutable per-package store prefixes
 * `shpack/` -- the package manager, which then builds everything up to GCC.
 
 
-## shpack
+## shpack packages
 
 Paths in this section are relative to `shpack/`.
 
@@ -158,5 +152,6 @@ packages (real tarballs, patches, all three build systems, two-stage make
 bring-up), and the tool-budget lint. No chroot required.
 
 [1]: https://github.com/FransFaase/MES-replacement
-[2]: https://github.com/fosslinux/live-bootstrap/
+[2]: https://github.com/fosslinux/live-bootstrap
 [3]: https://github.com/oriansj/stage0-posix
+[4]: https://github.com/spack/spack
