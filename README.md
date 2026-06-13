@@ -3,14 +3,17 @@ the ideas of [live-bootstrap][2], to bootstrap a Linux toolchain from a few
 hundred bytes of binary seed, with a focus on speed. It supports both `x86_64`
 and `AArch64`, whereas live-bootstrap is primarily `x86`.
 
+It gets you to GCC 4.7 with a working C and C++ compiler in 2 minutes and 30
+seconds, starting from a single, tiny binary seed.
+
 The contribution is `shpack/`: a Spack-shaped package manager in POSIX shell,
-small enough to run under the first shell a bootstrap has, that concretizes a
-package DAG with Merkle-hashed store prefixes and builds everything up to GCC
-in parallel. Recipes map 1:1 to Spack `package.py`, so a bootstrapped Spack can
-later take over the store it built. Everything else is a vendored layer of the
-stack shpack grows and drives -- the tcc/stack-machine seed compiler, a patched
-`kaem`, and the upstream binary seeds -- kept under `vendor/` with its
-provenance (see `vendor/README.md`).
+small enough to run under the first shell a bootstrap has, that assembles a
+dependency graph with Merkle-hashed store prefixes and builds everything up to
+GCC in parallel. Recipes are similar to Spack's `package.py`, so a bootstrapped
+Spack can take over the store it built once `python` is bootstrapped.
+Everything else is a vendored layer of the stack shpack grows and drives -- the
+tcc/stack-machine seed compiler, a patched `kaem`, and the upstream binary
+seeds -- kept under `vendor/` with its provenance (see `vendor/README.md`).
 
 Bootstrapping speed is achieved by:
 
@@ -31,20 +34,8 @@ Packages install into immutable per-package store prefixes
 
 Run it with:
 
-    ./build.sh amd64      # rootless (bwrap); ~2.5 min on a fast machine
-    ./build.sh aarch64    # needs qemu-user-static binfmt with the F flag
-
-## Layout
-
-```
-build.sh        the driver: stage a rootfs and run the seed
-shpack/         the package manager + bootstrap/ kaem chain
-vendor/         vendored stack layers, each with provenance:
-  mes-replacement/  tcc_cc / stack_c seed compiler (+ committed *.sl64 seeds)
-  kaem/             patched mescc-tools kaem
-  stage0-posix/     upstream binary-seed submodule
-distfiles/      upstream source tarballs for the shell phase
-```
+    ./build.sh amd64
+    ./build.sh aarch64
 
 ## shpack
 
