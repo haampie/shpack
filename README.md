@@ -1,10 +1,19 @@
 This project builds on top of [MES replacement][1] and some (but not all) of
 the ideas of [live-bootstrap][2], to bootstrap a Linux toolchain from a few
-hundred bytes of binary seed, with a focus on speed. It supports both `x86_64`
-and `AArch64`, whereas live-bootstrap is primarily `x86`.
+hundred bytes of binary seed, with a focus on speed.
+
+It supports 64-bit CPU architectures natively (`x86_64` and `AArch64`), whereas
+live-bootstrap is focused on 32-bit `x86`.
 
 It gets you to GCC 4.7 with a working C and C++ compiler in 2 minutes and 30
-seconds, starting from a single, tiny binary seed.
+seconds, starting from a single, tiny binary seed
+
+```sh
+git clone --recursive --depth=1 https://github.com/haampie/shpack.git
+cd shpack
+./build.sh amd64
+./build.sh aarch64
+```
 
 The contribution is `shpack/`: a Spack-shaped package manager in POSIX shell,
 small enough to run under the first shell a bootstrap has, that assembles a
@@ -32,10 +41,6 @@ Packages install into immutable per-package store prefixes
   the stage0 seed tools to the first shell (dash);
 * `shpack/` -- the package manager, which then builds everything up to GCC.
 
-Run it with:
-
-    ./build.sh amd64
-    ./build.sh aarch64
 
 ## shpack
 
