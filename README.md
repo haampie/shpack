@@ -22,7 +22,8 @@ cd shpack
 
 Bootstrapping speed is achieved by:
 
-* dropping the detour that GNU mes takes to Scheme: a small C compiler
+* compiling natively the whole way, with no interpreter step (GNU mes runs a Scheme
+  interpreter): a small C compiler
   (`vendor/mes-replacement/tcc_cc.c`) plus a stack-machine transpiler
   (`vendor/mes-replacement/stack_c_*.c`) grow TCC and musl directly out of
   [stage0-posix][3]
