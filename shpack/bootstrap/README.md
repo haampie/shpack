@@ -3,7 +3,7 @@
 This directory is the *pre-shell* half of the bootstrap: a static,
 hand-written chain of kaem scripts that builds everything from the stage0
 seed tools up to the first shell (dash), then execs `shpack install
-gcc-linaro`. It replaces the live-bootstrap manifest/configurator/
+gcc`. It replaces the live-bootstrap manifest/configurator/
 script-generator machinery with ~nothing: the package order is fixed, so the
 whole "manager" is `0.kaem.in` (staged as `/shpack/bootstrap/0.kaem` with
 `@TOKEN@`s substituted by `build.sh`).

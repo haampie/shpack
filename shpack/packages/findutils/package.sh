@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 
-description "GNU findutils: find is needed by gcc-linaro's libstdc++ libtool" \
+description "GNU findutils: find is needed by gcc's libstdc++ libtool" \
             "to merge the convenience archives into the static libstdc++.a"
 homepage "https://www.gnu.org/software/findutils/"
 license "GPL-3.0-or-later"

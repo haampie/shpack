@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 
-description "GNU binutils: the assembler/linker gcc-linaro is configured with"
+description "GNU binutils: the assembler/linker gcc is configured with"
 homepage "https://www.gnu.org/software/binutils/"
 license "GPL-3.0-or-later"
 

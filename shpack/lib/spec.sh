@@ -5,8 +5,9 @@
 # A spec names a package at a concrete version. On the command line and in
 # depends_on it is written "name" or "name@version"; once resolved it becomes
 # the node id "name-version". Because versions may themselves contain dashes
-# (gcc-linaro-4.7-2013.11), ids are never split back into parts: the name and
-# version of a node are stored separately in its state dir.
+# (gcc-4.7-2013.11 is name "gcc" at version "4.7-2013.11"), ids are never split
+# back into parts: the name and version of a node are stored separately in its
+# state dir.
 #
 # Every concretized node gets a DAG hash: sha256 over a canonical manifest of
 # everything that determines its build -- the recipe text and auxiliary files,

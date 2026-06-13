@@ -16,7 +16,7 @@
 # The chain: simple-patch -> tcc-0.9.26 (+ subset musl) -> full musl ->
 # tcc-0.9.27 -> make -> patch -> gzip -> tar -> sed -> bzip2 -> coreutils ->
 # oyacc -> dash. dash is the first shell; the last line execs shpack, which
-# concretizes and builds everything else up to gcc-linaro (see shpack/README.md).
+# concretizes and builds everything else up to gcc (see shpack/README.md).
 
 # Globals, inherited through the environment by every kaem.run child.
 PATH=@SEED_PATH@
@@ -26,7 +26,7 @@ TMPDIR=/tmp
 BOOT=/shpack/bootstrap
 # The libc's own store prefix. Expanded once here (not derived from any
 # package's PREFIX): tcc bakes LIBDIR/INCDIR in as its crt-prefix and
-# sysinclude path, and binutils/gcc-linaro later point their sysroot here.
+# sysinclude path, and binutils/gcc later point their sysroot here.
 LIBC_PREFIX=/opt/musl-1.1.24
 LIBDIR=/opt/musl-1.1.24/lib
 INCDIR=/opt/musl-1.1.24/include
@@ -145,5 +145,5 @@ PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
 # A shell exists: hand the bootstrap to shpack, which concretizes the package
-# DAG and builds everything up to gcc-linaro into hashed store prefixes.
-exec /bin/sh /shpack/bin/shpack install gcc-linaro
+# DAG and builds everything up to gcc into hashed store prefixes.
+exec /bin/sh /shpack/bin/shpack install gcc
