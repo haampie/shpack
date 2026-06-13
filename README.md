@@ -7,7 +7,7 @@ Building on [MES replacement][1] and concepts from [live-bootstrap][2], shpack p
 natively 64-bit bootstrap path (currently targeting `x86_64` and `AArch64`, with RISC-V planned).
 
 It borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes, Merkle-hashed
-dependency graphs, and single, declarative `package.sh` recipes parametrized over all versions.
+dependency graphs, and [single, declarative `package.sh` recipes][5] parametrized over all versions.
 The main difference is that the language is POSIX shell, since that is one of the earliest
 scripting languages available in the bootstrap chain.
 
@@ -155,3 +155,4 @@ bring-up), and the tool-budget lint. No chroot required.
 [2]: https://github.com/fosslinux/live-bootstrap
 [3]: https://github.com/oriansj/stage0-posix
 [4]: https://github.com/spack/spack
+[5]: shpack/packages
