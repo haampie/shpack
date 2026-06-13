@@ -129,7 +129,7 @@ cp -f vendor/stage0-posix/${ARCH}.answers ${SEEDROOT}/
 # (left over from the previous patched kaem) -- recompute it on an amd64 build
 # of the vendored kaem; only aarch64 is verified here.
 if [ "$ARCH" = amd64 ]; then
-    sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|05e72a2fae51a1cb626815e87f3a5b35f0a3c818656efe73f04286b06742a5b1  AMD64/bin/kaem|' ${SEEDROOT}/${ARCH}.answers
+    sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|64d530d91b1e47b4b4d645c98d6d8cd13a2871a5c45e502ed31e084c31a1f801  AMD64/bin/kaem|' ${SEEDROOT}/${ARCH}.answers
 elif [ "$ARCH" = aarch64 ]; then
     sed -i 's|^[0-9a-f]\{64\}  AArch64/bin/kaem$|805bb0677242fc0e068b5b9ed71d24bb01d5de8a05ff0ed92061bbd0ab412101  AArch64/bin/kaem|' ${SEEDROOT}/${ARCH}.answers
 fi
