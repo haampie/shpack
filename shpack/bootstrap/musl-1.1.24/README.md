@@ -1,4 +1,3 @@
-<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 # musl 1.1.24 — mes-libc replacement + full libc (amd64 + aarch64)
 
 This directory drives building **real musl 1.1.24** as the C library for the bootstrap,
@@ -6,9 +5,9 @@ replacing GNU mes libc. It does so in two phases from the **pristine** upstream 
 (`distfiles/musl-1.1.24.tar.gz`) — the sources are never repackaged/vendored:
 
 Arch-specific build inputs live under per-arch subdirs `amd64/` and `aarch64/` (the
-chroot-facing `${ARCH}` names); `pass1.kaem` reaches them via `${MSRC}/${ARCH}/…`.
-Arch-neutral inputs (`glue/`, `patches/`, `simple-patches/`, `regen.*`, `pass1.kaem`,
-`hello-float.c`, the combined `sysinclude.tar`) stay at the top level.
+chroot-facing `${ARCH}` names); `kaem.run` reaches them via `${MSRC}/${ARCH}/…`.
+Arch-neutral inputs (`glue/`, `patches/`, `simple-patches/`, `regen.*`, `kaem.run`,
+`hello-float.c`) and the per-arch `sysinclude-<arch>.tar` stay at the top level.
 
 The whole bootstrap (this step plus the tcc step) is driven from the repo root by
 `./build.sh <amd64|aarch64>`.
@@ -16,12 +15,10 @@ The whole bootstrap (this step plus the tcc step) is driven from the repo root b
 1. **Subset** (in the `tcc-0.9.26` step): a curated 121-file closure of the ~60-symbol
    libc surface `tcc.c` needs, plus four glue files, compiled by the float-blind seed
    `tcc_s` then by `tcc-boot0`, just to bring the production `tcc` into existence.
-2. **Full** (this step's `pass1.kaem`): every musl C source except `src/complex` and the
+2. **Full** (this step's `kaem.run`): every musl C source except `src/complex` and the
    `src/math/x86_64` asm shims, compiled by the finished float-correct `tcc`, with **no
    glue** (pristine `strtod`/`ldexp`/`errno`/`__libc_start_main`/`sigaction`). Overwrites
    the subset `libc.a` and installs real `crt1.o`/`crti.o`/`crtn.o` for binutils/gcc.
-
-See `../../LOG-MUSL.md` for the full narrative.
 
 ## Patches: two representations, kept in sync by `regen.py`
 
@@ -48,12 +45,13 @@ The aarch64 asm→C sources ship under `aarch64/newsrc/` and are copied in by th
 - `<arch>/generated/bits/{alltypes,syscall}.h`, `<arch>/generated/internal/version.h` —
   musl's three generated headers for the arch (chroot has no sed/awk). `alltypes.h` carries
   the va_list patch.
-- `sysinclude.tar` — ONE combined, flat, merged **public** header set with per-arch
-  subtrees `amd64/` and `aarch64/`, untarred into tcc's include dir (in-chroot `cp` has no
-  `-r`, so the `bits/` overlay is flattened once here). tcc's include path is
-  `…/include/tcc/${ARCH}`. Headers only; the musl *sources* are pristine. The header set
-  needs no cross-toolchain, so `regen.sh` rebuilds **both** subtrees in one pass — a single
-  run yields the complete combined tar regardless of the `ARCH` argument.
+- `sysinclude-<arch>.tar` — one per arch, a flat, merged **public** header set (`stdio.h`
+  etc. at the top, no arch prefix), untarred straight into the musl prefix's `include/`
+  (in-chroot `cp` has no `-r`, so the `bits/` overlay — generic then arch then generated —
+  is flattened once here). One tar per arch because the two arches' `bits/` headers differ
+  and can't share one flat tree. Headers only; the musl *sources* are pristine. The header
+  set needs no cross-toolchain, so `regen.sh` rebuilds **both** arches' tars in one pass
+  regardless of the `ARCH` argument.
 - `<arch>/build-libc-subset.kaem` / `<arch>/build-libc-full.kaem` — per-file compile + `ar`
   lists (kaem has no loops). Subset = `<arch>/musl-subset.files` + glue; full = `make -n` of
   the patched tree with `src/complex` + `src/math/<musl-arch>` removed (so generic C math is
@@ -62,8 +60,8 @@ The aarch64 asm→C sources ship under `aarch64/newsrc/` and are copied in by th
 
 `regen.sh` (host: sed/tar/make/python3; aarch64 source list also needs
 `aarch64-linux-gnu-gcc`) regenerates the passed arch's inputs from the pristine tarball and
-runs `regen.py` (which also verifies the fragments). The combined `sysinclude.tar` is
-rebuilt for both arches on every run.
+runs `regen.py` (which also verifies the fragments). Both arches' `sysinclude-<arch>.tar`
+are rebuilt on every run.
 
 ## The four glue files (SUBSET only — the full build uses pristine musl)
 
@@ -81,8 +79,3 @@ rebuilt for both arches on every run.
 `-nostdinc -I obj/include -I arch/<musl-arch> -I arch/generic -I obj/src/internal
 -I src/include -I src/internal -I include -std=c99 -ffreestanding -D_XOPEN_SOURCE=700
 -D SYSCALL_NO_TLS` (`<musl-arch>` = `x86_64` for amd64, `aarch64` for aarch64)
-
-## Licensing
-
-musl 1.1.24 is MIT (`COPYRIGHT`). The glue and `va_list.c` are MIT. This repo is
-GPL-3.0-or-later; MIT is GPL-compatible.

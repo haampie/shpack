@@ -1,4 +1,3 @@
-<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 # tcc 0.9.26 — float-correct, self-hosting C compiler (amd64 + aarch64)
 
 This step builds the production **tcc 0.9.26** from the pristine upstream tarball
@@ -8,7 +7,7 @@ that compiles a subset of musl 1.1.24 into `libc.a`, then `tcc.c` is rebuilt thr
 `tcc-boot0` → `boot1` → `boot2` until it reaches a byte-for-byte fixed point
 (`boot2(tcc.c) == boot2`). The result is the float-correct `tcc` the musl step uses.
 
-`pass1.kaem` drives the whole step. It is arch-generic: `${ARCH}` is `amd64` or
+`kaem.run` drives the whole step. It is arch-generic: `${ARCH}` is `amd64` or
 `aarch64`, and `TCC_TARGET_${TCC_TARGET_ARCH}` selects the backend
 (`TCC_TARGET_X86_64` / `TCC_TARGET_ARM64`).
 
@@ -38,7 +37,7 @@ repo's `simple-patch FILE before after` (replaces the FIRST exact byte-match of
   1. regenerates the `tcc-aarch64-*` fragments from `patches/*.patch`;
   2. verifies they reproduce GNU `patch`'s output byte-for-byte;
   3. replays the **entire** per-arch `simple-patch` chain (generated + hand-written)
-     against pristine tcc, exactly in `pass1.kaem` order, so the hand-written pairs
+     against pristine tcc, exactly in `kaem.run` order, so the hand-written pairs
      are validated too and an out-of-order fragment is caught;
   4. rewrites `simple-patches/MANIFEST` (amd64) and `simple-patches/MANIFEST.aarch64`
      — each the complete ordered fragment set for that arch (`fragment target`),

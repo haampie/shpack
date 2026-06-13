@@ -23,7 +23,7 @@ Each directory holds:
   `${DISTFILES}`; checked first thing by `kaem.run`.
 - package assets (`files/`, `patches/`, `mk/`, `simple-patches/`, the musl
   per-arch trees, ...) referenced as `${PKG}/...`. Some makefiles and patches
-  are vendored from live-bootstrap (see the SPDX headers for provenance).
+  originate from live-bootstrap.
 
 Environment contract (set in `0.kaem`, inherited by every `kaem.run`):
 

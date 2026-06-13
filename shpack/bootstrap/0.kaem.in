@@ -16,7 +16,7 @@
 # The chain: simple-patch -> tcc-0.9.26 (+ subset musl) -> full musl ->
 # tcc-0.9.27 -> make -> patch -> gzip -> tar -> sed -> bzip2 -> coreutils ->
 # dash. dash is the first shell; the last line execs shpack, which
-# concretizes and builds everything else up to gcc (see shpack/README.md).
+# concretizes and builds everything else up to gcc (see the top-level README.md).
 
 # Globals, inherited through the environment by every kaem.run child.
 PATH=@SEED_PATH@

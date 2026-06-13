@@ -175,7 +175,7 @@ mkdir -p rootfs/usr
 mkdir -p rootfs/usr/bin
 mkdir -p rootfs/tmp
 
-# --- shpack: the package manager (see shpack/README.md) -------------------
+# --- shpack: the package manager (see README.md) -------------------------
 # bootstrap/ is the static kaem-phase chain; 0.kaem.in is instantiated with
 # the host-known config (this replaces live-bootstrap's in-chroot
 # configurator + script-generator). bootstrap/ also holds the two glue kaem
