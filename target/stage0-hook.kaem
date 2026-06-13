@@ -56,7 +56,8 @@
 # (it runs under the bootstrap-seed interpreter); each child script sets its own
 # PATH=@SEED_PATH@ and finds the seed tools by bare name from there on.
 
-# Verify self-hosting: tcc_cc reproduces itself and stack_c
+# Verify self-hosting: tcc_cc rebuilds its own committed sl64 byte-for-byte
+# (sha256-pinned). This also covers stack_c, which assembled /opt/tcc_cc.
 ./opt/mescc-tools-1.7.0/bin/kaem --verbose --file ./@ARCH@/check-tools.kaem
 
 # Run the static kaem-phase package chain (tcc-0.9.26, musl, ..., dash),

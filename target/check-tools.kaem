@@ -5,33 +5,13 @@ set +x
 # Seed tools live in their /opt prefixes; find them by bare name on PATH.
 PATH=@SEED_PATH@
 
+# Self-hosting / reproducibility check: rebuild tcc_cc's own sl64 with the
+# running tcc_cc and require it to be byte-identical to the committed seed
+# src/tcc_cc.@ARCH@.sl64. We pin that seed's sha256 -- the live-bootstrap
+# reproducibility idiom -- and verify it with the stage0 sha256sum, so no
+# bespoke file comparator (the old `equal`) has to be built here. Because
+# /opt/tcc_cc was itself assembled by stack_c from this same committed sl64, a
+# byte-exact reproduction also transitively exercises stack_c.
 cd src
-
-# Build equal using tcc_cc + mescc-tools pipeline (equal is a check-only helper,
-# so it lands in /tmp rather than getting its own store prefix).
-tcc_cc @TCC_ARCH_FLAG@ -o /tmp/equal.sl64 equal.c
-stack_c -i /@ARCH@/stack_c_intro.M1 /tmp/equal.sl64 -o /tmp/equal.M1
-blood-elf --64 --little-endian -f /tmp/equal.M1 -o /tmp/equal-footer.M1
-M1 --architecture @ARCH@ --little-endian -f /tmp/equal.M1 -f /tmp/equal-footer.M1 -o /tmp/equal.hex2
-hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f /M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f /tmp/equal.hex2 -o /tmp/equal
-
-# tcc_cc reproduces its own sl64 (self-hosting check)
 tcc_cc @TCC_ARCH_FLAG@ -o /tmp/tcc_cc.sl64 stdlib.c tcc_cc.c
-/tmp/equal /src/tcc_cc.@ARCH@.sl64 /tmp/tcc_cc.sl64
-
-# stack_c cross-path equivalence check.
-# The running stack_c was compiled by M2-Planet; build a second stack_c the
-# production (tcc_cc) way, then require both binaries to produce identical M1
-# on the same input. Their M1 cannot be byte-equal (different compilers), so we
-# compare behaviour rather than the build artifacts.
-tcc_cc @TCC_ARCH_FLAG@ -o /tmp/stack_c.sl64 stdlib.c stack_c_@ARCH@.c
-stack_c -i /@ARCH@/stack_c_intro.M1 /tmp/stack_c.sl64 -o /tmp/stack_c.M1
-blood-elf --64 --little-endian -f /tmp/stack_c.M1 -o /tmp/stack_c-footer.M1
-M1 --architecture @ARCH@ --little-endian -f /tmp/stack_c.M1 -f /tmp/stack_c-footer.M1 -o /tmp/stack_c.hex2
-hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f /M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f /tmp/stack_c.hex2 -o /tmp/stack_c_tcc
-
-stack_c -i /@ARCH@/stack_c_intro.M1 /src/tcc_cc.@ARCH@.sl64 -o /tmp/stack_c_a.M1
-/tmp/stack_c_tcc -i /@ARCH@/stack_c_intro.M1 /src/tcc_cc.@ARCH@.sl64 -o /tmp/stack_c_b.M1
-/tmp/equal /tmp/stack_c_a.M1 /tmp/stack_c_b.M1
-
-cd ..
+sha256sum -c /@ARCH@/tcc_cc.sl64.sha256

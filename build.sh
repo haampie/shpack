@@ -134,6 +134,10 @@ mkdir -p rootfs/${ARCH}
 
 subst target/check-tools.kaem rootfs/${ARCH}/check-tools.kaem
 
+# The reproducibility pin checked by check-tools.kaem (sha256 of the committed
+# tcc_cc seed, against the freshly rebuilt /tmp/tcc_cc.sl64).
+cp -f src/tcc_cc.${ARCH}.sl64.sha256 rootfs/${ARCH}/tcc_cc.sl64.sha256
+
 # Committed seeds (our unique tcc_cc/stack_c layer).
 # Both arches compile stack_c from C source via M2-Planet, so there is no
 # committed stack_c.M1 seed; only the stack_c intro/prelude is staged.
@@ -146,7 +150,6 @@ cp -f -t rootfs/src \
     src/bootstrappable.c \
     src/sys_syscall.h \
     src/tcc_cc.${ARCH}.sl64 \
-    src/equal.c \
     src/tcc_cc.c \
     src/stack_c_${ARCH}.c
 
