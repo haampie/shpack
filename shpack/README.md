@@ -26,6 +26,17 @@ the actual Spack can take over the store it built.
   }
   ```
 
+  A `version` line is repeatable, and `depends_on ... when=VER` ties a
+  dependency to one declared version (no `when=` means all versions), so one
+  recipe can carry several versions with different pinned deps:
+
+  ```sh
+  version 4.7-2013.11 sha256=... url=...
+  version 8.5.0       sha256=... url=...
+  depends_on mpfr@2.4.2 when=4.7-2013.11
+  depends_on mpfr@3.1.6 when=8.5.0
+  ```
+
 - **Concretization**: `shpack install <name>` resolves names to concrete
   versions (newest wins; `name@version` pins; the externals table wins ties),
   walks `depends_on` into a DAG, and assigns every node a **Merkle hash**:
