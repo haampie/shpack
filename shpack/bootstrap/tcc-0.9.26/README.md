@@ -14,7 +14,8 @@ that compiles a subset of musl 1.1.24 into `libc.a`, then `tcc.c` is rebuilt thr
 
 > **A note on `arm64` vs `aarch64`.** Everything *this repo* owns uses the
 > live-bootstrap arch token `aarch64` (M2libc dir, `--architecture aarch64`, our
-> `src/aarch64-asm.c` / `src/alloca-aarch64.S`, the `tcc-aarch64-*` patch names).
+> `vendor/mes-replacement/aarch64-asm.c` / `vendor/mes-replacement/alloca-aarch64.S`,
+> the `tcc-aarch64-*` patch names).
 > But tcc 0.9.26 *upstream* names its 64-bit Arm backend `arm64`: it ships
 > `arm64-gen.c`, `arm64-link.c`, `lib/lib-arm64.c` and the macro `TCC_TARGET_ARM64`.
 > Those literal upstream names are kept as-is (a `simple-patch arm64-gen.c …` must
@@ -74,7 +75,7 @@ amd64 only:
 aarch64 only:
 
 - `aarch64-asm-defs` (`tcc.h`) / `aarch64-asm-include` (`libtcc.c`) — wire in our
-  minimal data-directive inline assembler `src/aarch64-asm.c` next to tcc's upstream
+  minimal data-directive inline assembler `vendor/mes-replacement/aarch64-asm.c` next to tcc's upstream
   `arm64-gen.c` / `arm64-link.c`.
 - `tcc-aarch64-02-codegen` (`arm64-gen.c`, 3 hunks) — const-lval load/store for
   string/float literals + `ftof` mask.

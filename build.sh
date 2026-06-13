@@ -9,10 +9,11 @@
 # bootstrap scripts), adds the MES-replacement-specific seeds and sources,
 # then runs kaem inside a chroot to execute the full bootstrap sequence.
 #
-# No host compilation is required: `make -C src` is NOT called here.
-# The committed files src/tcc_cc.<arch>.sl64 are the only MES-replacement-specific
-# seeds (stack_c is compiled from C source by M2-Planet inside the chroot);
-# everything else comes from the stage0-posix and bootstrap-seeds submodules.
+# No host compilation is required: nothing under vendor/mes-replacement/ is
+# compiled here. The committed files vendor/mes-replacement/tcc_cc.<arch>.sl64
+# are the only MES-replacement-specific seeds (stack_c is compiled from C source
+# by M2-Planet inside the chroot); everything else comes from the
+# vendor/stage0-posix submodule (binary seeds + bring-up chain).
 #
 # aarch64 note: aarch64 binaries only run inside the chroot, so on an x86_64
 # host register the qemu-aarch64 binfmt handler with the F (fix-binary) flag
@@ -62,8 +63,9 @@ BASEPATH="/opt/dash-0.5.12/bin:/opt/coreutils-5.0/bin:/opt/bzip2-1.0.8/bin:/opt/
 # JOBS=N ./build.sh ...
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 1)}"
 
-# The kaem scripts and bootstrap.cfg in target/ are shared between arches;
-# instantiate them by replacing the @ARCH@/@S0ARCH@/@TCC_ARCH_FLAG@ tokens.
+# The kaem glue scripts in shpack/bootstrap/ and the shpack config templates are
+# shared between arches; instantiate them by replacing the
+# @ARCH@/@S0ARCH@/@TCC_ARCH_FLAG@ tokens.
 # (Host sed, like the host cp/mkdir used below, is part of the staging step,
 # not of the in-chroot bootstrap.)
 subst() {
@@ -79,38 +81,47 @@ subst() {
 # Delete existing rootfs
 rm -rf rootfs
 
-# --- Stage0-posix tree ---------------------------------------------------
-# Copy the stage0-posix subtree into rootfs root, matching the layout that
-# stage0-posix's own kaem scripts expect (paths like ./AMD64/..., ./M2libc/...).
-
+# --- Seed working tree ---------------------------------------------------
+# The stage0-posix bring-up scripts are CWD-relative (./AArch64/..., ./M2libc/...)
+# and the seed interpreters (kaem-optional-seed, kaem-0) have no `cd`, so the
+# whole seed tree must sit at the launch CWD. We launch from /tmp/seed (the
+# runner sets the working directory there -- bwrap --chdir, or unshare --wd for
+# the chroot path), which keeps the rootfs root clean: only the persistent store
+# (/opt), shpack and distfiles live at root. Everything the seed phase touches --
+# the stage0 tree, our C sources, the per-arch check assets -- stages under
+# /tmp/seed and is throwaway once the seed tools are installed into /opt.
+# (live-bootstrap launches the same seed as init at /, so its root carries this
+# same stage0 clutter; relocating the CWD is what lets us avoid it.)
 mkdir -p rootfs
+SEEDROOT=rootfs/tmp/seed
+mkdir -p ${SEEDROOT}
 
 # Binary seeds
-mkdir -p rootfs/bootstrap-seeds
-cp -rf stage0-posix/bootstrap-seeds/. rootfs/bootstrap-seeds/
+mkdir -p ${SEEDROOT}/bootstrap-seeds
+cp -rf vendor/stage0-posix/bootstrap-seeds/. ${SEEDROOT}/bootstrap-seeds/
 
 # Arch-specific bootstrap scripts and hex0/M1 sources
-cp -rf stage0-posix/${S0ARCH} rootfs/${S0ARCH}
+cp -rf vendor/stage0-posix/${S0ARCH} ${SEEDROOT}/${S0ARCH}
 
 # Shared source trees referenced by stage0-posix scripts
-cp -rf stage0-posix/M2libc       rootfs/M2libc
-cp -rf stage0-posix/M2-Planet    rootfs/M2-Planet
-cp -rf stage0-posix/mescc-tools  rootfs/mescc-tools
-cp -rf stage0-posix/mescc-tools-extra rootfs/mescc-tools-extra
-cp -rf stage0-posix/M2-Mesoplanet rootfs/M2-Mesoplanet
+cp -rf vendor/stage0-posix/M2libc       ${SEEDROOT}/M2libc
+cp -rf vendor/stage0-posix/M2-Planet    ${SEEDROOT}/M2-Planet
+cp -rf vendor/stage0-posix/mescc-tools  ${SEEDROOT}/mescc-tools
+cp -rf vendor/stage0-posix/mescc-tools-extra ${SEEDROOT}/mescc-tools-extra
+cp -rf vendor/stage0-posix/M2-Mesoplanet ${SEEDROOT}/M2-Mesoplanet
 
 # Drop in the vendored, optimized kaem over the staged submodule copy (the
-# submodule stays pristine). target/kaem/ carries MAX_ARRAY=4096 (the musl
+# submodule stays pristine). vendor/kaem/ carries MAX_ARRAY=4096 (the musl
 # full-libc `ar` line lists ~1260 objects in one command -- tcc's -ar recreates
 # the archive each call, so it can't be split -- overflowing the stock 512) plus
 # per-command token/string pools, an envp cache, and access()-based PATH probing
 # that cut kaem's ~52 brk/command (M2libc malloc never frees and brks per call)
 # toward ~0. Output is byte-identical (gated on the musl libc.a sha256); see the
-# header comment in target/kaem/kaem.c.
-cp -f target/kaem/kaem.c target/kaem/kaem.h target/kaem/variable.c rootfs/mescc-tools/Kaem/
+# header comment in vendor/kaem/kaem.c.
+cp -f vendor/kaem/kaem.c vendor/kaem/kaem.h vendor/kaem/variable.c ${SEEDROOT}/mescc-tools/Kaem/
 
 # Checksum file that stage0-posix's kaem.run verifies after building tools
-cp -f stage0-posix/${ARCH}.answers rootfs/
+cp -f vendor/stage0-posix/${ARCH}.answers ${SEEDROOT}/
 
 # Our kaem differs from upstream, so its binary hash differs; update the
 # expected hash in the staged answers file. Build-specific (depends on the
@@ -118,46 +129,46 @@ cp -f stage0-posix/${ARCH}.answers rootfs/
 # (left over from the previous patched kaem) -- recompute it on an amd64 build
 # of the vendored kaem; only aarch64 is verified here.
 if [ "$ARCH" = amd64 ]; then
-    sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|05e72a2fae51a1cb626815e87f3a5b35f0a3c818656efe73f04286b06742a5b1  AMD64/bin/kaem|' rootfs/${ARCH}.answers
+    sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|05e72a2fae51a1cb626815e87f3a5b35f0a3c818656efe73f04286b06742a5b1  AMD64/bin/kaem|' ${SEEDROOT}/${ARCH}.answers
 elif [ "$ARCH" = aarch64 ]; then
-    sed -i 's|^[0-9a-f]\{64\}  AArch64/bin/kaem$|805bb0677242fc0e068b5b9ed71d24bb01d5de8a05ff0ed92061bbd0ab412101  AArch64/bin/kaem|' rootfs/${ARCH}.answers
+    sed -i 's|^[0-9a-f]\{64\}  AArch64/bin/kaem$|805bb0677242fc0e068b5b9ed71d24bb01d5de8a05ff0ed92061bbd0ab412101  AArch64/bin/kaem|' ${SEEDROOT}/${ARCH}.answers
 fi
 
 # stage0-posix entry point (kaem-optional-seed runs this)
-cp -f stage0-posix/kaem.${ARCH} rootfs/kaem.${ARCH}
+cp -f vendor/stage0-posix/kaem.${ARCH} ${SEEDROOT}/kaem.${ARCH}
 
 # Our hook: replaces stage0-posix's placeholder after.kaem
-subst target/stage0-hook.kaem rootfs/after.kaem
+subst shpack/bootstrap/stage0-hook.kaem ${SEEDROOT}/after.kaem
 
-# --- MES-replacement arch directory --------------------------------------
-mkdir -p rootfs/${ARCH}
+# --- MES-replacement arch directory (seed-phase check assets) ------------
+mkdir -p ${SEEDROOT}/${ARCH}
 
-subst target/check-tools.kaem rootfs/${ARCH}/check-tools.kaem
+subst shpack/bootstrap/check-tools.kaem ${SEEDROOT}/${ARCH}/check-tools.kaem
 
 # The reproducibility pin checked by check-tools.kaem (sha256 of the committed
 # tcc_cc seed, against the freshly rebuilt /tmp/tcc_cc.sl64).
-cp -f src/tcc_cc.${ARCH}.sl64.sha256 rootfs/${ARCH}/tcc_cc.sl64.sha256
+cp -f vendor/mes-replacement/tcc_cc.${ARCH}.sl64.sha256 ${SEEDROOT}/${ARCH}/tcc_cc.sl64.sha256
 
 # Committed seeds (our unique tcc_cc/stack_c layer).
 # Both arches compile stack_c from C source via M2-Planet, so there is no
 # committed stack_c.M1 seed; only the stack_c intro/prelude is staged.
-cp -f src/stack_c_intro_${ARCH}.M1    rootfs/${ARCH}/stack_c_intro.M1
+cp -f vendor/mes-replacement/stack_c_intro_${ARCH}.M1    ${SEEDROOT}/${ARCH}/stack_c_intro.M1
 
 # --- Generic C sources ---------------------------------------------------
-mkdir -p rootfs/src
-cp -f -t rootfs/src \
-    src/stdlib.c \
-    src/bootstrappable.c \
-    src/sys_syscall.h \
-    src/tcc_cc.${ARCH}.sl64 \
-    src/tcc_cc.c \
-    src/stack_c_${ARCH}.c
+mkdir -p ${SEEDROOT}/src
+cp -f -t ${SEEDROOT}/src \
+    vendor/mes-replacement/stdlib.c \
+    vendor/mes-replacement/bootstrappable.c \
+    vendor/mes-replacement/sys_syscall.h \
+    vendor/mes-replacement/tcc_cc.${ARCH}.sl64 \
+    vendor/mes-replacement/tcc_cc.c \
+    vendor/mes-replacement/stack_c_${ARCH}.c
 
 # aarch64 also needs its asm backend and alloca helper (tcc-0.9.26 assets)
 if [ "$ARCH" = aarch64 ]; then
-    cp -f -t rootfs/src \
-        src/aarch64-asm.c \
-        src/alloca-aarch64.S
+    cp -f -t ${SEEDROOT}/src \
+        vendor/mes-replacement/aarch64-asm.c \
+        vendor/mes-replacement/alloca-aarch64.S
 fi
 
 mkdir -p rootfs/usr
@@ -167,7 +178,10 @@ mkdir -p rootfs/tmp
 # --- shpack: the package manager (see shpack/README.md) -------------------
 # bootstrap/ is the static kaem-phase chain; 0.kaem.in is instantiated with
 # the host-known config (this replaces live-bootstrap's in-chroot
-# configurator + script-generator).
+# configurator + script-generator). bootstrap/ also holds the two glue kaem
+# scripts (check-tools.kaem, stage0-hook.kaem); the cp below copies them into
+# rootfs/shpack/bootstrap/ where they go unused -- the live copies are the
+# subst outputs above (rootfs/after.kaem, rootfs/${ARCH}/check-tools.kaem).
 mkdir -p rootfs/shpack/etc
 cp -r shpack/bin shpack/lib shpack/packages shpack/bootstrap rootfs/shpack/
 subst shpack/bootstrap/0.kaem.in rootfs/shpack/bootstrap/0.kaem
@@ -179,27 +193,30 @@ mkdir -p rootfs/external
 cp -r distfiles rootfs/external/
 
 # --- Execute the bootstrap -----------------------------------------------
-# Run rootfs as / via rootless bubblewrap (default), or the original sudo chroot
-# (RUNNER=chroot, or when bwrap is missing). Both run as the real, non-root uid:
-# nothing in the chain needs privilege, and staying non-root keeps GNU tar from
-# trying to restore archive ownership (which fails in bwrap's single-uid userns).
-# aarch64 relies on the qemu-aarch64 binfmt handler being registered with the F
-# flag, so it fires inside the namespace without qemu present in rootfs.
-SEED=/bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed
+# The seed tree lives at /tmp/seed and its scripts are CWD-relative, so the
+# runner must launch the seed with the working directory set there.
+#  - bwrap (default, rootless): --chdir /tmp/seed. Needs unprivileged user
+#    namespaces; on Ubuntu these are AppArmor-gated, and bwrap ships a profile
+#    that permits them (a bare `unshare --map-root-user` does not).
+#  - unshare (RUNNER=chroot, or when bwrap is missing): chroot(2) does not touch
+#    CWD and coreutils `chroot` only offers `--skip-chdir` (restricted to
+#    NEWROOT=/), so it cannot land on a subdir. `unshare --root=DIR --wd=SUBDIR`
+#    does chroot then chdir in the right order; --setuid/--setgid then drop to
+#    the real uid (so GNU tar's ownership restore maps to us, not root). It runs
+#    under sudo because this path is for hosts without unprivileged userns.
+# Both stay non-root inside. aarch64 relies on the qemu-aarch64 binfmt handler
+# being registered with the F flag, so it fires inside the namespace.
+SEED=/tmp/seed/bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed
 RUNNER="${RUNNER:-$(command -v bwrap >/dev/null 2>&1 && echo bwrap || echo chroot)}"
 
 case "$RUNNER" in
-    bwrap)  bwrap --unshare-all --bind rootfs / --dev /dev --proc /proc --chdir / \
+    bwrap)  bwrap --unshare-all --bind rootfs / --dev /dev --proc /proc --chdir /tmp/seed \
                 "$SEED" kaem.${ARCH} ;;
     chroot)
-        # Plain chroot leaves the rootfs with no /dev. The build framework's
-        # fn_exists() (steps/helpers.sh) probes functions with
-        # `command -v NAME 2>/dev/null`; with no /dev/null that redirect fails,
-        # fn_exists returns false for every name, and each package's custom
-        # src_* stage is silently skipped in favour of the default (e.g.
-        # diffutils loses its `touch config.h` and fails on #include <config.h>).
-        # Mirror bwrap's `--dev /dev` with a minimal device set, then remove it:
-        # the nodes are root-owned, so leaving them would make the next non-root
+        # The chroot has no /dev, but shpack and the package configure scripts
+        # redirect to /dev/null constantly (a missing /dev/null makes those
+        # redirects fail). Provide a minimal device set, then remove it: the
+        # nodes are root-owned, so leaving them would make the next non-root
         # `rm -rf rootfs` choke.
         sudo mkdir -p rootfs/dev
         sudo mknod -m 666 rootfs/dev/null    c 1 3
@@ -209,7 +226,8 @@ case "$RUNNER" in
         sudo mknod -m 666 rootfs/dev/urandom c 1 9
         sudo mknod -m 666 rootfs/dev/tty     c 5 0
         trap 'sudo rm -rf rootfs/dev' EXIT
-        sudo chroot --userspec=$(id -u):$(id -g) rootfs "$SEED" kaem.${ARCH}
+        sudo unshare --root=rootfs --wd=/tmp/seed \
+             --setuid $(id -u) --setgid $(id -g) "$SEED" kaem.${ARCH}
         sudo rm -rf rootfs/dev
         trap - EXIT
         ;;

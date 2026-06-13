@@ -7,11 +7,13 @@ PATH=@SEED_PATH@
 
 # Self-hosting / reproducibility check: rebuild tcc_cc's own sl64 with the
 # running tcc_cc and require it to be byte-identical to the committed seed
-# src/tcc_cc.@ARCH@.sl64. We pin that seed's sha256 -- the live-bootstrap
+# vendor/mes-replacement/tcc_cc.@ARCH@.sl64. We pin that seed's sha256 -- the live-bootstrap
 # reproducibility idiom -- and verify it with the stage0 sha256sum, so no
 # bespoke file comparator (the old `equal`) has to be built here. Because
 # /opt/tcc_cc was itself assembled by stack_c from this same committed sl64, a
 # byte-exact reproduction also transitively exercises stack_c.
+# CWD is the seed tree (/tmp/seed); the sources are under ./src and the sha256
+# pin under ./@ARCH@, so step into src and reach the pin via ../@ARCH@.
 cd src
 tcc_cc @TCC_ARCH_FLAG@ -o /tmp/tcc_cc.sl64 stdlib.c tcc_cc.c
-sha256sum -c /@ARCH@/tcc_cc.sl64.sha256
+sha256sum -c ../@ARCH@/tcc_cc.sl64.sha256

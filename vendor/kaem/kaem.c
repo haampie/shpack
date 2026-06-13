@@ -4,7 +4,7 @@
  * This file is part of mescc-tools.
  *
  * Vendored into MES-replacement from mescc-tools 1.7.0
- * (stage0-posix/mescc-tools/Kaem/kaem.c) and optimized to avoid per-command
+ * (vendor/stage0-posix/mescc-tools/Kaem/kaem.c) and optimized to avoid per-command
  * malloc. Upstream kaem callocs a fresh MAX_STRING buffer per token in
  * collect_command, again per token in handle_variables, and rebuilds argv AND
  * envp on every exec -- ~52 calloc/command. M2libc's malloc never frees and

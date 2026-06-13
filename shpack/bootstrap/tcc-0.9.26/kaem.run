@@ -113,7 +113,7 @@ SUBSET_KAEM=${ARCH}/build-libc-subset.kaem
 # aarch64 inline-asm: drop in the minimal data-directive assembler
 # and apply the source patches in-chroot.
 if match ${ARCH} aarch64; then
-    cp /src/aarch64-asm.c aarch64-asm.c
+    cp ${SEEDDIR}/src/aarch64-asm.c aarch64-asm.c
     simple-patch tcc.h \
         ${PKG}/simple-patches/aarch64-asm-defs.before ${PKG}/simple-patches/aarch64-asm-defs.after
     simple-patch libtcc.c \
@@ -157,11 +157,11 @@ tcc_cc \
     -D CONFIG_USE_LIBGCC=1 \
     -D TCC_VERSION=\"0.9.26\" \
     -D ONE_SOURCE=1 \
-    /src/stdlib.c tcc.c
-stack_c -i /${ARCH}/stack_c_intro.M1 ${TMPDIR}/tcc.sl -o ${TMPDIR}/tcc_s.M1
+    ${SEEDDIR}/src/stdlib.c tcc.c
+stack_c -i ${SEEDDIR}/${ARCH}/stack_c_intro.M1 ${TMPDIR}/tcc.sl -o ${TMPDIR}/tcc_s.M1
 blood-elf --64 --little-endian -f ${TMPDIR}/tcc_s.M1 -o ${TMPDIR}/tcc_s.blood_elf
 M1 --architecture ${ARCH} --little-endian -f ${TMPDIR}/tcc_s.M1 -f ${TMPDIR}/tcc_s.blood_elf -o ${TMPDIR}/tcc_s.macro
-hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f /M2libc/${ARCH}/ELF-${ARCH}-debug.hex2 -f ${TMPDIR}/tcc_s.macro -o ${BINDIR}/tcc_s
+hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f ${SEEDDIR}/M2libc/${ARCH}/ELF-${ARCH}-debug.hex2 -f ${TMPDIR}/tcc_s.macro -o ${BINDIR}/tcc_s
 
 # test tcc_s
 tcc_s -version
@@ -210,7 +210,7 @@ if match ${ARCH} aarch64; then
     # 128-bit helpers) + our alloca-aarch64.S (raw-word trampoline), not the x86
     # lib/libtcc1.c.
     tcc_s -c -D TCC_TARGET_ARM64=1 -D HAVE_FLOAT=1 -D HAVE_LONG_LONG=1 -I ${BLD}/${TCC_PKG}/include -o ${TMPDIR}/lib-arm64.o ${BLD}/${TCC_PKG}/lib/lib-arm64.c
-    tcc_s -c -D TCC_TARGET_ARM64=1 -o ${TMPDIR}/alloca-aarch64.o /src/alloca-aarch64.S
+    tcc_s -c -D TCC_TARGET_ARM64=1 -o ${TMPDIR}/alloca-aarch64.o ${SEEDDIR}/src/alloca-aarch64.S
     tcc_s -ar cr ${LIBDIR}/tcc/libtcc1.a ${TMPDIR}/lib-arm64.o ${TMPDIR}/alloca-aarch64.o
 fi
 

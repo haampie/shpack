@@ -1,3 +1,3 @@
 [submodule "stage0-posix"]
-	path = stage0-posix
+	path = vendor/stage0-posix
 	url = https://github.com/oriansj/stage0-posix

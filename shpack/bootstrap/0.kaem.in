@@ -24,6 +24,11 @@ ARCH=@ARCH@
 DISTFILES=/external/distfiles
 TMPDIR=/tmp
 BOOT=/shpack/bootstrap
+# The seed working tree (stage0 tools, M2libc, our C sources, per-arch check
+# assets). The seed phase runs with this as its CWD; the kaem phase reaches a
+# few seed inputs here by absolute path (our tcc_cc/stack_c sources, M2libc ELF
+# stubs, stack_c_intro.M1) -- see stage0-hook.kaem and build.sh's SEEDROOT.
+SEEDDIR=/tmp/seed
 # The libc's own store prefix. Expanded once here (not derived from any
 # package's PREFIX): tcc bakes LIBDIR/INCDIR in as its crt-prefix and
 # sysinclude path, and binutils/gcc later point their sysroot here.

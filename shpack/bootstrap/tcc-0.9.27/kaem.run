@@ -80,7 +80,7 @@ fi
 #  02 codegen  -- const-lval load/store (string/float literals) + ftof mask
 #  03 varargs  -- AAPCS64 va builtin loop + va_list param/array decay
 if match ${ARCH} aarch64; then
-    cp /src/aarch64-asm.c aarch64-asm.c
+    cp ${SEEDDIR}/src/aarch64-asm.c aarch64-asm.c
     simple-patch tcc.h \
         ${PKG}/simple-patches/aarch64-asm-defs.before ${PKG}/simple-patches/aarch64-asm-defs.after
     simple-patch libtcc.c \
@@ -159,7 +159,7 @@ tcc \
 mkdir -p ${LIBDIR}/tcc
 if match ${ARCH} aarch64; then
     ./tcc-0.9.27 -c -D TCC_TARGET_ARM64=1 -I include -o ${TMPDIR}/lib-arm64.o lib/lib-arm64.c
-    ./tcc-0.9.27 -c -D TCC_TARGET_ARM64=1 -o ${TMPDIR}/alloca-aarch64.o /src/alloca-aarch64.S
+    ./tcc-0.9.27 -c -D TCC_TARGET_ARM64=1 -o ${TMPDIR}/alloca-aarch64.o ${SEEDDIR}/src/alloca-aarch64.S
     ./tcc-0.9.27 -ar cr ${LIBDIR}/tcc/libtcc1.a ${TMPDIR}/lib-arm64.o ${TMPDIR}/alloca-aarch64.o
 fi
 if match ${ARCH} amd64; then

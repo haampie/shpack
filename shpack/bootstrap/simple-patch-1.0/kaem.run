@@ -12,12 +12,13 @@ BLD=${TMPDIR}/build/${pkg}
 mkdir -p ${BLD}
 cd ${BLD}
 
-# simple-patch.c includes ../../../src/bootstrappable.c relative to its own
-# location; ${BLD} sits three levels below /, so compiling a local copy
-# resolves that to /src/ exactly like the original layout did.
+# bootstrappable.c provides simple-patch.c's helper functions. tcc_cc has no -I
+# or -include, but it compiles several .c inputs as one program, so we pass
+# stdlib.c and bootstrappable.c from the seed tree as inputs instead of a
+# source-level #include (simple-patch.c's #include was dropped to match).
 cp ${PKG}/src/simple-patch.c simple-patch.c
-tcc_cc -a ${ARCH} -o simple-patch.sl /src/stdlib.c simple-patch.c
-stack_c -i /${ARCH}/stack_c_intro.M1 simple-patch.sl -o simple-patch.M1
+tcc_cc -a ${ARCH} -o simple-patch.sl ${SEEDDIR}/src/stdlib.c ${SEEDDIR}/src/bootstrappable.c simple-patch.c
+stack_c -i ${SEEDDIR}/${ARCH}/stack_c_intro.M1 simple-patch.sl -o simple-patch.M1
 blood-elf --64 --little-endian -f simple-patch.M1 -o simple-patch.blood_elf
 M1 --architecture ${ARCH} --little-endian -f simple-patch.M1 -f simple-patch.blood_elf -o simple-patch.macro
-hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f /M2libc/${ARCH}/ELF-${ARCH}-debug.hex2 -f simple-patch.macro -o ${BINDIR}/simple-patch
+hex2 --architecture ${ARCH} --little-endian --base-address 0x00600000 -f ${SEEDDIR}/M2libc/${ARCH}/ELF-${ARCH}-debug.hex2 -f simple-patch.macro -o ${BINDIR}/simple-patch

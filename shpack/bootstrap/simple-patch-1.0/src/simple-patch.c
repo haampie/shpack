@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../../../src/bootstrappable.c"
+/* bootstrappable.c's helpers are supplied as a separate tcc_cc input (see
+ * kaem.run); tcc_cc compiles all inputs as one program, so no #include here. */
 
 
 /*
