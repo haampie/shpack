@@ -76,4 +76,42 @@ if shpack concretize broken 2> /dev/null; then
     fail "expected unresolvable dep to fail"
 fi
 
+# Conditional (when=VER) dependencies: one recipe, two versions, dep sets
+# differing by version, plus an unconditional dep shared by both.
+mkpkg dep-old <<'EOF'
+version 1.0
+build_system generic
+install() { :; }
+EOF
+mkpkg dep-new <<'EOF'
+version 2.0
+build_system generic
+install() { :; }
+EOF
+mkpkg multi <<'EOF'
+version 4.7
+version 8.5
+build_system generic
+depends_on liba
+depends_on dep-old when=4.7
+depends_on dep-new when=8.5
+install() { :; }
+EOF
+
+# @4.7 pulls dep-old and the unconditional liba, but not dep-new.
+shpack concretize multi@4.7 > /dev/null
+index_field dep-old 2 > /dev/null || fail "multi@4.7 must depend on dep-old"
+index_field liba 2 > /dev/null    || fail "multi@4.7 must keep unconditional liba"
+if index_field dep-new 2 > /dev/null; then
+    fail "multi@4.7 must not pull dep-new (when=8.5)"
+fi
+
+# @8.5 is the mirror image.
+shpack concretize multi@8.5 > /dev/null
+index_field dep-new 2 > /dev/null || fail "multi@8.5 must depend on dep-new"
+index_field liba 2 > /dev/null    || fail "multi@8.5 must keep unconditional liba"
+if index_field dep-old 2 > /dev/null; then
+    fail "multi@8.5 must not pull dep-old (when=4.7)"
+fi
+
 echo OK

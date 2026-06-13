@@ -53,4 +53,31 @@ t3=$(index_field tool 3)
 shpack concretize tool > /dev/null
 [ "$(index_field tool 3)" != "$t3" ] || fail "patch file must affect hash"
 
+# Conditional deps: two versions of one recipe whose dep sets differ by
+# when=VER must hash differently (different resolved deps -> different
+# manifest), with no manifest code change.
+mkpkg cdep-x <<'EOF'
+version 1.0
+build_system generic
+install() { :; }
+EOF
+mkpkg cdep-y <<'EOF'
+version 1.0
+build_system generic
+install() { :; }
+EOF
+mkpkg cmulti <<'EOF'
+version 4.7
+version 8.5
+build_system generic
+depends_on cdep-x when=4.7
+depends_on cdep-y when=8.5
+install() { :; }
+EOF
+shpack concretize cmulti@4.7 > /dev/null
+m47=$(index_field cmulti 3)
+shpack concretize cmulti@8.5 > /dev/null
+m85=$(index_field cmulti 3)
+[ "$m47" != "$m85" ] || fail "conditional deps must give the two versions different hashes"
+
 echo OK

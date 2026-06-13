@@ -78,9 +78,25 @@ resource() {
         >> "$RECIPE_STATE/resources"
 }
 
-# depends_on SPEC... -- direct build dependencies (name or name@version).
+# depends_on SPEC... [when=VER]
+# Direct build dependencies (name or name@version). An optional when=VER
+# limits every spec in this call to one declared version of THIS package
+# (default: all versions); same exact-match convention as patch/resource.
+# Stored one line per spec as: WHEN SPEC ('-' when unconditional).
 depends_on() {
-    printf '%s\n' "$@" >> "$RECIPE_STATE/deps"
+    local kv when spec
+    when=-
+    for kv in "$@"; do
+        case $kv in
+            when=*) when=${kv#*=} ;;
+        esac
+    done
+    for spec in "$@"; do
+        case $spec in
+            when=*) continue ;;
+        esac
+        printf '%s %s\n' "$when" "$spec" >> "$RECIPE_STATE/deps"
+    done
 }
 
 # patch FILE [arch=ARCH] [level=N] [when=VER]

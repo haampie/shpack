@@ -89,15 +89,20 @@ visit() {
         printf 'external %s %s %s\n' "$name" "$version" "$prefix" \
             > "$sdir/manifest"
     else
-        # Children first: their hashes feed this node's manifest.
+        # Children first: their hashes feed this node's manifest. A dep with
+        # a when=VER (recorded as the first field) is taken only for the
+        # matching version of this node; '-' means all versions.
         if [ -f "$VAR/recipe/$name/deps" ]; then
-            for dep in $(cat "$VAR/recipe/$name/deps"); do
+            while read -r when dep; do
+                if [ "$when" != - ] && [ "$when" != "$version" ]; then
+                    continue
+                fi
                 visit "$dep"
                 depid=$VISIT_ID
                 printf '%s\n' "$depid" >> "$sdir/deps"
                 printf '%s\n' "$depid" >> "$sdir/closure.tmp"
                 cat "$VAR/spec/$depid/closure" >> "$sdir/closure.tmp"
-            done
+            done < "$VAR/recipe/$name/deps"
             sort -u "$sdir/closure.tmp" > "$sdir/closure"
             rm -f "$sdir/closure.tmp"
         fi
