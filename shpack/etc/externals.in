@@ -14,5 +14,4 @@ tar@1.12        /opt/tar-1.12
 sed@4.0.9       /opt/sed-4.0.9
 bzip2@1.0.8     /opt/bzip2-1.0.8
 coreutils@5.0   /opt/coreutils-5.0
-oyacc@6.6       /opt/oyacc-6.6
 dash@0.5.12     /opt/dash-0.5.12

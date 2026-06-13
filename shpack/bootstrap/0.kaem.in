@@ -15,7 +15,7 @@
 #
 # The chain: simple-patch -> tcc-0.9.26 (+ subset musl) -> full musl ->
 # tcc-0.9.27 -> make -> patch -> gzip -> tar -> sed -> bzip2 -> coreutils ->
-# oyacc -> dash. dash is the first shell; the last line execs shpack, which
+# dash. dash is the first shell; the last line execs shpack, which
 # concretizes and builds everything else up to gcc (see shpack/README.md).
 
 # Globals, inherited through the environment by every kaem.run child.
@@ -119,15 +119,6 @@ PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
 pkg=coreutils-5.0
-PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
-BINDIR=${PREFIX}/bin
-mkdir -p ${BINDIR}
-PATH=${BINDIR}:${PATH}
-kaem --verbose --strict --file ${PKG}/kaem.run
-
-# oyacc: yacc for binutils/gcc grammar files in the shell phase.
-pkg=oyacc-6.6
 PKG=${BOOT}/${pkg}
 PREFIX=/opt/${pkg}
 BINDIR=${PREFIX}/bin
