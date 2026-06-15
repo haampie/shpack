@@ -44,6 +44,7 @@ b9df93635b20e4089c29623b19420c4ac848a1b29df1cfd59f26cab0d2666aa0  mpfr-4.2.1.tar
 a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4  musl-1.2.5.tar.gz                 https://www.musl-libc.org/releases/musl-1.2.5.tar.gz
 6e226b732e1cd739464ad6862bd1a1aba42d7982922da7a53519631d24975181  sed-4.9.tar.xz                    https://ftpmirror.gnu.org/sed/sed-4.9.tar.xz
 14d55e32063ea9526e057fbf35fcabd53378e769787eff7919c3755b02d2b57e  tar-1.35.tar.gz                   https://ftpmirror.gnu.org/tar/tar-1.35.tar.gz
+f6f4910fd033078738bd82bfba4f49219d03b17eb0794eb91efbae419f4aba10  xz-5.2.5.tar.gz                   https://downloads.sourceforge.net/project/lzmautils/xz-5.2.5.tar.gz
 
 # bootstrap seed
 ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269  bzip2-1.0.8.tar.gz                https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz

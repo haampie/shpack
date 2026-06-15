@@ -18,7 +18,7 @@ build_system generic
 # enumerating objects with find -- without findutils, libstdc++.a ships only
 # the compatibility*.o and every downstream C++ link breaks.
 depends_on gcc-boot0-wrapped glibc linux-headers gmake sed grep gawk diffutils \
-    findutils tar
+    findutils tar xz
 
 setup_build_environment() {
     # libstdc++ #include_next <stdlib.h> etc. must reach glibc's headers.

@@ -13,7 +13,7 @@ build_system generic
 # Built by the chain's real GCC 4.7 (HOSTCC compiles scripts/basic/fixdep and
 # scripts/unifdef). The only consumers -- musl@1.2.5 and glibc -- come later, so
 # no cycle. make = gmake (musl-linked, drives the jobserver).
-depends_on gcc-boot@4.7-2013.11 gmake sed
+depends_on gcc-boot@4.7-2013.11 gmake sed xz
 
 install() {
     # Linux ARCH uses its own arch names: aarch64 -> arm64 (selects the arm64

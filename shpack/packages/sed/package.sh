@@ -14,7 +14,7 @@ build_system autotools
 # Built by the chain's real GCC 4.7 against musl 1.1.24 (static, like the rest
 # of the tool layer). Consumers (linux-headers, glibc, gcc 9+) put it ahead of
 # the seed sed-4.0.9 via the dep PATH order.
-depends_on gcc-boot@4.7-2013.11 binutils@2.30 gmake
+depends_on gcc-boot@4.7-2013.11 binutils@2.30 gmake xz
 
 configure_args() {
     # config.guess cannot probe this environment (uname "unknown", no

@@ -37,12 +37,12 @@ depends_on tcc musl@1.1.24 binutils@2.30 gmp@4.3.2 mpfr@2.4.2 mpc@1.0.3 \
 # lower chain) sysroot, kernel headers, binutils 2.30. gmp/mpfr/mpc are unpacked
 # in-tree (resources below), not external deps -- 4.3.2/2.4.2 are too old.
 depends_on gcc-boot@4.7-2013.11 musl@1.2.5 linux-headers binutils@2.30 m4@1.4.7 tar \
-    when=9.5.0
+    xz when=9.5.0
 
 # 16.1.0: built by the chain's own 9.5 g++, with binutils 2.46 supplying the
 # as/ld it assembles/links with AND bakes into its specs. sed/tar: 16's pax
 # tarball + modern configure. (gmake/grep/gawk/diffutils from the shared line.)
-depends_on gcc-boot@9.5.0 binutils@2.46.0 sed tar when=16.1.0
+depends_on gcc-boot@9.5.0 binutils@2.46.0 sed tar xz when=16.1.0
 
 # GCC 9.5's download_prerequisites set, unpacked in-tree as gmp/ mpfr/ mpc/ so
 # configure auto-detects them (sidesteps the version/link probe). ISL omitted

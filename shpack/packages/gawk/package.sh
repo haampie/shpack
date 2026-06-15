@@ -28,7 +28,7 @@ depends_on grep
 depends_on tcc musl@1.1.24 when=3.0.4
 # 5.3.1: gcc 9.5 + binutils 2.30 (as/ld on PATH). Modern sed/tar: 5.3.1's
 # configure needs sed -E and its tarball is xz.
-depends_on gcc-boot@9.5.0 binutils@2.30 gmake sed tar when=5.3.1
+depends_on gcc-boot@9.5.0 binutils@2.30 gmake sed tar xz when=5.3.1
 
 triple_of() {
     case "$ARCH" in

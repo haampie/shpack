@@ -93,7 +93,7 @@ unpack() {
     case $1 in
         *.tar.gz|*.tgz)      gzip -dc "$1" | tar -xf - ;;
         *.tar.bz2)           bzip2 -dc "$1" | tar -xf - ;;
-        *.tar.xz|*.tar.lzma) unxz --file "$1" | tar -xf - ;;
+        *.tar.xz|*.tar.lzma) unxz < "$1" | tar -xf - ;;
         *.tar)               tar -xf "$1" ;;
         *)                   cp "$1" . ;;
     esac
