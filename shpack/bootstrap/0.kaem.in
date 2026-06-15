@@ -73,6 +73,28 @@ mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
+# Full musl 1.1.24, SECOND pass -- rebuilt by tcc-0.9.27 (now first on PATH).
+# The first musl pass (above) is compiled by tcc-0.9.26, whose float-LITERAL
+# folding uses the subset libc's glue strtod (constant-free but only a few ULP
+# accurate -- see musl-1.1.24/glue/float.c). That is fine for musl's own strtod
+# (bignum-based, correctly rounded regardless) but NOT for libm's compile-time
+# float constants: e.g. floor/ceil/round's `toint = 1/DBL_EPSILON` folds to
+# ~2^52 instead of exactly 2^52, so the `x+toint-toint-x` rounding identity
+# collapses and 72/230 libm objects (all of sin/cos/tan, exp/log/pow, gamma,
+# bessel, sqrt, rint, fma, floor/ceil/round, ...) come out subtly wrong. That
+# silently breaks downstream float-literal parsing (e.g. gawk int() -> 0, which
+# made GCC-16's opth-gen emit cl_optimization.explicit_mask[0] and cc1 wild-jump
+# to 0). tcc-0.9.27 links the first pass's correctly-rounded strtod, so this
+# pass re-folds every libm constant exactly. The chicken-and-egg (0.9.27 needs
+# full musl's strtod to link) forces the first pass to exist; this one heals it.
+pkg=musl-1.1.24
+PKG=${BOOT}/${pkg}
+PREFIX=/opt/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
 # make 3.82: first build tool; everything below builds with a real makefile.
 pkg=make-3.82
 PKG=${BOOT}/${pkg}

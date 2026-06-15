@@ -9,7 +9,7 @@ version 2.4.2 sha256=246d7e184048b1fc48d3696dd302c9774e24e921204221540745e546402
 
 build_system autotools
 
-depends_on tcc musl gmake binutils gmp grep gawk
+depends_on tcc musl@1.1.24 gmake binutils@2.30 gmp grep gawk@3.0.4
 
 configure_args() {
     # config.sub predates musl; the triple is cosmetic for this native

@@ -1,95 +1,213 @@
 # SPDX-License-Identifier: MIT
 
-description "GCC 4.7 (Linaro): the first real C compiler; Linaro because" \
-            "FSF GCC 4.7 lacks native aarch64 support"
-homepage "https://launchpad.net/gcc-linaro"
+description "Native aarch64 GCC 16.1.0 -- the final, shared compiler of the" \
+            "bootstrap. Built by gcc-boot0-wrapped against glibc 2.43 +" \
+            "binutils-final, --enable-shared, threads=posix, real C++ EH."
+homepage "https://gcc.gnu.org/"
 license "GPL-3.0-or-later"
 
-version 4.7-2013.11 sha256=d0ea2c72ceb66d3851986840dd8962941824a2980a8aca2a800abb5b489acedf \
-    url=https://launchpadlibrarian.net/156843777/gcc-linaro-4.7-2013.11.tar.bz2
+# Separate recipe from gcc (4.7/9.5) and gcc-boot@16.1.0 (16.1.0, crippled): this is
+# the shared, glibc-linked production GCC 16. Same source as gcc-boot@16.1.0; the
+# difference is entirely in how it's built (wrapped boot0 + glibc + binutils).
+version 16.1.0 sha256=50efb4d94c3397aff3b0d61a5abd748b4dd31d9d3f2ab7be05b171d36a510f79 \
+    url=https://ftp.gnu.org/gnu/gcc/gcc-16.1.0/gcc-16.1.0.tar.xz
 
 build_system autotools
 
-depends_on tcc musl gmake binutils gmp mpfr mpc grep gawk diffutils m4 findutils
+# Built by gcc-boot0-wrapped against glibc 2.43, binutils-final (as/ld baked in),
+# libstdcxx-boot1 (static libstdc++.a for the build tools it compiles).
+# linux-headers: autoconf CPP sanity check (kernel headers are symlinked into
+# glibc's include, so --with-native-system-header-dir=glibc covers both).
+depends_on gcc-boot0-wrapped glibc binutils-final libstdcxx-boot1 linux-headers \
+    gmake sed grep gawk@3.0.4 diffutils findutils tar
 
-# libiberty's C_alloca conflicts with musl's alloca/__builtin_alloca; rename
-# C_alloca -> alloca throughout (same fix as Guix).
-patch 0001-alloca.patch
+# Same in-tree gmp/mpfr/mpc as gcc-boot@16.1.0 (GCC 16's prerequisite set).
+resource when=16.1.0 \
+    url=https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.bz2 \
+    sha256=ac28211a7cfb609bae2e2c8d6058d66c8fe96434f740cf6fe2e47b000d1c20cb
+resource when=16.1.0 \
+    url=https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.1.tar.bz2 \
+    sha256=b9df93635b20e4089c29623b19420c4ac848a1b29df1cfd59f26cab0d2666aa0
+resource when=16.1.0 \
+    url=https://ftp.gnu.org/gnu/mpc/mpc-1.3.1.tar.gz \
+    sha256=ab642492f5cf882b74aa0cb730cd410a81edcdbec895183ce930e706c1c759b8
 
-# Work around a tcc 0.9.27 AArch64 spill-slot collision that miscompiles a
-# nested 16-byte-struct-return call in set_lattice_value, crashing the
-# tcc-built cc1 in the tree-ccp pass (libgcc2.c __cmpti2). Splitting the call
-# into a temporary avoids it. See bugs/tcc-aarch64-nested-struct-return-spill.md.
-patch 0002-tree-ssa-ccp-spill.patch
+setup_build_environment() {
+    # In-tree gmp's AC_PROG_LEX fatally runs flex's output probe if flex is on
+    # PATH; flex is only used by gmp demos, so skip the probe.
+    export ac_cv_prog_lex_root=lex.yy
 
-# libstdc++'s gnu-linux os_defines.h uses __GLIBC_PREREQ(2,15), undefined on
-# musl; guard it so the gets() check evaluates false.
-patch 0003-libstdcxx-musl-glibc-prereq.patch
+    # The wrapped boot0 gcc has no default path to glibc's headers (gcc-boot@16.1.0
+    # was --without-headers), so the top-level configure's conftest compile and
+    # the C++ build tools (gengenrtl, ...) wouldn't find <stdio.h>/<new>.
+    # --with-native-system-header-dir only affects the gcc being built, not these
+    # host-side compiles. Mirror binutils-final's env. The in-tree libstdc++
+    # compiles strip libstdcxx-boot1 back out via the Makefile.in reset (below).
+    local glibc triple libstdcxx
+    glibc=$(prefix_of glibc)
+    triple=$(triple_of)
+    libstdcxx=$(prefix_of libstdcxx-boot1)
+    export C_INCLUDE_PATH="$glibc/include"
+    export CPLUS_INCLUDE_PATH="$libstdcxx/include:$libstdcxx/include/$triple:$glibc/include"
+    export LIBRARY_PATH="$libstdcxx/lib64:$libstdcxx/lib:$glibc/lib"
+}
 
-# gnu-linux ctype uses glibc-internal mask names and __ctype_b_loc(), absent
-# on musl; swap in the portable config/os/generic ctype (same approach as
-# Alpine / musl-cross-make).
-patch 0004-libstdcxx-generic-ctype.patch
-
-# GCC requires an out-of-tree build dir: configure in _build/ and stay there
-# (phases share one shell, so the cd persists into build/install).
-configure() {
+triple_of() {
     case "$ARCH" in
-        amd64)   triple=x86_64-unknown-linux-musl ;;
-        aarch64) triple=aarch64-unknown-linux-musl ;;
+        amd64)   printf x86_64-linux-gnu ;;
+        aarch64) printf aarch64-linux-gnu ;;
     esac
-    mkdir -p _build
-    cd _build
-    # C only is built (--disable-build-with-cxx), but gcc/configure still
-    # runs a fatal AC_PROG_CXXCPP probe; `tcc -E` satisfies it (tcc cannot
-    # compile C++ but preprocesses it fine; no C++ is actually compiled by
-    # the stage1 tools).
+}
+
+ld_so_of() {
+    case "$ARCH" in
+        amd64)   printf ld-linux-x86-64.so.2 ;;
+        aarch64) printf ld-linux-aarch64.so.1 ;;
+    esac
+}
+
+configure() {
+    local triple gcc glibc libstdcxx binutils p real_cc ld_so tflags
+    triple=$(triple_of)
+    gcc=$(prefix_of gcc-boot0-wrapped)
+    glibc=$(prefix_of glibc)
+    libstdcxx=$(prefix_of libstdcxx-boot1)
+    binutils=$(prefix_of binutils-final)
+    ld_so=$(ld_so_of)
+    # Flags handed to the freshly-built xgcc when it builds the TARGET libs
+    # (libgcc, libatomic, libstdc++): point it at glibc's loader + libs so its
+    # configure conftests link and run. See the comment at the configure call.
+    tflags="-B$glibc/lib -L$glibc/lib -Wl,-rpath,$glibc/lib -Wl,--dynamic-linker=$glibc/lib/$ld_so"
+
+    # Relocate the flat-unpacked resources into the GCC tree as gmp/ mpfr/ mpc/.
+    for p in gmp mpfr mpc; do
+        mv "$stage_dir"/$p-*/ "./$p"
+        cp -f config.sub config.guess "./$p/"
+    done
+
+    # GCC 16 makes implicit-function-declaration an error. The in-tree gmp's
+    # build-compiler probes (main(){exit(0);}) compile with no CFLAGS and would
+    # fail. Wrap the wrapped-boot0 gcc to demote that error.
+    real_cc="$gcc/bin/gcc"
+    cat > "$stage_dir/cc-relaxed.sh" <<EOF
+#!/bin/sh
+exec $real_cc "\$@" -Wno-error=implicit-function-declaration
+EOF
+    chmod 755 "$stage_dir/cc-relaxed.sh"
+
+    # Strip the external libstdcxx-boot1 from CPLUS_INCLUDE_PATH for EVERY
+    # libstdc++-v3 C++ compile (GCC bug 100017): its headers share include
+    # guards with the in-tree libstdc++ being built, so an in-tree
+    # #include_next would hit the boot1 wrapper and never reach glibc's real
+    # header. Reset CPLUS_INCLUDE_PATH to just glibc; the kernel headers are
+    # symlinked into glibc/include and --with-native-system-header-dir=glibc
+    # keeps libc headers available.
+    local reset="CPLUS_INCLUDE_PATH = $glibc/include\nexport CPLUS_INCLUDE_PATH\n"
+    local mk
+    for mk in $(find libstdc++-v3 -name Makefile.in); do
+        sed -i "s|^AM_CXXFLAGS = |${reset}AM_CXXFLAGS = |" "$mk"
+    done
+    # PCH rules use PCHFLAGS, not AM_CXXFLAGS. Anchor with ^ so it doesn't also
+    # match glibcxx_PCHFLAGS.
+    sed -i "s|^PCHFLAGS = |${reset}PCHFLAGS = |" libstdc++-v3/include/Makefile.in
+
+    # libstdc++'s convenience-archive rules `date > stamp-*` just touch a make
+    # stamp; `date` isn't in the seed coreutils and a real date is non-reproducible.
+    sed -i 's/date > stamp/touch stamp/g' libstdc++-v3/src/Makefile.in
+
+    # Target-lib loader, via *_FOR_TARGET (NOT --with-sysroot). The reference
+    # builds the target libs (libgcc, libatomic, libstdc++) on a host whose
+    # /lib/ld-linux-*.so exists, so the freshly-built xgcc's configure conftests
+    # link+run against the host loader. Our chroot has no host glibc, so xgcc's
+    # baked default loader /lib/ld-linux-... is missing and target conftests fail
+    # "cannot run C compiled programs". --with-sysroot=$glibc fixes that but then
+    # ld double-prepends the sysroot to the ABSOLUTE paths inside glibc's libc.so
+    # linker script (GROUP ( $glibc/lib/libc.so.6 ... )) and can't find libc.
+    # Instead pass the loader/libdir as $tflags to the target compiler only: the
+    # absolute libc.so paths resolve normally and conftests get the right interp.
+    # The installed driver's runtime paths are pinned by the specs file (install).
+    mkdir -p build
+    cd build
     ../configure \
-        CC=tcc \
-        CC_FOR_BUILD=tcc \
-        CXX=tcc \
-        "CXXCPP=tcc -E" \
-        CFLAGS=-DHAVE_ALLOCA_H \
+        CONFIG_SHELL=/bin/sh \
+        "CC=$stage_dir/cc-relaxed.sh" \
+        "CXX=$gcc/bin/g++" \
         MAKEINFO=true \
+        "LDFLAGS=-L$libstdcxx/lib64 -L$libstdcxx/lib" \
+        "CFLAGS_FOR_TARGET=-g -O2 $tflags" \
+        "CXXFLAGS_FOR_TARGET=-g -O2 $tflags" \
+        "LDFLAGS_FOR_TARGET=$tflags" \
         --prefix="$PREFIX" \
         --build="$triple" \
         --host="$triple" \
         --target="$triple" \
-        --with-sysroot="$(prefix_of musl)" \
-        --with-native-system-header-dir=/include \
-        --with-gmp="$(prefix_of gmp)" \
-        --with-mpfr="$(prefix_of mpfr)" \
-        --with-mpc="$(prefix_of mpc)" \
-        --with-as="$(prefix_of binutils)/bin/as" \
-        --with-ld="$(prefix_of binutils)/bin/ld" \
+        --with-native-system-header-dir="$glibc/include" \
+        --with-as="$binutils/bin/as" \
+        --with-ld="$binutils/bin/ld" \
+        --enable-shared \
         --enable-languages=c,c++ \
-        --enable-static \
-        --disable-shared \
-        --enable-threads=single \
-        --disable-threads \
-        --disable-libstdcxx-pch \
-        --disable-build-with-cxx \
+        --enable-threads=posix \
+        --enable-__cxa_atexit \
         --disable-bootstrap \
         --disable-multilib \
-        --disable-decimal-float \
-        --disable-lto \
-        --disable-lto-plugin \
-        --disable-plugin \
-        --disable-libatomic \
-        --disable-libcilkrts \
-        --disable-libgomp \
-        --disable-libitm \
-        --disable-libmudflap \
-        --disable-libquadmath \
-        --disable-libsanitizer \
-        --disable-libssp \
-        --disable-libvtv
+        --disable-werror \
+        --disable-nls \
+        --without-isl \
+        --without-zstd \
+        --disable-plugin
 }
 
 build_args() {
     printf '%s\n' MAKEINFO=true
 }
 
-install_targets() {
-    printf '%s\n' install MAKEINFO=true
+install() {
+    local triple glibc binutils ld_so specs_dir rpath_dir gcc_exe
+    triple=$(triple_of)
+    glibc=$(prefix_of glibc)
+    binutils=$(prefix_of binutils-final)
+    ld_so=$(ld_so_of)
+
+    make install MAKEINFO=true
+
+    # Write a specs file into the installed GCC so plain gcc/g++ find glibc's
+    # startfiles + dynamic linker and use binutils-final's as/ld -- no wrapper
+    # scripts or env vars needed downstream.
+    if [ -n "$(ls "$PREFIX"/lib64/libgcc_s.* 2>/dev/null)" ]; then
+        rpath_dir="$PREFIX/lib64"
+    elif [ -n "$(ls "$PREFIX"/lib/libgcc_s.* 2>/dev/null)" ]; then
+        rpath_dir="$PREFIX/lib"
+    else
+        die "no libgcc_s.* found in lib/lib64"
+    fi
+
+    gcc_exe="$PREFIX/bin/gcc"
+    specs_dir="$PREFIX/lib/gcc/$triple/16.1.0"
+    mkdir -p "$specs_dir"
+    # Seed with the FULL built-in spec set (-dumpspecs) so the *cc1_cpu section
+    # (-mcpu/-march=native autodetection) is preserved; a partial prefix specs
+    # file silently disables it. Capture via $(...) to strip dumpspecs' trailing
+    # blank line, then re-emit exactly ONE blank line before the '#': GCC's specs
+    # parser rejects a double blank line before a comment ("specs file malformed").
+    local builtin_specs
+    builtin_specs=$("$gcc_exe" -dumpspecs)
+    {
+        printf '%s\n' "$builtin_specs"
+        cat <<EOF
+
+# Generated by shpack: glibc loader/startfiles + binutils-final
+
+*startfile_prefix_spec:
+$glibc/lib/
+
+*link:
++ %{!static:%{!static-pie:--dynamic-linker $glibc/lib/$ld_so}}
+
+*link_libgcc:
++ -rpath $glibc/lib -L$rpath_dir -rpath $rpath_dir
+
+*self_spec:
++ -B$binutils/bin/
+EOF
+    } > "$specs_dir/specs"
 }

@@ -218,17 +218,23 @@ case "$RUNNER" in
         # redirects fail). Provide a minimal device set, then remove it: the
         # nodes are root-owned, so leaving them would make the next non-root
         # `rm -rf rootfs` choke.
-        sudo mkdir -p rootfs/dev
+        sudo mkdir -p rootfs/dev rootfs/proc
         sudo mknod -m 666 rootfs/dev/null    c 1 3
         sudo mknod -m 666 rootfs/dev/zero    c 1 5
         sudo mknod -m 666 rootfs/dev/full    c 1 7
         sudo mknod -m 666 rootfs/dev/random  c 1 8
         sudo mknod -m 666 rootfs/dev/urandom c 1 9
         sudo mknod -m 666 rootfs/dev/tty     c 5 0
-        trap 'sudo rm -rf rootfs/dev' EXIT
+        # gmake is linked against musl 1.1.24, whose realpath() reads
+        # /proc/self/fd; the kernel/glibc/gcc Makefiles that call $(realpath ...)
+        # (e.g. linux-headers) return empty and misfire without /proc. (Only the
+        # bwrap path got --proc; this unprivileged-userns-less path needs it too.)
+        sudo mount -t proc proc rootfs/proc
+        trap 'sudo umount rootfs/proc 2>/dev/null; sudo rm -rf rootfs/dev rootfs/proc' EXIT
         sudo unshare --root=rootfs --wd=/tmp/seed \
              --setuid $(id -u) --setgid $(id -g) "$SEED" kaem.${ARCH}
-        sudo rm -rf rootfs/dev
+        sudo umount rootfs/proc 2>/dev/null || true
+        sudo rm -rf rootfs/dev rootfs/proc
         trap - EXIT
         ;;
     *)      echo "unknown RUNNER: $RUNNER (use bwrap or chroot)" >&2; exit 1 ;;

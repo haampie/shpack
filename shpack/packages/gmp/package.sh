@@ -9,7 +9,7 @@ version 4.3.2 sha256=7be3ad1641b99b17f6a8be6a976f1f954e997c41e919ad7e0c418fe848c
 
 build_system autotools
 
-depends_on tcc musl gmake binutils m4 grep gawk
+depends_on tcc musl@1.1.24 gmake binutils@2.30 m4 grep gawk@3.0.4
 
 configure_args() {
     # --build/--host=none-... forces GMP into generic-C mode: no hand-written

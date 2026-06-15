@@ -10,4 +10,4 @@ version 2.4 sha256=a32032bab36208509466654df12f507600dfe0313feebbcd218c32a70bf72
 
 build_system makefile
 
-depends_on tcc musl
+depends_on tcc musl@1.1.24

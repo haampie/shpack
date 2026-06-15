@@ -9,4 +9,4 @@ version 2.7 sha256=d5f2489c4056a31528e3ada4adacc23d498532b0af1a980f2f76158162b13
 
 build_system makefile
 
-depends_on tcc musl grep
+depends_on tcc musl@1.1.24 grep

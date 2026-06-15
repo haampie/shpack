@@ -9,7 +9,7 @@ version 1.0.3 sha256=617decc6ea09889fb08ede330917a00b16809b8db88c29c31bfbb49cbf8
 
 build_system autotools
 
-depends_on tcc musl gmake binutils gmp mpfr grep gawk
+depends_on tcc musl@1.1.24 gmake binutils@2.30 gmp mpfr grep gawk@3.0.4
 
 configure_args() {
     # config.guess cannot probe this environment (uname says "unknown", no
