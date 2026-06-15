@@ -63,6 +63,12 @@ BASEPATH="/opt/dash-0.5.12/bin:/opt/coreutils-5.0/bin:/opt/bzip2-1.0.8/bin:/opt/
 # JOBS=N ./build.sh ...
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 1)}"
 
+# Put the throwaway per-package build dir (/tmp/shpack/stage) on tmpfs: the gcc/
+# glibc stages churn thousands of short-lived .o's that are deleted at install, so
+# RAM-backing them skips the disk I/O (logs/stamps and the /opt store stay on
+# disk). Default on; STAGE_TMPFS=0 for low-RAM hosts (peak footprint a few GB).
+STAGE_TMPFS="${STAGE_TMPFS:-1}"
+
 # The kaem glue scripts in shpack/bootstrap/ and the shpack config templates are
 # shared between arches; instantiate them by replacing the
 # @ARCH@/@S0ARCH@/@TCC_ARCH_FLAG@ tokens.
@@ -210,8 +216,14 @@ cp -r distfiles rootfs/external/
 SEED=/tmp/seed/bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed
 RUNNER="${RUNNER:-$(command -v bwrap >/dev/null 2>&1 && echo bwrap || echo chroot)}"
 
+# bwrap mounts the scratch tmpfs natively (namespaced, auto-created, writable as
+# the sandbox user); the chroot path mounts it on the host below.
+BWRAP_TMPFS=""
+[ "$STAGE_TMPFS" = 1 ] && BWRAP_TMPFS="--tmpfs /tmp/shpack/stage"
+
 case "$RUNNER" in
-    bwrap)  bwrap --unshare-all --bind rootfs / --dev /dev --proc /proc --chdir /tmp/seed \
+    bwrap)  bwrap --unshare-all --bind rootfs / --dev /dev --proc /proc \
+                ${BWRAP_TMPFS} --chdir /tmp/seed \
                 "$SEED" kaem.${ARCH} ;;
     chroot)
         # The chroot has no /dev, but shpack and the package configure scripts
@@ -231,9 +243,16 @@ case "$RUNNER" in
         # (e.g. linux-headers) return empty and misfire without /proc. (Only the
         # bwrap path got --proc; this unprivileged-userns-less path needs it too.)
         sudo mount -t proc proc rootfs/proc
-        trap 'sudo umount rootfs/proc 2>/dev/null; sudo rm -rf rootfs/dev rootfs/proc' EXIT
+        # Scratch tmpfs (mode 1777 for the --setuid non-root build); unmounted on
+        # exit so the next run's `rm -rf rootfs` doesn't hit a live mount.
+        if [ "$STAGE_TMPFS" = 1 ]; then
+            mkdir -p rootfs/tmp/shpack/stage
+            sudo mount -t tmpfs -o mode=1777 tmpfs rootfs/tmp/shpack/stage
+        fi
+        trap 'sudo umount rootfs/tmp/shpack/stage 2>/dev/null; sudo umount rootfs/proc 2>/dev/null; sudo rm -rf rootfs/dev rootfs/proc' EXIT
         sudo unshare --root=rootfs --wd=/tmp/seed \
              --setuid $(id -u) --setgid $(id -g) "$SEED" kaem.${ARCH}
+        sudo umount rootfs/tmp/shpack/stage 2>/dev/null || true
         sudo umount rootfs/proc 2>/dev/null || true
         sudo rm -rf rootfs/dev rootfs/proc
         trap - EXIT

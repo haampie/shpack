@@ -36,6 +36,10 @@ cd "$ROOT"
 [ -d rootfs/opt ] && [ -f rootfs/shpack/etc/config ] || {
     echo "no seeded rootfs/ -- run ./build.sh $ARCH first" >&2; exit 1; }
 
+# Same throwaway-build-scratch tmpfs as build.sh (see STAGE_TMPFS there); default
+# on, STAGE_TMPFS=0 to disable.
+STAGE_TMPFS="${STAGE_TMPFS:-1}"
+
 # Re-sync recipes/lib/bin and distfiles from the host checkout so host edits
 # (new recipes, new tarballs) take effect without a full restage.
 sudo cp -r shpack/packages shpack/lib shpack/bin rootfs/shpack/
@@ -44,6 +48,7 @@ sudo cp -n distfiles/. rootfs/external/distfiles/ 2>/dev/null || \
 
 # Minimal /dev + /proc (see header). Root-owned, so clean them up on exit.
 cleanup() {
+    sudo umount rootfs/tmp/shpack/stage 2>/dev/null || true
     sudo umount rootfs/proc 2>/dev/null || true
     sudo rm -rf rootfs/dev rootfs/proc
 }
@@ -56,6 +61,11 @@ sudo mknod -m 666 rootfs/dev/random  c 1 8 2>/dev/null || true
 sudo mknod -m 666 rootfs/dev/urandom c 1 9 2>/dev/null || true
 sudo mknod -m 666 rootfs/dev/tty     c 5 0 2>/dev/null || true
 sudo mount -t proc proc rootfs/proc
+# tmpfs for the throwaway build scratch (mode 1777 for the --setuid non-root build).
+if [ "$STAGE_TMPFS" = 1 ]; then
+    sudo mkdir -p rootfs/tmp/shpack/stage
+    sudo mount -t tmpfs -o mode=1777 tmpfs rootfs/tmp/shpack/stage
+fi
 
 # BASEPATH from the staged config (same PATH floor the kaem phase hands shpack).
 BP=$(sed -n 's/^BASEPATH=//p' rootfs/shpack/etc/config | head -1)
