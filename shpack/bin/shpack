@@ -62,7 +62,10 @@ usage: shpack <command> [args]
 
   install <spec>...     concretize and build the given packages and their
                         dependency closures (spec: name or name@version)
-  concretize <spec>...  resolve the DAG and emit dag.mk, but do not build
+  concretize <spec>...  resolve the DAG, print it as a tree, and emit
+                        dag.mk, but do not build
+  spec <spec>...        concretize and show the dependency DAG as an
+                        indented tree (each node once, indent = depth)
   build-one <id>        build a single concretized node (internal; invoked
                         from dag.mk recipes)
   env <name|id>         print the composed build environment of a node
@@ -76,6 +79,7 @@ if [ $# -gt 0 ]; then shift; fi
 case $cmd in
     install)        cmd_install "$@" ;;
     concretize)     cmd_concretize "$@" ;;
+    spec)           cmd_spec "$@" ;;
     build-one)      cmd_build_one "$@" ;;
     env)            cmd_env "$@" ;;
     find)           cmd_find "$@" ;;

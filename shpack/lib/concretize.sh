@@ -233,8 +233,17 @@ cmd_concretize() {
     done
     emit_index
     emit_dagmk
+    tree_print
     printf 'concretized %s node(s); makefile at %s\n' \
         "$(wc -l < "$VAR/topo" | tr -d ' ')" "$VAR/dag.mk"
+}
+
+# cmd_spec -- concretize the given specs and show the resulting DAG as a
+# tree. The tree is already printed by cmd_concretize (from on-disk node
+# data, no recomputation); spec is the human-facing name for that view.
+cmd_spec() {
+    if [ $# -lt 1 ]; then die "usage: shpack spec <spec>..."; fi
+    cmd_concretize "$@"
 }
 
 # cmd_install -- concretize, then schedule. Two stages when the DAG itself
@@ -290,4 +299,61 @@ cmd_find() {
             fi
         done
     fi
+}
+
+# tree_line ID INDENT -- print one tree row: the node's hash in a fixed left
+# column (hashes are 7 chars, so they align), then INDENT and "name@version"
+# (with " (external)" on kaem-phase nodes).
+tree_line() {
+    local n v h k tag
+    n=$(cat "$VAR/spec/$1/name")
+    v=$(cat "$VAR/spec/$1/version")
+    h=$(cat "$VAR/spec/$1/hash")
+    k=$(cat "$VAR/spec/$1/kind")
+    if [ "$k" = external ]; then tag=' (external)'; else tag=''; fi
+    printf '%s    %s%s@%s%s\n' "$h" "$2" "$n" "$v" "$tag"
+}
+
+# tree_print -- render the already-concretized DAG (on disk under $VAR: the
+# roots list and per-node spec dirs) as an indented tree by iterative
+# (recursion-free) depth-first traversal: each child is nested under its
+# parent, two spaces per level. Each node is printed exactly once, the first
+# time it is reached; a shared node already shown under an earlier parent is
+# skipped (not reprinted, not re-descended). The frontier is an explicit
+# stack held in one string, each frame a `<indent><TAB><id>` line; we pop the
+# front and prepend a node's children so they are visited before its
+# siblings. Pure read -- no recomputation, no arithmetic, within the budget.
+tree_print() {
+    local id dep stack rest frame indent cindent seen kids NL TAB
+    NL='
+'
+    TAB=$(printf '\t')
+    # Seed the stack with the roots, in order (empty indent).
+    stack=''
+    for id in $(cat "$VAR/roots"); do
+        stack="$stack$TAB$id$NL"
+    done
+    seen=' '
+    while [ -n "$stack" ]; do
+        frame=${stack%%"$NL"*}      # front frame
+        rest=${stack#*"$NL"}        # everything below it
+        indent=${frame%%"$TAB"*}
+        id=${frame#*"$TAB"}
+        case $seen in
+            *" $id "*)
+                # Already printed under an earlier parent: each node once.
+                stack=$rest
+                continue
+                ;;
+        esac
+        seen="$seen$id "
+        tree_line "$id" "$indent"
+        # Prepend children (recipe order) so DFS descends before siblings.
+        cindent="$indent  "
+        kids=''
+        for dep in $(cat "$VAR/spec/$id/deps"); do
+            kids="$kids$cindent$TAB$dep$NL"
+        done
+        stack="$kids$rest"
+    done
 }
