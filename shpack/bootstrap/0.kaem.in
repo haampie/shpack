@@ -15,8 +15,9 @@
 #
 # The chain: simple-patch -> tcc-0.9.26 (+ subset musl) -> full musl ->
 # tcc-0.9.27 -> make -> patch -> gzip -> tar -> sed -> bzip2 -> coreutils ->
-# dash. dash is the first shell; the last line execs shpack, which
-# concretizes and builds everything else up to gcc (see the top-level README.md).
+# dash. dash is the first shell, and the chain ends there: the resulting rootfs
+# is the reusable base over which the launcher (run.sh) runs shpack to build
+# everything else up to gcc (see the top-level README.md).
 
 # Globals, inherited through the environment by every kaem.run child.
 PATH=@SEED_PATH@
@@ -162,6 +163,8 @@ mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
-# A shell exists: hand the bootstrap to shpack, which concretizes the package
-# DAG and builds everything up to gcc into hashed store prefixes.
-exec /bin/sh /shpack/bin/shpack install gcc
+# Base ready: dash is the first shell and the kaem-phase /opt tools exist, so
+# shpack is runnable. The kaem chain ends here -- this rootfs is the reusable
+# "base image". The shell phase (concretize + build up to gcc) is NOT run here;
+# the launcher (run.sh) bind-mounts shpack/{bin,lib,packages} over this base and
+# runs `shpack install <target>`. See build.sh and the top-level README.md.

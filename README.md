@@ -17,9 +17,30 @@ Try it out:
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
 cd shpack
 ./fetch-distfiles.sh   # download + sha256-verify source tarballs
-./build.sh amd64
+./build.sh amd64       # provision the base, then build up to gcc
 ./build.sh aarch64
 ```
+
+The build is two steps: `build.sh <arch>` provisions a reusable base rootfs
+(stage the stage0 seeds, run the kaem chain up to the first shell so shpack is
+runnable), and `run.sh` launches the shell phase over it. `build.sh` chains
+`run.sh`, so a single `./build.sh amd64` goes all the way to gcc;
+`PROVISION_ONLY=1 ./build.sh amd64` stops at the base.
+
+Iterate without re-provisioning:
+
+```sh
+./run.sh                       # interactive shell in the sandbox (default)
+./run.sh shpack install gcc    # build the toolchain over the existing store
+./run.sh shpack install xz     # build/refresh a single package
+```
+
+`run.sh` bind-mounts `shpack/{bin,lib,packages}` and `distfiles/` read-only from
+the host checkout, so recipe edits are live (no re-provision); only `shpack/etc`
+and `shpack/bootstrap` are baked into the base, so re-provision is needed only
+when seeds, arch, or `etc/config` change. Both scripts are rootless (bwrap, no
+sudo). The `/opt` store and `/tmp/shpack` state are shared on disk, so run one
+build at a time.
 
 Source tarballs are not committed to the repo. Run `fetch-distfiles.sh` before
 `build.sh`: it downloads them into `distfiles/` in parallel with a single `curl`

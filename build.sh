@@ -63,11 +63,12 @@ BASEPATH="/opt/dash-0.5.12/bin:/opt/coreutils-5.0/bin:/opt/bzip2-1.0.8/bin:/opt/
 # JOBS=N ./build.sh ...
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 1)}"
 
-# Put the throwaway per-package build dir (/tmp/shpack/stage) on tmpfs: the gcc/
-# glibc stages churn thousands of short-lived .o's that are deleted at install, so
-# RAM-backing them skips the disk I/O (logs/stamps and the /opt store stay on
-# disk). Default on; STAGE_TMPFS=0 for low-RAM hosts (peak footprint a few GB).
-STAGE_TMPFS="${STAGE_TMPFS:-1}"
+# Shared rootless-bwrap launcher (also used by run.sh). It RAM-backs the
+# throwaway per-package build scratch (/tmp/shpack/stage) on tmpfs unconditionally:
+# the gcc/glibc stages churn thousands of short-lived .o's deleted at install, so
+# skipping that disk I/O is always worth it (logs/stamps and the /opt store stay
+# on disk).
+. "$(dirname "$0")/sandbox.sh"
 
 # The kaem glue scripts in shpack/bootstrap/ and the shpack config templates are
 # shared between arches; instantiate them by replacing the
@@ -181,81 +182,48 @@ mkdir -p rootfs/usr
 mkdir -p rootfs/usr/bin
 mkdir -p rootfs/tmp
 
-# --- shpack: the package manager (see README.md) -------------------------
-# bootstrap/ is the static kaem-phase chain; 0.kaem.in is instantiated with
-# the host-known config (this replaces live-bootstrap's in-chroot
-# configurator + script-generator). bootstrap/ also holds the two glue kaem
-# scripts (check-tools.kaem, stage0-hook.kaem); the cp below copies them into
-# rootfs/shpack/bootstrap/ where they go unused -- the live copies are the
-# subst outputs above (rootfs/after.kaem, rootfs/${ARCH}/check-tools.kaem).
+# --- shpack: bake only the kaem-phase base, not the package manager ------
+# Provisioning bakes only what the kaem phase needs: bootstrap/ (the static
+# kaem-phase chain) plus the substituted config/externals. 0.kaem.in is
+# instantiated with the host-known config (this replaces live-bootstrap's
+# in-chroot configurator + script-generator). bootstrap/ also holds the two
+# glue kaem scripts (check-tools.kaem, stage0-hook.kaem); the cp below copies
+# them into rootfs/shpack/bootstrap/ where they go unused -- the live copies are
+# the subst outputs above (rootfs/after.kaem, rootfs/${ARCH}/check-tools.kaem).
+#
+# shpack/{bin,lib,packages} are deliberately NOT baked: the launcher (run.sh)
+# bind-mounts them live over this base, so recipe edits take effect without a
+# re-provision. etc/config IS baked (its @ARCH@/@BASEPATH@ tokens are host- and
+# arch-specific; changing them requires a re-provision anyway).
 mkdir -p rootfs/shpack/etc
-cp -r shpack/bin shpack/lib shpack/packages shpack/bootstrap rootfs/shpack/
+cp -r shpack/bootstrap rootfs/shpack/
 subst shpack/bootstrap/0.kaem.in rootfs/shpack/bootstrap/0.kaem
 rm -f rootfs/shpack/bootstrap/0.kaem.in
 subst shpack/etc/config.in rootfs/shpack/etc/config
 cp -f shpack/etc/externals.in rootfs/shpack/etc/externals
 
-mkdir -p rootfs/external
-# distfiles are not committed; run ./fetch-distfiles.sh first to populate them.
-cp -r distfiles rootfs/external/
+# distfiles are bind-mounted read-only at run time (here and in run.sh), never
+# copied into rootfs -- this is just the mountpoint. Run ./fetch-distfiles.sh
+# first to populate the host distfiles/ (sources are not committed).
+mkdir -p rootfs/external/distfiles
 
-# --- Execute the bootstrap -----------------------------------------------
-# The seed tree lives at /tmp/seed and its scripts are CWD-relative, so the
-# runner must launch the seed with the working directory set there.
-#  - bwrap (default, rootless): --chdir /tmp/seed. Needs unprivileged user
-#    namespaces; on Ubuntu these are AppArmor-gated, and bwrap ships a profile
-#    that permits them (a bare `unshare --map-root-user` does not).
-#  - unshare (RUNNER=chroot, or when bwrap is missing): chroot(2) does not touch
-#    CWD and coreutils `chroot` only offers `--skip-chdir` (restricted to
-#    NEWROOT=/), so it cannot land on a subdir. `unshare --root=DIR --wd=SUBDIR`
-#    does chroot then chdir in the right order; --setuid/--setgid then drop to
-#    the real uid (so GNU tar's ownership restore maps to us, not root). It runs
-#    under sudo because this path is for hosts without unprivileged userns.
-# Both stay non-root inside. aarch64 relies on the qemu-aarch64 binfmt handler
-# being registered with the F flag, so it fires inside the namespace.
+# --- Provision: run the kaem chain over the seed tree --------------------
+# The seed tree lives at /tmp/seed and its scripts are CWD-relative, so we land
+# the sandbox there with --chdir. Rootless bwrap (see sandbox.sh) needs
+# unprivileged user namespaces; on Ubuntu these are AppArmor-gated and bwrap
+# ships a profile that permits them. distfiles are bind-mounted read-only: the
+# kaem bootstrap scripts read their source tarballs from /external/distfiles.
+# aarch64 relies on the qemu-aarch64 binfmt handler being registered with the F
+# flag, so it fires inside the namespace.
 SEED=/tmp/seed/bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed
-RUNNER="${RUNNER:-$(command -v bwrap >/dev/null 2>&1 && echo bwrap || echo chroot)}"
 
-# bwrap mounts the scratch tmpfs natively (namespaced, auto-created, writable as
-# the sandbox user); the chroot path mounts it on the host below.
-BWRAP_TMPFS=""
-[ "$STAGE_TMPFS" = 1 ] && BWRAP_TMPFS="--tmpfs /tmp/shpack/stage"
+sandbox "$PWD/rootfs" \
+    --ro-bind "$PWD/distfiles" /external/distfiles \
+    --chdir /tmp/seed \
+    "$SEED" kaem.${ARCH}
 
-case "$RUNNER" in
-    bwrap)  bwrap --unshare-all --bind rootfs / --dev /dev --proc /proc \
-                ${BWRAP_TMPFS} --chdir /tmp/seed \
-                "$SEED" kaem.${ARCH} ;;
-    chroot)
-        # The chroot has no /dev, but shpack and the package configure scripts
-        # redirect to /dev/null constantly (a missing /dev/null makes those
-        # redirects fail). Provide a minimal device set, then remove it: the
-        # nodes are root-owned, so leaving them would make the next non-root
-        # `rm -rf rootfs` choke.
-        sudo mkdir -p rootfs/dev rootfs/proc
-        sudo mknod -m 666 rootfs/dev/null    c 1 3
-        sudo mknod -m 666 rootfs/dev/zero    c 1 5
-        sudo mknod -m 666 rootfs/dev/full    c 1 7
-        sudo mknod -m 666 rootfs/dev/random  c 1 8
-        sudo mknod -m 666 rootfs/dev/urandom c 1 9
-        sudo mknod -m 666 rootfs/dev/tty     c 5 0
-        # gmake is linked against musl 1.1.24, whose realpath() reads
-        # /proc/self/fd; the kernel/glibc/gcc Makefiles that call $(realpath ...)
-        # (e.g. linux-headers) return empty and misfire without /proc. (Only the
-        # bwrap path got --proc; this unprivileged-userns-less path needs it too.)
-        sudo mount -t proc proc rootfs/proc
-        # Scratch tmpfs (mode 1777 for the --setuid non-root build); unmounted on
-        # exit so the next run's `rm -rf rootfs` doesn't hit a live mount.
-        if [ "$STAGE_TMPFS" = 1 ]; then
-            mkdir -p rootfs/tmp/shpack/stage
-            sudo mount -t tmpfs -o mode=1777 tmpfs rootfs/tmp/shpack/stage
-        fi
-        trap 'sudo umount rootfs/tmp/shpack/stage 2>/dev/null; sudo umount rootfs/proc 2>/dev/null; sudo rm -rf rootfs/dev rootfs/proc' EXIT
-        sudo unshare --root=rootfs --wd=/tmp/seed \
-             --setuid $(id -u) --setgid $(id -g) "$SEED" kaem.${ARCH}
-        sudo umount rootfs/tmp/shpack/stage 2>/dev/null || true
-        sudo umount rootfs/proc 2>/dev/null || true
-        sudo rm -rf rootfs/dev rootfs/proc
-        trap - EXIT
-        ;;
-    *)      echo "unknown RUNNER: $RUNNER (use bwrap or chroot)" >&2; exit 1 ;;
-esac
+# The base is ready: dash + the kaem-phase /opt tools exist, so shpack is
+# runnable over this rootfs. Unless asked to stop at the base, chain the
+# launcher for the default target so `./build.sh <arch>` still yields a full
+# gcc in one command. PROVISION_ONLY=1 leaves just the reusable base.
+[ "${PROVISION_ONLY:-0}" = 1 ] || exec "$(dirname "$0")/run.sh" shpack install gcc
