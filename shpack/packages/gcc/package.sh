@@ -126,6 +126,9 @@ EOF
     # Instead pass the loader/libdir as $tflags to the target compiler only: the
     # absolute libc.so paths resolve normally and conftests get the right interp.
     # The installed driver's runtime paths are pinned by the specs file (install).
+    # CFLAGS/CXXFLAGS=-O2 (not configure's default -g -O2) drops DWARF from the
+    # HOST objects only (cc1/cc1plus/gcc/g++); *_FOR_TARGET below keep -g so the
+    # shipped libs stay debuggable. This is the bootstrap's longest stage.
     mkdir -p build
     cd build
     ../configure \
@@ -133,6 +136,8 @@ EOF
         "CC=$stage_dir/cc-relaxed.sh" \
         "CXX=$gcc/bin/g++" \
         MAKEINFO=true \
+        CFLAGS=-O2 \
+        CXXFLAGS=-O2 \
         "LDFLAGS=-L$libstdcxx/lib64 -L$libstdcxx/lib" \
         "CFLAGS_FOR_TARGET=-g -O2 $tflags" \
         "CXXFLAGS_FOR_TARGET=-g -O2 $tflags" \
