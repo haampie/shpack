@@ -1,68 +1,57 @@
 # shpack
 
-`shpack` bootstraps a basic, reproducible Linux environment natively from a few hundred bytes of
-binary seed to a working GCC 4.7 (C and C++) in 2 minutes and 30 seconds.
+`shpack` is a fully self-bootstrappable package manager that builds a reproducible software stack from a few hundred bytes of binary seed. 
 
-Building on [MES replacement][1] and concepts from [live-bootstrap][2], shpack provides a fast,
-natively 64-bit bootstrap path (currently targeting `x86_64` and `AArch64`, with RISC-V planned).
+It bootstraps a working C and C++ compiler (GCC 4.7) in just 2 minutes and 30 seconds. From there, it continues to build a modern, dynamically linked toolchain (GCC 16, glibc 2.43, and binutils 2.46.0) in under 30 minutes total (benchmarked on an AMD Ryzen 7 3700X CPU from 2019).
 
-It borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes, Merkle-hashed
-dependency graphs, and [single, declarative `package.sh` recipes][5] parametrized over all versions.
-The main difference is that the language is POSIX shell, since that is one of the earliest
-scripting languages available in the bootstrap chain.
+It targets `x86_64` and `AArch64` natively from the start. This is critical for modern systems where 32-bit support (x86, arm32) is either disabled in the kernel or unsupported by the CPU (e.g., Apple Silicon).
 
-Try it out:
+Written entirely in POSIX shell (running on early `dash`, `make`, and minimal coreutils), it brings package management to the absolute bottom of the stack. Because it evaluates dependency DAGs and emits parallelizable Makefiles, it can be used to bootstrap a much wider ecosystem of software beyond just a base compiler. It provides a simple DSL for package recipes, making it incredibly easy to read, write, and maintain packages.
+
+`shpack` borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes and Merkle-hashed dependency graphs. It is not a coincidence that the [declarative `package.sh` recipes][5] are reminiscent of the Spack package manager: a motivation for this project is to bootstrap the Spack package manager itself.
+
+Thanks to Guix and [live-bootstrap][2] for showing a full bootstrap is possible, and to [MES replacement][1] for making it fast.
+
+Bootstrapping speed is achieved by:
+
+* Compiling natively the whole way, with no interpreter step (GNU mes runs a Scheme interpreter): a small C compiler (`vendor/mes-replacement/tcc_cc.c`) plus a stack-machine transpiler (`vendor/mes-replacement/stack_c_*.c`) grow TCC and musl directly out of [stage0-posix][3].
+* Using early GNU make as a driver to expose package-level parallelism.
+
+## Bootstrapping a recent GNU compiler toolchain
+
+Make sure you have `bwrap` available
 
 ```sh
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
 cd shpack
-./fetch-distfiles.sh   # download + sha256-verify source tarballs
-./build.sh amd64       # provision the base, then build up to gcc
+./fetch-distfiles.sh   # download sources of all packages
+./build.sh amd64       # run the build up to latest GCC
 ./build.sh aarch64
 ```
 
-The build is two steps: `build.sh <arch>` provisions a reusable base rootfs
-(stage the stage0 seeds, run the kaem chain up to the first shell so shpack is
-runnable), and `run.sh` launches the shell phase over it. `build.sh` chains
-`run.sh`, so a single `./build.sh amd64` goes all the way to gcc;
-`PROVISION_ONLY=1 ./build.sh amd64` stops at the base.
+This sets up the `rootfs/` directory, bootstraps `shpack` and then uses `shpack` to install
+a modern GCC.
 
-Iterate without re-provisioning:
+The packages are installed into immutable per-package store prefixes
+(`/opt/<name>-<version>[-<hash>]`).
+
+## Entering the rootfs
+
+The `build.sh` script is a full demo that combines two steps:
+
+1. bootstrapping `shpack`'s dependencies (`dash`, `make`, etc)
+2. running `shpack install gcc`
+
+You can run the bootstrap step manually and then start an interactive shell in the rootfs as
+follows:
 
 ```sh
-./run.sh                       # interactive shell in the sandbox (default)
-./run.sh shpack install gcc    # build the toolchain over the existing store
-./run.sh shpack install xz     # build/refresh a single package
+$ ./fetch-distfiles.sh
+$ PROVISION_ONLY=1 ./build.sh amd64   # or aarch64
+$ ./run.sh
+# shpack install xz
+# shpack install gcc
 ```
-
-`run.sh` bind-mounts `shpack/{bin,lib,packages}` and `distfiles/` read-only from
-the host checkout, so recipe edits are live (no re-provision); only `shpack/etc`
-and `shpack/bootstrap` are baked into the base, so re-provision is needed only
-when seeds, arch, or `etc/config` change. Both scripts are rootless (bwrap, no
-sudo). The `/opt` store and `/tmp/shpack` state are shared on disk, so run one
-build at a time.
-
-Source tarballs are not committed to the repo. Run `fetch-distfiles.sh` before
-`build.sh`: it downloads them into `distfiles/` in parallel with a single `curl`
-invocation and verifies each against its sha256, fetching only what is missing.
-The sha256/url manifest lives at the top of that script.
-
-Bootstrapping speed is achieved by:
-
-* compiling natively the whole way, with no interpreter step (GNU mes runs a Scheme
-  interpreter): a small C compiler
-  (`vendor/mes-replacement/tcc_cc.c`) plus a stack-machine transpiler
-  (`vendor/mes-replacement/stack_c_*.c`) grow TCC and musl directly out of
-  [stage0-posix][3]
-* using early GNU make as a driver to expose package-level parallelism
-
-Packages install into immutable per-package store prefixes
-(`/opt/<name>-<version>[-<hash>]`), Spack-style, driven by two pieces:
-
-* `shpack/bootstrap/` -- a static kaem script chain that takes the system from
-  the stage0 seed tools to the first shell (dash);
-* `shpack/` -- the package manager, which then builds everything up to GCC.
-
 
 ## shpack packages
 
