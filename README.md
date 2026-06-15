@@ -55,7 +55,7 @@ $ ./run.sh
 
 ## shpack packages
 
-Paths in this section are relative to `shpack/`.
+Paths in this section are relative to [shpack/](shpack/)
 
 ### Recipes
 
