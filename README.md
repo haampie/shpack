@@ -16,9 +16,15 @@ Try it out:
 ```sh
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
 cd shpack
+./fetch-distfiles.sh   # download + sha256-verify source tarballs
 ./build.sh amd64
 ./build.sh aarch64
 ```
+
+Source tarballs are not committed to the repo. Run `fetch-distfiles.sh` before
+`build.sh`: it downloads them into `distfiles/` in parallel with a single `curl`
+invocation and verifies each against its sha256, fetching only what is missing.
+The sha256/url manifest lives at the top of that script.
 
 Bootstrapping speed is achieved by:
 

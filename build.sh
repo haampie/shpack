@@ -190,6 +190,7 @@ subst shpack/etc/config.in rootfs/shpack/etc/config
 cp -f shpack/etc/externals.in rootfs/shpack/etc/externals
 
 mkdir -p rootfs/external
+# distfiles are not committed; run ./fetch-distfiles.sh first to populate them.
 cp -r distfiles rootfs/external/
 
 # --- Execute the bootstrap -----------------------------------------------
