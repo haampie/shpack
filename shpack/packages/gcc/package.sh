@@ -154,6 +154,7 @@ EOF
         --enable-threads=posix \
         --enable-__cxa_atexit \
         --disable-bootstrap \
+        --disable-dependency-tracking \
         --disable-multilib \
         --disable-werror \
         --disable-nls \

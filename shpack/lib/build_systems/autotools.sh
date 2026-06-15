@@ -10,7 +10,12 @@
 SHPACK_PHASES="configure build install"
 
 default_configure() {
-    with_hook_args configure_args ./configure --prefix="$PREFIX"
+    # --disable-dependency-tracking: these are one-shot builds that never
+    # incrementally rebuild, so automake's .deps/depcomp machinery is pure
+    # overhead (an extra preprocessor pass per object on compilers without fast
+    # -MD, e.g. tcc). Autoconf configure that isn't automake just ignores it.
+    with_hook_args configure_args ./configure --prefix="$PREFIX" \
+        --disable-dependency-tracking
 }
 
 default_build() {

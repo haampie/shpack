@@ -155,6 +155,7 @@ configure_47() {
         --disable-libstdcxx-pch \
         --disable-build-with-cxx \
         --disable-bootstrap \
+        --disable-dependency-tracking \
         --disable-multilib \
         --disable-decimal-float \
         --disable-lto \
@@ -226,6 +227,7 @@ configure_95() {
         --enable-static \
         --disable-shared \
         --disable-bootstrap \
+        --disable-dependency-tracking \
         --disable-multilib \
         --disable-libstdcxx-pch \
         --disable-decimal-float \
@@ -293,6 +295,7 @@ configure_boot0() {
         --disable-lto-plugin \
         --without-isl \
         --disable-bootstrap \
+        --disable-dependency-tracking \
         --disable-multilib \
         --disable-decimal-float \
         --disable-threads \
