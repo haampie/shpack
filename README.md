@@ -2,7 +2,7 @@
 
 `shpack` is a fully self-bootstrappable package manager that builds a reproducible software stack from a few hundred bytes of binary seed. 
 
-It bootstraps a working C and C++ compiler (GCC 4.7) in just 2 minutes and 30 seconds. From there, it continues to build a modern, dynamically linked toolchain (GCC 16, glibc 2.43, and binutils 2.46.0) in under 30 minutes total (benchmarked on an AMD Ryzen 7 3700X CPU from 2019).
+The first C/C++ compiler from GCC 4.7 bootstraps in just 2 minutes and 30 seconds. From there, it continues to build a modern, dynamically linked toolchain (GCC 16, glibc 2.43, and binutils 2.46) in under 30 minutes total, as benchmarked on an 8-core AMD Ryzen 7 3700X CPU from 2019.
 
 It targets `x86_64` and `AArch64` natively from the start. This is critical for modern systems where 32-bit support (x86, arm32) is either disabled in the kernel or unsupported by the CPU (e.g., Apple Silicon).
 
