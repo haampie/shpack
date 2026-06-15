@@ -6,7 +6,7 @@ The first C/C++ compiler from GCC 4.7 bootstraps in just 2 minutes and 30 second
 
 It targets `x86_64` and `AArch64` natively from the start. This is critical for modern systems where 32-bit support (x86, arm32) is either disabled in the kernel or unsupported by the CPU (e.g., Apple Silicon).
 
-Written entirely in POSIX shell (running on early `dash`, `make`, and minimal coreutils), it brings package management to the absolute bottom of the stack. Because it evaluates dependency DAGs and emits parallelizable Makefiles, it can be used to bootstrap a much wider ecosystem of software beyond just a base compiler. It provides a simple DSL for package recipes, making it incredibly easy to read, write, and maintain packages.
+Written entirely in POSIX shell (running on early `dash`, `make`, and minimal coreutils), it brings package management to the bottom of the stack. Because it evaluates dependency DAGs and emits parallelizable Makefiles, it can be used to bootstrap a much wider ecosystem of software beyond just a base compiler. It provides a simple DSL for package recipes, making it incredibly easy to read, write, and maintain packages.
 
 `shpack` borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes and Merkle-hashed dependency graphs. It is not a coincidence that the [declarative `package.sh` recipes][5] are reminiscent of the Spack package manager: a motivation for this project is to bootstrap the Spack package manager itself.
 
