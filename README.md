@@ -1,6 +1,6 @@
 # shpack
 
-`shpack` is a fully self-bootstrappable package manager that builds a reproducible software stack from a few hundred bytes of binary seed. 
+`shpack` is a fully self-bootstrappable package manager for Linux that builds a reproducible software stack from a few hundred bytes of binary seed.
 
 The first C/C++ compiler from GCC 4.7 bootstraps in just 2 minutes and 30 seconds. From there, it continues to build a modern, dynamically linked toolchain (GCC 16, glibc 2.43, and binutils 2.46) in under 30 minutes total, as benchmarked on an 8-core AMD Ryzen 7 3700X CPU from 2019.
 
