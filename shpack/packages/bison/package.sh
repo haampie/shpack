@@ -10,10 +10,10 @@ version 3.8.2 sha256=9bba0214ccf7f1079c5d59210045227bcf619519840ebfa80cd3849cff5
 
 build_system autotools
 
-# Built by gcc 9.5 in the musl world (binutils@2.30 as/ld). m4 is a RUN dep:
+# Built by gcc 9.5 in the musl world (binutils@2.30-musl as/ld). m4 is a RUN dep:
 # bison shells out to m4 to expand its skeletons. Seed m4@1.4.7 satisfies
 # bison's `m4 >= 1.4.6` requirement, so no separate modern m4 is built.
-depends_on gcc-boot@9.5.0 binutils@2.30 gmake sed tar m4 xz
+depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed tar m4 xz
 
 setup_build_environment() {
     # No host flex; bison ships its generated scanners, so the only obstacle is
@@ -22,10 +22,7 @@ setup_build_environment() {
 }
 
 configure_args() {
-    case "$ARCH" in
-        amd64)   triple=x86_64-linux-musl ;;
-        aarch64) triple=aarch64-linux-musl ;;
-    esac
+    triple=$(triple musl)
     printf '%s\n' \
         CONFIG_SHELL=/bin/sh \
         SHELL=/bin/sh \

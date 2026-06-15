@@ -18,10 +18,7 @@ configure_args() {
     # No binutils ar yet and config.guess cannot probe this environment, so
     # pin the triple and the archiver; disable everything that would pull in
     # tools we do not have (guile, nls, dynamic load objects).
-    case "$ARCH" in
-        amd64)   triple=x86_64-unknown-linux-musl ;;
-        aarch64) triple=aarch64-unknown-linux-musl ;;
-    esac
+    triple=$(triple musl unknown)
     printf '%s\n' \
         CONFIG_SHELL=/bin/sh \
         SHELL=/bin/sh \

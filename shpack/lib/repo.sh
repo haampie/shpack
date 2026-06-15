@@ -17,7 +17,7 @@
 # per-package state files under $VAR/recipe/<name>/, which concretization and
 # the builder then read. Loading a recipe twice resets its state.
 
-SHPACK_DIRECTIVES="description homepage license version resource depends_on patch build_system parallel"
+SHPACK_DIRECTIVES="description homepage license version resource depends_on patch build_system parallel build_directory"
 
 description()  { printf '%s\n' "$*" > "$RECIPE_STATE/description"; }
 homepage()     { printf '%s\n' "$*" > "$RECIPE_STATE/homepage"; }
@@ -26,6 +26,12 @@ build_system() { printf '%s\n' "$1" > "$RECIPE_STATE/build_system"; }
 
 # parallel false -- this package's make must not run with -j.
 parallel()     { printf '%s\n' "$1" > "$RECIPE_STATE/parallel"; }
+
+# build_directory DIR -- configure/build out-of-tree in DIR (relative to the
+# source tree), for build systems (autotools) that forbid an in-tree build,
+# e.g. gcc/glibc. The build system creates DIR, cd's into it, and runs the
+# source tree's configure from there; later phases inherit the cd.
+build_directory() { printf '%s\n' "$1" > "$RECIPE_STATE/build_directory"; }
 
 # version VER [sha256=HEX] [url=URL] [fname=NAME]
 # Declares a buildable version and its source tarball. Repeatable; a bare

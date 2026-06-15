@@ -20,10 +20,7 @@ configure_args() {
     # __UCLIBC__ tells gnulib we are uClibc-like, avoiding glibc-only paths.
     # LD=tcc skips configure's fatal AC_PROG_LD probe (no binutils ld yet);
     # tcc links internally so no real ld is ever invoked.
-    case "$ARCH" in
-        amd64)   triple=x86_64-unknown-linux-gnu ;;
-        aarch64) triple=aarch64-unknown-linux-gnu ;;
-    esac
+    triple=$(triple gnu unknown)
     printf '%s\n' \
         CC=tcc \
         LD=tcc \

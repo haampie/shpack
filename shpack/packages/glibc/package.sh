@@ -13,11 +13,11 @@ version 2.43 sha256=d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa
 build_system generic
 
 # Built by gcc-16-boot0 (unwrapped: glibc drives -nostdlib for its own
-# bootstrap, no chicken-and-egg). binutils@2.46.0 as/ld (build+run). Kernel
+# bootstrap, no chicken-and-egg). binutils@2.46.0-musl as/ld (build+run). Kernel
 # headers via --with-headers (build+run: we symlink them into our include/).
 # Needs python (gen-as-const), bison+m4 (intl/plural.c), make >= 4. gawk@5.3.1 (not
 # the seed gawk 3.0.4): glibc 2.43's configure rejects gawk < 3.1.2 as too old.
-depends_on gcc-boot@16.1.0 binutils@2.46.0 linux-headers gmake python bison m4 \
+depends_on gcc-boot@16.1.0 binutils@2.46.0-musl linux-headers gmake python bison m4 \
     sed gawk@5.3.1 grep diffutils tar xz
 
 setup_build_environment() {
@@ -26,16 +26,9 @@ setup_build_environment() {
     unset CPLUS_INCLUDE_PATH
 }
 
-triple_of() {
-    case "$ARCH" in
-        amd64)   printf x86_64-linux-gnu ;;
-        aarch64) printf aarch64-linux-gnu ;;
-    esac
-}
-
 install() {
     local triple cc headers python n
-    triple=$(triple_of)
+    triple=$(triple gnu)
     cc=$(prefix_of gcc-boot)/bin/gcc
     headers=$(prefix_of linux-headers)
     python=$(prefix_of python)

@@ -9,15 +9,12 @@ version 1.0.3 sha256=617decc6ea09889fb08ede330917a00b16809b8db88c29c31bfbb49cbf8
 
 build_system autotools
 
-depends_on tcc musl@1.1.24 gmake binutils@2.30 gmp mpfr grep gawk@3.0.4
+depends_on tcc musl@1.1.24 gmake binutils@2.30-musl gmp mpfr grep gawk@3.0.4
 
 configure_args() {
     # config.guess cannot probe this environment (uname says "unknown", no
     # /usr/bin/file), so pass an explicit triple, matching gmp/mpfr.
-    case "$ARCH" in
-        amd64)   triple=x86_64-unknown-linux-gnu ;;
-        aarch64) triple=aarch64-unknown-linux-gnu ;;
-    esac
+    triple=$(triple gnu unknown)
     printf '%s\n' \
         CC=tcc \
         CFLAGS=-DHAVE_ALLOCA_H \

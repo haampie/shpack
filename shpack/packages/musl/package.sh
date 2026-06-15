@@ -13,7 +13,7 @@ version 1.2.5 sha256=a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7
 
 build_system generic
 
-depends_on gcc-boot@4.7-2013.11 binutils@2.30 gmake linux-headers
+depends_on gcc-boot@4.7-2013.11 binutils@2.30-musl gmake linux-headers
 
 setup_build_environment() {
     # musl builds -nostdinc but still needs the kernel uapi (asm/ syscall and
@@ -22,10 +22,7 @@ setup_build_environment() {
 }
 
 install() {
-    case "$ARCH" in
-        amd64)   triple=x86_64-linux-musl ;;
-        aarch64) triple=aarch64-linux-musl ;;
-    esac
+    triple=$(triple musl)
     ar=$(prefix_of binutils)/bin/ar
     ranlib=$(prefix_of binutils)/bin/ranlib
 

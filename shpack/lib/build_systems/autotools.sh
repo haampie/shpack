@@ -10,11 +10,21 @@
 SHPACK_PHASES="configure build install"
 
 default_configure() {
+    # build_directory DIR: configure out-of-tree (gcc/glibc forbid in-tree).
+    # mkdir + cd into DIR and run the source tree's configure from there; the
+    # cd persists into the build/install phases (they share this shell).
+    local cfg
+    cfg=./configure
+    if [ -f "$VAR/recipe/$name/build_directory" ]; then
+        mkdir -p "$(cat "$VAR/recipe/$name/build_directory")"
+        cd "$(cat "$VAR/recipe/$name/build_directory")"
+        cfg=$source_dir/configure
+    fi
     # --disable-dependency-tracking: these are one-shot builds that never
     # incrementally rebuild, so automake's .deps/depcomp machinery is pure
     # overhead (an extra preprocessor pass per object on compilers without fast
     # -MD, e.g. tcc). Autoconf configure that isn't automake just ignores it.
-    with_hook_args configure_args ./configure --prefix="$PREFIX" \
+    with_hook_args configure_args "$cfg" --prefix="$PREFIX" \
         --disable-dependency-tracking
 }
 

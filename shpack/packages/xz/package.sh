@@ -20,15 +20,12 @@ build_system autotools
 # Every big .tar.xz is unpacked after GCC 4.7 is ready, so an -O2 xz is available
 # before the first heavy extraction. Consumers put xz/bin/unxz ahead of the seed
 # unxz via the dep PATH order (compose_path), so builder.sh unpack() picks it up.
-depends_on gcc-boot@4.7-2013.11 binutils@2.30 gmake
+depends_on gcc-boot@4.7-2013.11 binutils@2.30-musl gmake
 
 configure_args() {
     # config.guess cannot probe this environment (uname "unknown", no
     # /usr/bin/file), so pass an explicit triple, like the other tools.
-    case "$ARCH" in
-        amd64)   triple=x86_64-unknown-linux-musl ;;
-        aarch64) triple=aarch64-unknown-linux-musl ;;
-    esac
+    triple=$(triple musl unknown)
     # Static-only liblzma (no rpath, matches the tool layer); we only need the
     # xz/unxz CLI. Drop NLS (no gettext) and the shell wrappers/docs we never use.
     printf '%s\n' \

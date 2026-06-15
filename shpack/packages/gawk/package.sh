@@ -28,14 +28,7 @@ depends_on grep
 depends_on tcc musl@1.1.24 when=3.0.4
 # 5.3.1: gcc 9.5 + binutils 2.30 (as/ld on PATH). Modern sed/tar: 5.3.1's
 # configure needs sed -E and its tarball is xz.
-depends_on gcc-boot@9.5.0 binutils@2.30 gmake sed tar xz when=5.3.1
-
-triple_of() {
-    case "$ARCH" in
-        amd64)   printf x86_64-linux-musl ;;
-        aarch64) printf aarch64-linux-musl ;;
-    esac
-}
+depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed tar xz when=5.3.1
 
 install() {
     local triple
@@ -48,7 +41,7 @@ install() {
             make -f Makefile PREFIX="$PREFIX" install
             ;;
         5.3.1)
-            triple=$(triple_of)
+            triple=$(triple musl)
             # --disable-extensions: gawk's loadable .so extensions can't link
             # against the non-PIC static musl 1.2.5 libc.a (R_AARCH64 reloc
             # errors); the interpreter doesn't need them and glibc just runs gawk.

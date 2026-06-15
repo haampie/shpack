@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 
 description "Intermediate aarch64 libstdc++ (static-only) from GCC 16 source." \
-            "gcc-boot@16.1.0 was built --disable-libstdc++-v3, but binutils-final" \
+            "gcc-boot@16.1.0 was built --disable-libstdc++-v3, but binutils" \
             "(gprofng) and gcc's build tools need to link one."
 homepage "https://gcc.gnu.org/"
 license "GPL-3.0-or-later"
@@ -28,16 +28,10 @@ setup_build_environment() {
     export LIBRARY_PATH="$glibc/lib"
 }
 
-triple_of() {
-    case "$ARCH" in
-        amd64)   printf x86_64-linux-gnu ;;
-        aarch64) printf aarch64-linux-gnu ;;
-    esac
-}
 
 install() {
     local triple gcc
-    triple=$(triple_of)
+    triple=$(triple gnu)
     gcc=$(prefix_of gcc-boot0-wrapped)
 
     # libstdc++-v3 configure probes `g++ -v`; make it a no-op so the probe

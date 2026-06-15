@@ -12,7 +12,7 @@ version 3.5.9 sha256=c24a37c63a67f53bdd09c5f287b5cff8e8b98f857bf348c577d454d3f74
 
 build_system generic
 
-depends_on gcc-boot@9.5.0 binutils@2.30 gmake sed tar xz
+depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed tar xz
 
 setup_build_environment() {
     export CC="$(prefix_of gcc-boot)/bin/gcc"
@@ -26,10 +26,7 @@ setup_build_environment() {
 }
 
 install() {
-    case "$ARCH" in
-        amd64)   triple=x86_64-linux-musl ;;
-        aarch64) triple=aarch64-linux-musl ;;
-    esac
+    triple=$(triple musl)
 
     # Disable ctypes (needs libffi, absent) and ossaudiodev (needs ALSA/OSS
     # headers, absent) -- both would fail setup.py's extension build.

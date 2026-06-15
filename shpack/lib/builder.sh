@@ -58,6 +58,25 @@ prefix_of() {
     die "prefix_of: '$1' is not in the dependency closure of $id"
 }
 
+# triple [LIBC] [VENDOR] -> the target triple for $ARCH, e.g. x86_64-linux-gnu.
+# LIBC is gnu (default) or musl; VENDOR is omitted by default, pass `unknown`
+# for the -unknown- form the older config.sub vintages in the early chain
+# expect. Covers all four triples the recipes use:
+#   triple gnu          x86_64-linux-gnu          (glibc cap)
+#   triple musl         x86_64-linux-musl         (bison/gawk5/python)
+#   triple musl unknown x86_64-unknown-linux-musl (tcc/gcc4.7 tool layer)
+#   triple gnu unknown  x86_64-unknown-linux-gnu  (math libs, findutils)
+triple() {
+    local cpu libc vendor
+    libc=${1:-gnu}
+    vendor=${2:+$2-}
+    case "$ARCH" in
+        amd64)   cpu=x86_64 ;;
+        aarch64) cpu=aarch64 ;;
+    esac
+    printf '%s\n' "$cpu-${vendor}linux-$libc"
+}
+
 # download URL DEST -- best effort, mirrors first; only meaningful once curl
 # exists (QEMU/network builds). The chroot bootstrap prestages distfiles.
 download() {

@@ -15,7 +15,7 @@ version 1.35 sha256=14d55e32063ea9526e057fbf35fcabd53378e769787eff7919c3755b02d2
 build_system autotools
 
 # Built by the chain's real GCC 4.7 against musl 1.1.24 (static), like sed.
-depends_on gcc-boot@4.7-2013.11 binutils@2.30 gmake
+depends_on gcc-boot@4.7-2013.11 binutils@2.30-musl gmake
 
 setup_build_environment() {
     # tar's configure refuses to run as (real or fake) root unless told the
@@ -26,10 +26,7 @@ setup_build_environment() {
 
 configure_args() {
     # config.guess cannot probe this environment, so pass an explicit triple.
-    case "$ARCH" in
-        amd64)   triple=x86_64-unknown-linux-musl ;;
-        aarch64) triple=aarch64-unknown-linux-musl ;;
-    esac
+    triple=$(triple musl unknown)
     printf '%s\n' \
         CC=gcc \
         --build="$triple" \

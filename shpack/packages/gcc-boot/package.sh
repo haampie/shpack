@@ -23,26 +23,29 @@ version 16.1.0 sha256=50efb4d94c3397aff3b0d61a5abd748b4dd31d9d3f2ab7be05b171d36a
 
 build_system autotools
 
+# GCC forbids an in-tree build; configure/build/install all happen in _build/.
+build_directory _build
+
 # Build tools shared by all gcc versions.
 depends_on gmake grep gawk@3.0.4 diffutils findutils
 
 # 4.7-2013.11: grown by tcc against the kaem-external musl 1.1.24, with the
 # external gmp/mpfr/mpc and binutils 2.30. (Pinned so newer siblings added for
 # later stages -- musl 1.2.5, binutils 2.46, m4 1.4.19 -- don't perturb it.)
-depends_on tcc musl@1.1.24 binutils@2.30 gmp@4.3.2 mpfr@2.4.2 mpc@1.0.3 \
+depends_on tcc musl@1.1.24 binutils@2.30-musl gmp@4.3.2 mpfr@2.4.2 mpc@1.0.3 \
     m4@1.4.7 when=4.7-2013.11
 
 # 9.5.0: built by the chain's own 4.7 g++, modern musl 1.2.5 (the modern musl 1.2.5
 # recipe -- a distinct name so it does not hijack bare `musl` for the whole
 # lower chain) sysroot, kernel headers, binutils 2.30. gmp/mpfr/mpc are unpacked
 # in-tree (resources below), not external deps -- 4.3.2/2.4.2 are too old.
-depends_on gcc-boot@4.7-2013.11 musl@1.2.5 linux-headers binutils@2.30 m4@1.4.7 tar \
+depends_on gcc-boot@4.7-2013.11 musl@1.2.5 linux-headers binutils@2.30-musl m4@1.4.7 tar \
     xz when=9.5.0
 
 # 16.1.0: built by the chain's own 9.5 g++, with binutils 2.46 supplying the
 # as/ld it assembles/links with AND bakes into its specs. sed/tar: 16's pax
 # tarball + modern configure. (gmake/grep/gawk/diffutils from the shared line.)
-depends_on gcc-boot@9.5.0 binutils@2.46.0 sed tar xz when=16.1.0
+depends_on gcc-boot@9.5.0 binutils@2.46.0-musl sed tar xz when=16.1.0
 
 # GCC 9.5's download_prerequisites set, unpacked in-tree as gmp/ mpfr/ mpc/ so
 # configure auto-detects them (sidesteps the version/link probe). ISL omitted
@@ -87,19 +90,34 @@ patch 0004-libstdcxx-generic-ctype.patch when=4.7-2013.11
 # GCC 9.5 needs no patches: its libstdc++ already handles musl/__GLIBC_PREREQ,
 # and the 4.7-era alloca/ctype fixes do not apply. Add reactively only.
 
-triple_of() {
-    case "$ARCH" in
-        amd64)   printf x86_64-linux-gnu ;;
-        aarch64) printf aarch64-linux-gnu ;;
-    esac
-}
-
 setup_build_environment() {
+    local p
     case "$version" in
-        16.1.0)
+        9.5.0|16.1.0)
+            # GAP 2: shpack unpacks the in-tree gmp/mpfr/mpc resources flat into
+            # stage_dir; relocate them into the GCC tree as gmp/ mpfr/ mpc/ so
+            # configure auto-detects them. cwd is the gcc source dir (gcc-* sorts
+            # before g{mp}/mpfr/mpc-*, so do_stage picked it as source_dir).
+            for p in gmp mpfr mpc; do
+                mv "$stage_dir"/$p-*/ "./$p"
+                # The bundled config.sub/guess predate the `musl` OS; overwrite
+                # with GCC's top-level pair (knows musl/gnu). mpc ships them
+                # read-only (mode 555); cp -f unlinks the dest and retries.
+                cp -f config.sub config.guess "./$p/"
+            done
             # In-tree gmp's AC_PROG_LEX fatally runs flex's output probe if flex
             # is on PATH; flex is only used by gmp demos, so skip the probe.
             export ac_cv_prog_lex_root=lex.yy
+            ;;
+    esac
+    case "$version" in
+        9.5.0)
+            # In-tree mpfr.h (mpfr/src) must be found while GCC compiles, before
+            # the in-tree mpfr is installed into the build tree; plus the kernel
+            # uapi. $PWD is the gcc source dir here (before the out-of-tree cd).
+            export C_INCLUDE_PATH="$PWD/mpfr/src:$(prefix_of linux-headers)/include"
+            ;;
+        16.1.0)
             # Force inhibit_libc (GCC honors a pre-set value). A native
             # --without-headers build would otherwise try to use a target libc;
             # true makes libgcc build the minimal no-libc set (mirrors cross).
@@ -108,205 +126,118 @@ setup_build_environment() {
     esac
 }
 
-# GCC requires an out-of-tree build dir: configure in _build/ and stay there
-# (phases share one shell, so the cd persists into build/install).
-configure() {
+# Out-of-tree (build_directory _build) via the standard autotools configure
+# phase. A shared base -- the throwaway-compiler target-lib disables common to
+# all three stages -- plus per-version deltas. --prefix and
+# --disable-dependency-tracking are supplied by default_configure.
+configure_args() {
+    local triple gcc gxx
     case "$version" in
-        4.7-2013.11) configure_47 ;;
-        9.5.0)       configure_95 ;;
-        16.1.0)      configure_boot0 ;;
+        4.7-2013.11) triple=$(triple musl unknown) ;;
+        9.5.0)       triple=$(triple musl unknown) ;;
+        16.1.0)      triple=$(triple gnu) ;;
     esac
-}
-
-configure_47() {
-    case "$ARCH" in
-        amd64)   triple=x86_64-unknown-linux-musl ;;
-        aarch64) triple=aarch64-unknown-linux-musl ;;
-    esac
-    mkdir -p _build
-    cd _build
-    # C only is built (--disable-build-with-cxx), but gcc/configure still
-    # runs a fatal AC_PROG_CXXCPP probe; `tcc -E` satisfies it (tcc cannot
-    # compile C++ but preprocesses it fine; no C++ is actually compiled by
-    # the stage1 tools).
-    ../configure \
-        CC=tcc \
-        CC_FOR_BUILD=tcc \
-        CXX=tcc \
-        "CXXCPP=tcc -E" \
-        CFLAGS=-DHAVE_ALLOCA_H \
+    # Common to all stages: native build, C/C++ only, static, and none of the
+    # optional target libraries (this is a throwaway compiler).
+    printf '%s\n' \
         MAKEINFO=true \
-        --prefix="$PREFIX" \
         --build="$triple" \
         --host="$triple" \
         --target="$triple" \
-        --with-sysroot="$(prefix_of musl)" \
-        --with-native-system-header-dir=/include \
-        --with-gmp="$(prefix_of gmp)" \
-        --with-mpfr="$(prefix_of mpfr)" \
-        --with-mpc="$(prefix_of mpc)" \
-        --with-as="$(prefix_of binutils)/bin/as" \
-        --with-ld="$(prefix_of binutils)/bin/ld" \
         --enable-languages=c,c++ \
-        --enable-static \
         --disable-shared \
-        --enable-threads=single \
-        --disable-threads \
-        --disable-libstdcxx-pch \
-        --disable-build-with-cxx \
         --disable-bootstrap \
-        --disable-dependency-tracking \
         --disable-multilib \
         --disable-decimal-float \
         --disable-lto \
         --disable-lto-plugin \
-        --disable-plugin \
         --disable-libatomic \
-        --disable-libcilkrts \
         --disable-libgomp \
         --disable-libitm \
-        --disable-libmudflap \
         --disable-libquadmath \
         --disable-libsanitizer \
         --disable-libssp \
         --disable-libvtv
-}
-
-configure_95() {
-    case "$ARCH" in
-        amd64)   triple=x86_64-unknown-linux-musl ;;
-        aarch64) triple=aarch64-unknown-linux-musl ;;
+    case "$version" in
+        4.7-2013.11)
+            # tcc-built C compiler, external gmp/mpfr/mpc + musl sysroot. C only
+            # is built (--disable-build-with-cxx), but gcc/configure still runs a
+            # fatal AC_PROG_CXXCPP probe; `tcc -E` satisfies it (tcc preprocesses
+            # C++ fine; no C++ is actually compiled by the stage1 tools).
+            printf '%s\n' \
+                CC=tcc \
+                CC_FOR_BUILD=tcc \
+                CXX=tcc \
+                'CXXCPP=tcc -E' \
+                CFLAGS=-DHAVE_ALLOCA_H \
+                --with-sysroot="$(prefix_of musl)" \
+                --with-native-system-header-dir=/include \
+                --with-gmp="$(prefix_of gmp)" \
+                --with-mpfr="$(prefix_of mpfr)" \
+                --with-mpc="$(prefix_of mpc)" \
+                --with-as="$(prefix_of binutils)/bin/as" \
+                --with-ld="$(prefix_of binutils)/bin/ld" \
+                --enable-static \
+                --enable-threads=single \
+                --disable-threads \
+                --disable-libstdcxx-pch \
+                --disable-build-with-cxx \
+                --disable-plugin \
+                --disable-libcilkrts \
+                --disable-libmudflap
+            ;;
+        9.5.0)
+            # Built by the chain's own 4.7 g++ against the musl sysroot, in-tree
+            # gmp/mpfr/mpc. -O2 (not the default -g -O2): a throwaway bridge
+            # compiler, so DWARF on its ~2300 objects is pure cost. CFLAGS/CXXFLAGS
+            # cover the host build (incl. in-tree gmp/mpfr/mpc, read at their
+            # configure step); *_FOR_TARGET cover libgcc/libstdc++.
+            gcc=$(prefix_of gcc-boot)/bin/gcc
+            gxx=$(prefix_of gcc-boot)/bin/g++
+            printf '%s\n' \
+                CC="$gcc" \
+                CXX="$gxx" \
+                CC_FOR_BUILD="$gcc" \
+                CXX_FOR_BUILD="$gxx" \
+                CFLAGS=-O2 \
+                CXXFLAGS=-O2 \
+                CFLAGS_FOR_TARGET=-O2 \
+                CXXFLAGS_FOR_TARGET=-O2 \
+                --with-sysroot="$(prefix_of musl)" \
+                --with-native-system-header-dir=/include \
+                --without-isl \
+                --enable-static \
+                --disable-libstdcxx-pch \
+                --disable-plugin \
+                --disable-libcilkrts \
+                --disable-libmudflap
+            ;;
+        16.1.0)
+            # The crippled boot0: no target libc yet. --without-headers +
+            # --with-native-system-header-dir=/nonexistent (never consulted under
+            # inhibit_libc). --disable-fixincludes so it never scans host headers.
+            # --disable-libstdc++-v3/--disable-libcc1: gcc-9 has only static musl,
+            # no shared libstdc++.so. Just enough cc1/libgcc to compile glibc.
+            gcc=$(prefix_of gcc-boot)/bin/gcc
+            gxx=$(prefix_of gcc-boot)/bin/g++
+            printf '%s\n' \
+                CONFIG_SHELL=/bin/sh \
+                CC="$gcc" \
+                CXX="$gxx" \
+                CFLAGS=-O2 \
+                CXXFLAGS=-O2 \
+                CFLAGS_FOR_TARGET=-O2 \
+                CXXFLAGS_FOR_TARGET=-O2 \
+                --without-headers \
+                --disable-fixincludes \
+                --with-native-system-header-dir=/nonexistent \
+                --disable-libstdc++-v3 \
+                --disable-libcc1 \
+                --without-isl \
+                --disable-threads \
+                --disable-nls
+            ;;
     esac
-    gcc=$(prefix_of gcc-boot)/bin/gcc
-    gxx=$(prefix_of gcc-boot)/bin/g++
-
-    # GAP 2: shpack unpacks resources flat into stage_dir; relocate them into
-    # the GCC tree as gmp/ mpfr/ mpc/ for the in-tree build. cwd is the gcc
-    # source dir; gcc-* sorts before g{mp,mpfr}/mpc-*, so it is source_dir.
-    local p
-    for p in gmp mpfr mpc; do
-        mv "$stage_dir"/$p-*/ "./$p"
-        # The bundled config.sub/config.guess predate the `musl` OS; GCC 9.5's
-        # top-level pair knows it -- overwrite to be safe. mpc-1.0.3 ships these
-        # read-only (mode 555); cp -f unlinks the destination and retries.
-        cp -f config.sub config.guess "./$p/"
-    done
-
-    # In-tree mpfr.h (mpfr/src) must be found while GCC compiles, before the
-    # in-tree mpfr is installed into the build tree; plus the kernel uapi.
-    export C_INCLUDE_PATH="$PWD/mpfr/src:$(prefix_of linux-headers)/include"
-    # In-tree gmp's AC_PROG_LEX fatally runs flex's output probe when flex is on
-    # PATH; preseed the cache var to skip it (flex is only used by gmp demos).
-    export ac_cv_prog_lex_root=lex.yy
-
-    mkdir -p _build
-    cd _build
-    # -O2 (not the configure default -g -O2): this is a throwaway bridge
-    # compiler, so DWARF on its ~2300 objects (gcc proper, libgcc, libstdc++,
-    # in-tree gmp/mpfr/mpc) is pure cost. CFLAGS/CXXFLAGS cover the host build
-    # (incl. in-tree gmp/mpfr/mpc, which read them at their configure step);
-    # *_FOR_TARGET cover libgcc/libstdc++. LIBCFLAGS etc. derive from these.
-    ../configure \
-        CC="$gcc" \
-        CXX="$gxx" \
-        CC_FOR_BUILD="$gcc" \
-        CXX_FOR_BUILD="$gxx" \
-        CFLAGS=-O2 \
-        CXXFLAGS=-O2 \
-        CFLAGS_FOR_TARGET=-O2 \
-        CXXFLAGS_FOR_TARGET=-O2 \
-        MAKEINFO=true \
-        --prefix="$PREFIX" \
-        --build="$triple" \
-        --host="$triple" \
-        --target="$triple" \
-        --with-sysroot="$(prefix_of musl)" \
-        --with-native-system-header-dir=/include \
-        --without-isl \
-        --enable-languages=c,c++ \
-        --enable-static \
-        --disable-shared \
-        --disable-bootstrap \
-        --disable-dependency-tracking \
-        --disable-multilib \
-        --disable-libstdcxx-pch \
-        --disable-decimal-float \
-        --disable-lto \
-        --disable-lto-plugin \
-        --disable-plugin \
-        --disable-libatomic \
-        --disable-libcilkrts \
-        --disable-libgomp \
-        --disable-libitm \
-        --disable-libmudflap \
-        --disable-libquadmath \
-        --disable-libsanitizer \
-        --disable-libssp \
-        --disable-libvtv
-}
-
-configure_boot0() {
-    local triple gcc gxx p
-    triple=$(triple_of)
-    gcc=$(prefix_of gcc-boot)/bin/gcc
-    gxx=$(prefix_of gcc-boot)/bin/g++
-
-    # Relocate the flat-unpacked resources into the GCC tree as gmp/ mpfr/ mpc/.
-    # cwd is the gcc source dir (gcc-* sorts before g{mp}/mpfr/mpc-*).
-    for p in gmp mpfr mpc; do
-        mv "$stage_dir"/$p-*/ "./$p"
-        # Overwrite the bundled config.sub/guess with GCC 16's current pair
-        # (knows musl/gnu). mpc ships them read-only; cp -f unlinks and retries.
-        cp -f config.sub config.guess "./$p/"
-    done
-
-    mkdir -p build
-    cd build
-    # No target libc yet: --without-headers + --with-native-system-header-dir at
-    # the conventional non-existent /nonexistent sentinel (never consulted under
-    # inhibit_libc). --disable-fixincludes so it never scans host headers.
-    # --disable-libstdc++-v3 / --disable-libcc1: gcc-9 has only static musl, no
-    # shared libstdc++.so. --disable-lto(-plugin): liblto_plugin.so can't link
-    # against non-PIC static musl. Just enough cc1/libgcc to compile glibc.
-    # CFLAGS/CXXFLAGS=-O2 (not configure's default -g -O2): a throwaway bridge
-    # compiler, so DWARF on cc1/cc1plus + libgcc is pure cost. *_FOR_TARGET
-    # covers libgcc.
-    ../configure \
-        CONFIG_SHELL=/bin/sh \
-        CC="$gcc" \
-        CXX="$gxx" \
-        MAKEINFO=true \
-        CFLAGS=-O2 \
-        CXXFLAGS=-O2 \
-        CFLAGS_FOR_TARGET=-O2 \
-        CXXFLAGS_FOR_TARGET=-O2 \
-        --prefix="$PREFIX" \
-        --build="$triple" \
-        --host="$triple" \
-        --target="$triple" \
-        --without-headers \
-        --disable-fixincludes \
-        --with-native-system-header-dir=/nonexistent \
-        --disable-shared \
-        --enable-languages=c,c++ \
-        --disable-libstdc++-v3 \
-        --disable-libcc1 \
-        --disable-lto \
-        --disable-lto-plugin \
-        --without-isl \
-        --disable-bootstrap \
-        --disable-dependency-tracking \
-        --disable-multilib \
-        --disable-decimal-float \
-        --disable-threads \
-        --disable-libatomic \
-        --disable-libgomp \
-        --disable-libitm \
-        --disable-libsanitizer \
-        --disable-libvtv \
-        --disable-libssp \
-        --disable-libquadmath \
-        --disable-nls
 }
 
 build_args() {
@@ -320,7 +251,7 @@ install() {
         16.1.0)
             # glibc links against libgcc_eh; the crippled build only makes
             # libgcc.a, so alias it (the EH unwinder objects live in libgcc.a).
-            triple=$(triple_of)
+            triple=$(triple gnu)
             gcc_lib="$PREFIX/lib/gcc/$triple/16.1.0"
             if [ -f "$gcc_lib/libgcc.a" ] && [ ! -e "$gcc_lib/libgcc_eh.a" ]; then
                 ln -s libgcc.a "$gcc_lib/libgcc_eh.a"

@@ -9,15 +9,12 @@ version 2.4.2 sha256=246d7e184048b1fc48d3696dd302c9774e24e921204221540745e546402
 
 build_system autotools
 
-depends_on tcc musl@1.1.24 gmake binutils@2.30 gmp grep gawk@3.0.4
+depends_on tcc musl@1.1.24 gmake binutils@2.30-musl gmp grep gawk@3.0.4
 
 configure_args() {
     # config.sub predates musl; the triple is cosmetic for this native
     # pure-math-library build, so use a -gnu triple the old config.sub knows.
-    case "$ARCH" in
-        amd64)   triple=x86_64-unknown-linux-gnu ;;
-        aarch64) triple=aarch64-unknown-linux-gnu ;;
-    esac
+    triple=$(triple gnu unknown)
     printf '%s\n' \
         CC=tcc \
         CFLAGS=-DHAVE_ALLOCA_H \
