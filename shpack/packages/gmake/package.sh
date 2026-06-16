@@ -20,8 +20,8 @@ configure_args() {
     # tools we do not have (guile, nls, dynamic load objects).
     triple=$(triple musl unknown)
     printf '%s\n' \
-        CONFIG_SHELL=/bin/sh \
-        SHELL=/bin/sh \
+        "CONFIG_SHELL=$CONFIG_SHELL" \
+        "SHELL=$CONFIG_SHELL" \
         CC=tcc \
         LD=tcc \
         'AR=tcc -ar' \
@@ -38,7 +38,7 @@ configure_args() {
 # so use the bundled build.sh: shell + tcc only, no make-to-build-make.
 build() {
     sed -i "s|^AR=.*|AR='tcc -ar'|; s|^ARFLAGS=.*|ARFLAGS='cr'|" build.cfg
-    sh ./build.sh
+    "$CONFIG_SHELL" ./build.sh
     # Sanity: it runs and the fifo jobserver is compiled in.
     ./make --version
     ./make -p -f /dev/null 2>/dev/null | grep jobserver
