@@ -10,9 +10,9 @@ JOBS=@JOBS@
 # Store: one prefix per package, /opt/<name>-<version>-<hash7>. The kaem
 # phase installs its packages as unhashed /opt/<name>-<version> prefixes,
 # registered in etc/externals.
-STORE=/opt
+STORE=@STORE@
 
-DISTFILES=/external/distfiles
+DISTFILES=@DISTFILES@
 
 # The PATH floor under every composed build PATH: the kaem-phase prefixes
 # (newest first) and the stage0 seed dirs.

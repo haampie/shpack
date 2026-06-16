@@ -15,57 +15,57 @@
 # throwaway seed tree.
 
 # Per-package seed prefixes (grouped by upstream package + version).
-./@S0ARCH@/bin/mkdir -p /opt/mescc-tools-1.7.0/bin
-./@S0ARCH@/bin/mkdir -p /opt/mescc-tools-extra-1.4.0/bin
-./@S0ARCH@/bin/mkdir -p /opt/M2-Mesoplanet-1.13.0/bin
-./@S0ARCH@/bin/mkdir -p /opt/tcc_cc/bin
-./@S0ARCH@/bin/mkdir -p /opt/stack_c/bin
+./@S0ARCH@/bin/mkdir -p @STORE@/mescc-tools-1.7.0/bin
+./@S0ARCH@/bin/mkdir -p @STORE@/mescc-tools-extra-1.4.0/bin
+./@S0ARCH@/bin/mkdir -p @STORE@/M2-Mesoplanet-1.13.0/bin
+./@S0ARCH@/bin/mkdir -p @STORE@/tcc_cc/bin
+./@S0ARCH@/bin/mkdir -p @STORE@/stack_c/bin
 ./@S0ARCH@/bin/mkdir -p tmp
 
 # mescc-tools 1.7.0
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/blood-elf     /opt/mescc-tools-1.7.0/bin/blood-elf
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/M1            /opt/mescc-tools-1.7.0/bin/M1
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/hex2          /opt/mescc-tools-1.7.0/bin/hex2
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/kaem          /opt/mescc-tools-1.7.0/bin/kaem
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/catm          /opt/mescc-tools-1.7.0/bin/catm
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/match         /opt/mescc-tools-1.7.0/bin/match
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/mkdir         /opt/mescc-tools-1.7.0/bin/mkdir
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/cp            /opt/mescc-tools-1.7.0/bin/cp
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/chmod         /opt/mescc-tools-1.7.0/bin/chmod
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/rm            /opt/mescc-tools-1.7.0/bin/rm
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/sha256sum     /opt/mescc-tools-1.7.0/bin/sha256sum
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/blood-elf     @STORE@/mescc-tools-1.7.0/bin/blood-elf
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/M1            @STORE@/mescc-tools-1.7.0/bin/M1
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/hex2          @STORE@/mescc-tools-1.7.0/bin/hex2
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/kaem          @STORE@/mescc-tools-1.7.0/bin/kaem
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/catm          @STORE@/mescc-tools-1.7.0/bin/catm
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/match         @STORE@/mescc-tools-1.7.0/bin/match
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/mkdir         @STORE@/mescc-tools-1.7.0/bin/mkdir
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/cp            @STORE@/mescc-tools-1.7.0/bin/cp
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/chmod         @STORE@/mescc-tools-1.7.0/bin/chmod
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/rm            @STORE@/mescc-tools-1.7.0/bin/rm
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/sha256sum     @STORE@/mescc-tools-1.7.0/bin/sha256sum
 # mescc-tools-extra 1.4.0
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/ungz          /opt/mescc-tools-extra-1.4.0/bin/ungz
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/unbz2         /opt/mescc-tools-extra-1.4.0/bin/unbz2
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/unxz          /opt/mescc-tools-extra-1.4.0/bin/unxz
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/untar         /opt/mescc-tools-extra-1.4.0/bin/untar
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/ungz          @STORE@/mescc-tools-extra-1.4.0/bin/ungz
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/unbz2         @STORE@/mescc-tools-extra-1.4.0/bin/unbz2
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/unxz          @STORE@/mescc-tools-extra-1.4.0/bin/unxz
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/untar         @STORE@/mescc-tools-extra-1.4.0/bin/untar
 # M2-Mesoplanet 1.13.0
-./@S0ARCH@/bin/cp ./@S0ARCH@/bin/M2-Mesoplanet /opt/M2-Mesoplanet-1.13.0/bin/M2-Mesoplanet
+./@S0ARCH@/bin/cp ./@S0ARCH@/bin/M2-Mesoplanet @STORE@/M2-Mesoplanet-1.13.0/bin/M2-Mesoplanet
 
 # mescc-tools cp uses fopen(dest,"w") and does not preserve the execute bit,
 # so the copies land at 0600. Make them executable.
-./@S0ARCH@/bin/chmod 755 /opt/mescc-tools-1.7.0/bin/blood-elf /opt/mescc-tools-1.7.0/bin/M1 /opt/mescc-tools-1.7.0/bin/hex2 /opt/mescc-tools-1.7.0/bin/kaem /opt/mescc-tools-1.7.0/bin/catm /opt/mescc-tools-1.7.0/bin/match /opt/mescc-tools-1.7.0/bin/mkdir /opt/mescc-tools-1.7.0/bin/cp /opt/mescc-tools-1.7.0/bin/chmod /opt/mescc-tools-1.7.0/bin/rm /opt/mescc-tools-1.7.0/bin/sha256sum /opt/mescc-tools-extra-1.4.0/bin/ungz /opt/mescc-tools-extra-1.4.0/bin/unbz2 /opt/mescc-tools-extra-1.4.0/bin/unxz /opt/mescc-tools-extra-1.4.0/bin/untar /opt/M2-Mesoplanet-1.13.0/bin/M2-Mesoplanet
+./@S0ARCH@/bin/chmod 755 @STORE@/mescc-tools-1.7.0/bin/blood-elf @STORE@/mescc-tools-1.7.0/bin/M1 @STORE@/mescc-tools-1.7.0/bin/hex2 @STORE@/mescc-tools-1.7.0/bin/kaem @STORE@/mescc-tools-1.7.0/bin/catm @STORE@/mescc-tools-1.7.0/bin/match @STORE@/mescc-tools-1.7.0/bin/mkdir @STORE@/mescc-tools-1.7.0/bin/cp @STORE@/mescc-tools-1.7.0/bin/chmod @STORE@/mescc-tools-1.7.0/bin/rm @STORE@/mescc-tools-1.7.0/bin/sha256sum @STORE@/mescc-tools-extra-1.4.0/bin/ungz @STORE@/mescc-tools-extra-1.4.0/bin/unbz2 @STORE@/mescc-tools-extra-1.4.0/bin/unxz @STORE@/mescc-tools-extra-1.4.0/bin/untar @STORE@/M2-Mesoplanet-1.13.0/bin/M2-Mesoplanet
 
 # Compile stack_c from C source with M2-Planet (no committed .M1 seed)
 ./@S0ARCH@/bin/M2-Planet --architecture @ARCH@ -f ./M2libc/sys/types.h -f ./M2libc/stddef.h -f ./M2libc/@ARCH@/linux/fcntl.c -f ./M2libc/fcntl.c -f ./M2libc/@ARCH@/linux/unistd.c -f ./M2libc/@ARCH@/linux/sys/stat.c -f ./M2libc/ctype.c -f ./M2libc/stdlib.c -f ./M2libc/stdarg.h -f ./M2libc/stdio.h -f ./M2libc/stdio.c -f ./M2libc/string.c -f ./M2libc/bootstrappable.c -f ./src/stack_c_@ARCH@.c --debug -o ./tmp/stack_c.M1
 ./@S0ARCH@/bin/blood-elf --64 --little-endian -f ./tmp/stack_c.M1 -o ./tmp/stack_c-footer.M1
 ./@S0ARCH@/bin/M1 --architecture @ARCH@ --little-endian -f ./M2libc/@ARCH@/@ARCH@_defs.M1 -f ./M2libc/@ARCH@/libc-full.M1 -f ./tmp/stack_c.M1 -f ./tmp/stack_c-footer.M1 -o ./tmp/stack_c.hex2
-./@S0ARCH@/bin/hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f ./M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f ./tmp/stack_c.hex2 -o /opt/stack_c/bin/stack_c
+./@S0ARCH@/bin/hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f ./M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f ./tmp/stack_c.hex2 -o @STORE@/stack_c/bin/stack_c
 
 # Build tcc_cc from the committed sl64 seed
-/opt/stack_c/bin/stack_c -i ./@ARCH@/stack_c_intro.M1 ./src/tcc_cc.@ARCH@.sl64 -o ./tmp/tcc_cc.M1
+@STORE@/stack_c/bin/stack_c -i ./@ARCH@/stack_c_intro.M1 ./src/tcc_cc.@ARCH@.sl64 -o ./tmp/tcc_cc.M1
 ./@S0ARCH@/bin/blood-elf --64 --little-endian -f ./tmp/tcc_cc.M1 -o ./tmp/tcc_cc-footer.M1
 ./@S0ARCH@/bin/M1 --architecture @ARCH@ --little-endian -f ./tmp/tcc_cc.M1 -f ./tmp/tcc_cc-footer.M1 -o ./tmp/tcc_cc.hex2
-./@S0ARCH@/bin/hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f ./M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f ./tmp/tcc_cc.hex2 -o /opt/tcc_cc/bin/tcc_cc
+./@S0ARCH@/bin/hex2 --architecture @ARCH@ --little-endian --base-address 0x00600000 -f ./M2libc/@ARCH@/ELF-@ARCH@-debug.hex2 -f ./tmp/tcc_cc.hex2 -o @STORE@/tcc_cc/bin/tcc_cc
 
 # Hand off to the freshly-installed kaem. This script keeps using explicit paths
 # (it runs under the bootstrap-seed interpreter); each child script sets its own
 # PATH=@SEED_PATH@ and finds the seed tools by bare name from there on.
 
 # Verify self-hosting: tcc_cc rebuilds its own committed sl64 byte-for-byte
-# (sha256-pinned). This also covers stack_c, which assembled /opt/tcc_cc.
-/opt/mescc-tools-1.7.0/bin/kaem --verbose --file ./@ARCH@/check-tools.kaem
+# (sha256-pinned). This also covers stack_c, which assembled @STORE@/tcc_cc.
+@STORE@/mescc-tools-1.7.0/bin/kaem --verbose --file ./@ARCH@/check-tools.kaem
 
 # Run the static kaem-phase package chain (tcc-0.9.26, musl, ..., dash),
 # which ends by handing the bootstrap to shpack.
-/opt/mescc-tools-1.7.0/bin/kaem --verbose --strict --file /shpack/bootstrap/0.kaem
+@STORE@/mescc-tools-1.7.0/bin/kaem --verbose --strict --file @SHPACK@/bootstrap/0.kaem

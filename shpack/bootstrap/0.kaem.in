@@ -22,25 +22,25 @@
 # Globals, inherited through the environment by every kaem.run child.
 PATH=@SEED_PATH@
 ARCH=@ARCH@
-DISTFILES=/external/distfiles
-TMPDIR=/tmp
-BOOT=/shpack/bootstrap
+DISTFILES=@DISTFILES@
+TMPDIR=@BUILDDIR@
+BOOT=@SHPACK@/bootstrap
 # The seed working tree (stage0 tools, M2libc, our C sources, per-arch check
 # assets). The seed phase runs with this as its CWD; the kaem phase reaches a
 # few seed inputs here by absolute path (our tcc_cc/stack_c sources, M2libc ELF
 # stubs, stack_c_intro.M1) -- see stage0-hook.kaem and build.sh's SEEDROOT.
-SEEDDIR=/tmp/seed
+SEEDDIR=@SEEDDIR@
 # The libc's own store prefix. Expanded once here (not derived from any
 # package's PREFIX): tcc bakes LIBDIR/INCDIR in as its crt-prefix and
 # sysinclude path, and binutils/gcc later point their sysroot here.
-LIBC_PREFIX=/opt/musl-1.1.24
-LIBDIR=/opt/musl-1.1.24/lib
-INCDIR=/opt/musl-1.1.24/include
+LIBC_PREFIX=@STORE@/musl-1.1.24
+LIBDIR=@STORE@/musl-1.1.24/lib
+INCDIR=@STORE@/musl-1.1.24/include
 
 # simple-patch: exact-match patcher, used until GNU patch exists.
 pkg=simple-patch-1.0
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -49,7 +49,7 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 # tcc 0.9.26: the seed-grown C compiler, plus the bring-up subset musl.
 pkg=tcc-0.9.26
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -59,7 +59,7 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 # precede tcc-0.9.27, which statically links the strtod of the libc it sees).
 pkg=musl-1.1.24
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -68,7 +68,7 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 # tcc 0.9.27: the production compiler for the rest of the bootstrap.
 pkg=tcc-0.9.27
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -90,16 +90,22 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 # full musl's strtod to link) forces the first pass to exist; this one heals it.
 pkg=musl-1.1.24
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
+# @@STOP_AFTER_TCC_MUSL@@ -- tcc 0.9.27 + (float-healed) musl 1.1.24 are now in
+# the store. The chroot-free host launcher (build-host.sh) truncates the chain
+# here (sed '/@@STOP_AFTER_TCC_MUSL@@/q') so nothing past this point -- which
+# includes dash's `cp dash /bin/sh` -- runs or writes outside the store. The
+# sandboxed build.sh keeps the full chain (this line is an inert comment there).
+
 # make 3.82: first build tool; everything below builds with a real makefile.
 pkg=make-3.82
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -108,7 +114,7 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 # patch: every later package applies real unified diffs.
 pkg=patch-2.5.9
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -116,7 +122,7 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 
 pkg=gzip-1.2.4
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -124,7 +130,7 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 
 pkg=tar-1.12
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -132,7 +138,7 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 
 pkg=sed-4.0.9
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -140,7 +146,7 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 
 pkg=bzip2-1.0.8
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -148,7 +154,7 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 
 pkg=coreutils-5.0
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
@@ -157,7 +163,7 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 # dash: the first shell, installed as /bin/sh.
 pkg=dash-0.5.12
 PKG=${BOOT}/${pkg}
-PREFIX=/opt/${pkg}
+PREFIX=@STORE@/${pkg}
 BINDIR=${PREFIX}/bin
 mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}

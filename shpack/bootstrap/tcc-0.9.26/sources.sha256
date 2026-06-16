@@ -1,2 +1,2 @@
-6b8cbd0a5fed0636d4f0f763a603247bc1935e206e1cc5bda6a2818bab6e819f  /external/distfiles/tcc-0.9.26.tar.gz
-1370c9a812b2cf2a7d92802510cca0058cc37e66a7bedd70051f0a34015022a3  /external/distfiles/musl-1.1.24.tar.gz
+6b8cbd0a5fed0636d4f0f763a603247bc1935e206e1cc5bda6a2818bab6e819f  @DISTFILES@/tcc-0.9.26.tar.gz
+1370c9a812b2cf2a7d92802510cca0058cc37e66a7bedd70051f0a34015022a3  @DISTFILES@/musl-1.1.24.tar.gz

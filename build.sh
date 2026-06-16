@@ -43,20 +43,20 @@ case "$ARCH" in
         ;;
 esac
 
-# PATH to the seed tools' per-package /opt prefixes (a Spack-style store, like the
-# rest of the build). The stage0-posix seed tools are split by their upstream
-# package + version, plus our two unique seeds (tcc_cc, stack_c). The kaem-phase
-# scripts reference every seed tool by bare name and resolve it through this PATH
-# (set once in seed.kaem/after.kaem, inherited by every child kaem and 0.sh); the
-# shell phase rebuilds PATH from /opt/*/bin and picks these up automatically.
-# The version numbers must match the staged stage0-posix submodules (mescc-tools,
-# mescc-tools-extra, M2-Mesoplanet) - bump here when those are updated.
-SEED_PATH="/opt/mescc-tools-1.7.0/bin:/opt/mescc-tools-extra-1.4.0/bin:/opt/M2-Mesoplanet-1.13.0/bin:/opt/tcc_cc/bin:/opt/stack_c/bin"
-
-# The PATH floor for the shell phase (shpack/etc/config BASEPATH): every
-# kaem-phase /opt prefix, newest first, then the seed prefixes. The kaem
-# phase is the fixed chain in shpack/bootstrap/0.kaem, so it is known here.
-BASEPATH="/opt/dash-0.5.12/bin:/opt/coreutils-5.0/bin:/opt/bzip2-1.0.8/bin:/opt/sed-4.0.9/bin:/opt/tar-1.12/bin:/opt/gzip-1.2.4/bin:/opt/patch-2.5.9/bin:/opt/make-3.82/bin:/opt/tcc-0.9.27/bin:/opt/musl-1.1.24/bin:/opt/tcc-0.9.26/bin:/opt/simple-patch-1.0/bin:${SEED_PATH}"
+# The absolute roots baked into the staged kaem scripts (the @TOKEN@ values).
+# The sandboxed build keeps live-bootstrap's layout: store at /opt, distfiles
+# bind-mounted at /external/distfiles, the seed tree at /tmp/seed, kaem TMPDIR at
+# /tmp, shpack at /shpack -- all virtual paths inside the bound rootfs. The
+# chroot-free build-host.sh overrides these with real host paths. derive_paths
+# fills T_SEED_PATH (seed-tool dirs) and T_BASEPATH (shell-phase PATH floor) from
+# the store, so a relocated store relocates both. (stage.sh, sourced below,
+# defines derive_paths/subst/stage_*; the version numbers in T_SEED_PATH must
+# match the staged stage0-posix submodules.)
+T_STORE=/opt
+T_DISTFILES=/external/distfiles
+T_SEEDDIR=/tmp/seed
+T_BUILDDIR=/tmp
+T_SHPACK=/shpack
 
 # Parallelism for the shell-phase package builds (make -j${JOBS}). The kaem phase
 # (tcc/musl) is serial regardless. Defaults to the host core count; override with
@@ -70,20 +70,11 @@ JOBS="${JOBS:-$(nproc 2>/dev/null || echo 1)}"
 # on disk).
 . "$(dirname "$0")/sandbox.sh"
 
-# The kaem glue scripts in shpack/bootstrap/ and the shpack config templates are
-# shared between arches; instantiate them by replacing the
-# @ARCH@/@S0ARCH@/@TCC_ARCH_FLAG@ tokens.
-# (Host sed, like the host cp/mkdir used below, is part of the staging step,
-# not of the in-chroot bootstrap.)
-subst() {
-    sed -e "s|@ARCH@|${ARCH}|g" \
-        -e "s|@S0ARCH@|${S0ARCH}|g" \
-        -e "s|@TCC_ARCH_FLAG@|${TCC_ARCH_FLAG}|g" \
-        -e "s|@JOBS@|${JOBS}|g" \
-        -e "s|@SEED_PATH@|${SEED_PATH}|g" \
-        -e "s|@BASEPATH@|${BASEPATH}|g" \
-        "$1" > "$2"
-}
+# Shared staging (subst/derive_paths/stage_seed_tree/stage_shpack), used by both
+# this launcher and build-host.sh. derive_paths fills T_SEED_PATH/T_BASEPATH from
+# the store root set above.
+. "$(dirname "$0")/stage.sh"
+derive_paths "$T_STORE"
 
 # Delete existing rootfs
 rm -rf rootfs
@@ -101,82 +92,11 @@ rm -rf rootfs
 # same stage0 clutter; relocating the CWD is what lets us avoid it.)
 mkdir -p rootfs
 SEEDROOT=rootfs/tmp/seed
-mkdir -p ${SEEDROOT}
 
-# Binary seeds
-mkdir -p ${SEEDROOT}/bootstrap-seeds
-cp -rf vendor/stage0-posix/bootstrap-seeds/. ${SEEDROOT}/bootstrap-seeds/
-
-# Arch-specific bootstrap scripts and hex0/M1 sources
-cp -rf vendor/stage0-posix/${S0ARCH} ${SEEDROOT}/${S0ARCH}
-
-# Shared source trees referenced by stage0-posix scripts
-cp -rf vendor/stage0-posix/M2libc       ${SEEDROOT}/M2libc
-cp -rf vendor/stage0-posix/M2-Planet    ${SEEDROOT}/M2-Planet
-cp -rf vendor/stage0-posix/mescc-tools  ${SEEDROOT}/mescc-tools
-cp -rf vendor/stage0-posix/mescc-tools-extra ${SEEDROOT}/mescc-tools-extra
-cp -rf vendor/stage0-posix/M2-Mesoplanet ${SEEDROOT}/M2-Mesoplanet
-
-# Drop in the vendored, optimized kaem over the staged submodule copy (the
-# submodule stays pristine). vendor/kaem/ carries MAX_ARRAY=4096 (the musl
-# full-libc `ar` line lists ~1260 objects in one command -- tcc's -ar recreates
-# the archive each call, so it can't be split -- overflowing the stock 512) plus
-# per-command token/string pools, an envp cache, and access()-based PATH probing
-# that cut kaem's ~52 brk/command (M2libc malloc never frees and brks per call)
-# toward ~0. Output is byte-identical (gated on the musl libc.a sha256); see the
-# header comment in vendor/kaem/kaem.c.
-cp -f vendor/kaem/kaem.c vendor/kaem/kaem.h vendor/kaem/variable.c ${SEEDROOT}/mescc-tools/Kaem/
-
-# Checksum file that stage0-posix's kaem.run verifies after building tools
-cp -f vendor/stage0-posix/${ARCH}.answers ${SEEDROOT}/
-
-# Our kaem differs from upstream, so its binary hash differs; update the
-# expected hash in the staged answers file. Build-specific (depends on the
-# resulting kaem binary), one per arch. NOTE: the amd64 hash below is stale
-# (left over from the previous patched kaem) -- recompute it on an amd64 build
-# of the vendored kaem; only aarch64 is verified here.
-if [ "$ARCH" = amd64 ]; then
-    sed -i 's|^[0-9a-f]\{64\}  AMD64/bin/kaem$|64d530d91b1e47b4b4d645c98d6d8cd13a2871a5c45e502ed31e084c31a1f801  AMD64/bin/kaem|' ${SEEDROOT}/${ARCH}.answers
-elif [ "$ARCH" = aarch64 ]; then
-    sed -i 's|^[0-9a-f]\{64\}  AArch64/bin/kaem$|805bb0677242fc0e068b5b9ed71d24bb01d5de8a05ff0ed92061bbd0ab412101  AArch64/bin/kaem|' ${SEEDROOT}/${ARCH}.answers
-fi
-
-# stage0-posix entry point (kaem-optional-seed runs this)
-cp -f vendor/stage0-posix/kaem.${ARCH} ${SEEDROOT}/kaem.${ARCH}
-
-# Our hook: replaces stage0-posix's placeholder after.kaem
-subst shpack/bootstrap/stage0-hook.kaem ${SEEDROOT}/after.kaem
-
-# --- MES-replacement arch directory (seed-phase check assets) ------------
-mkdir -p ${SEEDROOT}/${ARCH}
-
-subst shpack/bootstrap/check-tools.kaem ${SEEDROOT}/${ARCH}/check-tools.kaem
-
-# The reproducibility pin checked by check-tools.kaem (sha256 of the committed
-# tcc_cc seed, against the freshly rebuilt /tmp/tcc_cc.sl64).
-cp -f vendor/mes-replacement/tcc_cc.${ARCH}.sl64.sha256 ${SEEDROOT}/${ARCH}/tcc_cc.sl64.sha256
-
-# Committed seeds (our unique tcc_cc/stack_c layer).
-# Both arches compile stack_c from C source via M2-Planet, so there is no
-# committed stack_c.M1 seed; only the stack_c intro/prelude is staged.
-cp -f vendor/mes-replacement/stack_c_intro_${ARCH}.M1    ${SEEDROOT}/${ARCH}/stack_c_intro.M1
-
-# --- Generic C sources ---------------------------------------------------
-mkdir -p ${SEEDROOT}/src
-cp -f -t ${SEEDROOT}/src \
-    vendor/mes-replacement/stdlib.c \
-    vendor/mes-replacement/bootstrappable.c \
-    vendor/mes-replacement/sys_syscall.h \
-    vendor/mes-replacement/tcc_cc.${ARCH}.sl64 \
-    vendor/mes-replacement/tcc_cc.c \
-    vendor/mes-replacement/stack_c_${ARCH}.c
-
-# aarch64 also needs its asm backend and alloca helper (tcc-0.9.26 assets)
-if [ "$ARCH" = aarch64 ]; then
-    cp -f -t ${SEEDROOT}/src \
-        vendor/mes-replacement/aarch64-asm.c \
-        vendor/mes-replacement/alloca-aarch64.S
-fi
+# Stage the stage0-posix seed working tree (binary seeds, M2libc/mescc-tools,
+# our tcc_cc/stack_c sources, the substituted after.kaem + check-tools.kaem) and
+# update the staged answers' kaem hash. Shared with build-host.sh; see stage.sh.
+stage_seed_tree "${SEEDROOT}"
 
 mkdir -p rootfs/usr
 mkdir -p rootfs/usr/bin
@@ -184,23 +104,17 @@ mkdir -p rootfs/tmp
 
 # --- shpack: bake only the kaem-phase base, not the package manager ------
 # Provisioning bakes only what the kaem phase needs: bootstrap/ (the static
-# kaem-phase chain) plus the substituted config/externals. 0.kaem.in is
-# instantiated with the host-known config (this replaces live-bootstrap's
-# in-chroot configurator + script-generator). bootstrap/ also holds the two
-# glue kaem scripts (check-tools.kaem, stage0-hook.kaem); the cp below copies
-# them into rootfs/shpack/bootstrap/ where they go unused -- the live copies are
-# the subst outputs above (rootfs/after.kaem, rootfs/${ARCH}/check-tools.kaem).
+# kaem-phase chain) plus the substituted config/externals. The full chain runs
+# (no truncate), ending by handing off to shpack. bootstrap/ also holds the glue
+# kaem scripts (check-tools.kaem, stage0-hook.kaem); they go unused under
+# rootfs/shpack/bootstrap/ -- the live copies are the subst outputs in the seed
+# tree (rootfs/.../after.kaem, .../check-tools.kaem).
 #
 # shpack/{bin,lib,packages} are deliberately NOT baked: the launcher (run.sh)
 # bind-mounts them live over this base, so recipe edits take effect without a
 # re-provision. etc/config IS baked (its @ARCH@/@BASEPATH@ tokens are host- and
 # arch-specific; changing them requires a re-provision anyway).
-mkdir -p rootfs/shpack/etc
-cp -r shpack/bootstrap rootfs/shpack/
-subst shpack/bootstrap/0.kaem.in rootfs/shpack/bootstrap/0.kaem
-rm -f rootfs/shpack/bootstrap/0.kaem.in
-subst shpack/etc/config.in rootfs/shpack/etc/config
-cp -f shpack/etc/externals.in rootfs/shpack/etc/externals
+stage_shpack rootfs/shpack
 
 # distfiles are bind-mounted read-only at run time (here and in run.sh), never
 # copied into rootfs -- this is just the mountpoint. Run ./fetch-distfiles.sh

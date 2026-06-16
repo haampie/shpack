@@ -1,6 +1,9 @@
 # chroot build tree produced by build.sh
 /rootfs/
 
+# relocatable store produced by build-host.sh (chroot-free bootstrap)
+/store/
+
 # source tarballs: not committed (too large); fetched + verified by
 # fetch-distfiles.sh, which carries the sha256/url manifest.
 /distfiles/

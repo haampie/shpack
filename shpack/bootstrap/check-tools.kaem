@@ -15,5 +15,5 @@ PATH=@SEED_PATH@
 # CWD is the seed tree (/tmp/seed); the sources are under ./src and the sha256
 # pin under ./@ARCH@, so step into src and reach the pin via ../@ARCH@.
 cd src
-tcc_cc @TCC_ARCH_FLAG@ -o /tmp/tcc_cc.sl64 stdlib.c tcc_cc.c
+tcc_cc @TCC_ARCH_FLAG@ -o @BUILDDIR@/tcc_cc.sl64 stdlib.c tcc_cc.c
 sha256sum -c ../@ARCH@/tcc_cc.sl64.sha256
