@@ -1,8 +1,8 @@
 # shpack
 
-`shpack` is a fast, fully source-bootstrapping package manager for Linux. It starts from a few hundred bytes of trusted machine code (from [stage0-posix][3]) and builds everything above it from sources: from a basic shell, to increasinbly capable C compilers and libraries, up to a complete modern toolchain. The only binaries it trusts are that seed, `bwrap` to set up a sandbox, and the host kernel; everything else is compiled from checksummed sources.
+`shpack` is a fast, fully source-bootstrapping package manager for Linux. It starts from a few hundred bytes of trusted machine code (from [stage0-posix][3]) and builds everything above it from sources: from a basic shell, to increasingly capable C compilers and libraries, up to a complete modern toolchain. The only binaries it trusts are that seed, `bwrap` to set up a sandbox, and the host kernel; everything else is compiled from checksummed sources.
 
-The first C/C++ compiler, GCC 4.7, comes up in about **2 minutes and 30 seconds**, and a modern, dynamically linked toolchain (GCC 16, glibc 2.43, binutils 2.46) finishes in under 30 minutes total, benchmarked on an 8-core AMD Ryzen 7 3700X from 2019. It gets there by compiling natively the whole way, with no interpreter step: thanks to [MES replacement][1], the TCC C-compiler with musl libc is bootstrapped straight out of stage0-posix, and early GNU `make` then drives the package builds in parallel.
+The first C/C++ compiler, GCC 4.7, comes up in about **2 minutes and 30 seconds**, and a modern, dynamically linked toolchain (GCC 16, glibc 2.43, binutils 2.46) finishes in under **30 minutes** total, benchmarked on an 8-core AMD Ryzen 7 3700X from 2019. It gets there by compiling natively the whole way, with no interpreter step: thanks to [MES replacement][1], the TCC C-compiler with musl libc is bootstrapped straight out of stage0-posix, and early GNU `make` then drives the package builds in parallel.
 
 It targets `x86_64` and `AArch64` natively from the start. That matters on modern systems, where 32-bit support (x86, arm32) may be disabled in the kernel or missing from the CPU (e.g. Apple Silicon).
 
@@ -16,7 +16,11 @@ A note on scope: `shpack` trusts the generated files that upstream ships in rele
 
 ## Bootstrapping a recent GNU compiler toolchain
 
-Make sure you have `bwrap` available
+The following is an end-to-end demo that:
+
+1. sets up a `rootfs/`
+2. bootstraps `shpack`'s own dependencies
+3. runs `shpack install gcc` to build a modern GCC toolchain
 
 ```sh
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
@@ -26,21 +30,51 @@ cd shpack
 ./build.sh aarch64
 ```
 
-This sets up the `rootfs/` directory, bootstraps `shpack` and then uses `shpack` to install
-a modern GCC.
+Once `shpack` is bootstrapped, you will see that it runs `shpack install gcc`, which resolves the
+dependencies:
 
-The packages are installed into immutable per-package store prefixes
-(`/opt/<name>-<version>[-<hash>]`).
+```
+...
++ exec ./run.sh shpack install gcc
+dc9a082    gcc@16.1.0
+e71e7f1      gcc-boot0-wrapped@16.1.0
+8a8e2e0        gcc-boot@16.1.0
+202a56d          gmake@4.4.1
+1040673            tcc@0.9.27 (external)
+694c904            musl@1.1.24 (external)
+7c75644            grep@2.4
+94f28c9            gawk@3.0.4
+91673cc          diffutils@2.7
+9f213b5          findutils@4.2.33
+adbb728          gcc-boot@9.5.0
+3c33c33            gcc-boot@4.7-2013.11
+fdacfc7              binutils@2.30-musl
+903463f                m4@1.4.7
+665c835              gmp@4.3.2
+c7eb8d3              mpfr@2.4.2
+beede4f              mpc@1.0.3
+1c37955            musl@1.2.5
+9fc6fea              linux-headers@6.9.1
+7ec5e07                sed@4.9
+33a495a                  xz@5.2.5
+e74b1e3            tar@1.35
+5fc3c72          binutils@2.46.0-musl
+1dd3fe1        glibc@2.43
+92e2484          python@3.5.9
+3b062e1          bison@3.8.2
+062a430          gawk@5.3.1
+df74cac      binutils@2.46.0
+0ee9ae9        libstdcxx-boot1@16.1.0
+```
+
+The `(external)` nodes are part of the initial bootstrapping phase.
+
+All installed packages are put into unique prefixes `/opt/<name>-<version>[-<hash>]`.
 
 ## Entering the rootfs
 
-The `build.sh` script is a full demo that combines two steps:
-
-1. bootstrapping `shpack`'s dependencies (`dash`, `make`, etc)
-2. running `shpack install gcc`
-
-You can run the bootstrap step manually and then start an interactive shell in the rootfs as
-follows:
+You can also use the `shpack` package manager interactively by bootstrapping up to `shpack`
+itself:
 
 ```sh
 $ ./fetch-distfiles.sh
