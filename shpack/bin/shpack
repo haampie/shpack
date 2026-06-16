@@ -45,6 +45,10 @@ for v in ARCH JOBS STORE DISTFILES BASEPATH CONFIG_SHELL; do
     [ -n "$val" ] || die "config $CONFIG does not set $v"
 done
 
+# Optional: the Landlock launcher dag.mk wraps each build step in. Empty (or
+# unset, e.g. the test fixture) means build unsandboxed.
+SANDBOX=${SANDBOX:-}
+
 . "$SHPACK_LIB/spec.sh"
 . "$SHPACK_LIB/repo.sh"
 . "$SHPACK_LIB/concretize.sh"

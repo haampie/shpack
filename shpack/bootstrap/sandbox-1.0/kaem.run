@@ -1,0 +1,15 @@
+#!/kaem --verbose --strict
+# SPDX-License-Identifier: MIT
+#
+# sandbox: a tiny unprivileged Landlock launcher (project-original C, ${PKG}/src)
+# that wraps every shell-phase build step so it can only touch the store, the
+# recipe tree, distfiles and its own prefix -- the host /usr stays invisible.
+# Built here, right after tcc 0.9.27 + musl, so the chroot-free build-host.sh
+# (which truncates the kaem chain after tcc+musl) still gets it. A single source
+# file, statically linked with musl by the just-built tcc (cf. make-3.82).
+
+BLD=${TMPDIR}/build/${pkg}
+mkdir -p ${BLD}
+cd ${BLD}
+
+tcc -static -o ${BINDIR}/sandbox ${PKG}/src/sandbox.c

@@ -30,3 +30,10 @@ CONFIG_SHELL=@STORE@/dash-0.5.12/bin/sh
 # bootstrap-era make (3.82, whose -j has races), then schedules the rest -jN
 # under it.
 SHPACK_BOOTSTRAP_MAKE=gmake@4.4.1
+
+# The Landlock launcher each build step is wrapped in (kaem phase, built right
+# after tcc+musl). Confines a build to the store (read+exec), the recipe tree
+# and distfiles (read), and its own prefix plus scratch (write), so the host
+# /usr is invisible and stray writes are denied. Leave empty to build
+# unsandboxed (the test fixture does not set it).
+SANDBOX=@STORE@/sandbox-1.0/bin/sandbox

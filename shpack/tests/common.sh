@@ -24,6 +24,7 @@ JOBS=2
 STORE=$TESTDIR/store
 DISTFILES=$TESTDIR/distfiles
 BASEPATH=$PATH
+CONFIG_SHELL=$(command -v sh)
 EOF
 
 shpack() {

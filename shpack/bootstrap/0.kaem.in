@@ -100,6 +100,18 @@ mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
+# sandbox: the Landlock build-step launcher (project-original C, statically
+# linked with the just-built tcc+musl). Built here so it lands in the store
+# before the truncation point -- the shell phase wraps every build with it (see
+# concretize.sh emit_dagmk), so build-host.sh's truncated chain needs it too.
+pkg=sandbox-1.0
+PKG=${BOOT}/${pkg}
+PREFIX=@STORE@/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
 # @@STOP_AFTER_TCC_MUSL@@ -- tcc 0.9.27 + (float-healed) musl 1.1.24 are now in
 # the store. The chroot-free host launcher (build-host.sh) truncates the chain
 # here (sed '/@@STOP_AFTER_TCC_MUSL@@/q') so nothing past this point -- which
