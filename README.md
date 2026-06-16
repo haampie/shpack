@@ -1,8 +1,9 @@
 # shpack
 
-`shpack` is a fast, bootstrappable package manager for Linux. It builds a complete modern compiler toolchain (GCC 16, glibc 2.43, binutils 2.46) from source, starting from a few hundred bytes of trusted machine code (from [stage0-posix][3]). The first C/C++ compiler, GCC 4.7, comes up in about **2 minutes 30 seconds**, and the full dynamically linked toolchain finishes in under **30 minutes** total.[^bench]
+`shpack` is a fast, bootstrappable package manager for Linux. It builds a complete modern compiler toolchain (GCC 16, glibc 2.43, binutils 2.46) from source, starting from a few hundred bytes of trusted machine code (from [stage0-posix][3]). The first C/C++ compiler, GCC 4.7, comes up in about **2 minutes 30 seconds**, and the full dynamically linked toolchain finishes in **15**[^fast] to **30**[^bench] minutes total.
 
-[^bench]: Benchmarked on an 8-core AMD Ryzen 7 3700X from 2019.
+[^fast]: 14 minutes 9 seconds on an Intel Core Ultra 9 285 from 2025.
+[^bench]: 28-29 minutes on an 8-core AMD Ryzen 7 3700X from 2019.
 
 The project has two parts: the package manager itself, and the bootstrapping path it follows. It bootstraps a basic shell first, then increasingly capable C compilers and libraries, and finally the complete toolchain. The only binaries it trusts are that seed, the host kernel, and `bwrap` to set up the sandbox; everything else is compiled from checksummed sources. It features a new bootstrapping path where the TCC C compiler with musl libc is built straight out of stage0-posix using [MES replacement][1].
 
