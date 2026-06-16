@@ -40,7 +40,7 @@ dependencies:
 ...
 + exec ./run.sh shpack install gcc
 dc9a082    gcc@16.1.0
-e71e7f1      gcc-boot0-wrapped@16.1.0
+e71e7f1      gcc-boot-wrapper@16.1.0
 8a8e2e0        gcc-boot@16.1.0
 202a56d          gmake@4.4.1
 1040673            tcc@0.9.27 (external)

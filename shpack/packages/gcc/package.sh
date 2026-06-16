@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 
 description "Native aarch64 GCC 16.1.0 -- the final, shared compiler of the" \
-            "bootstrap. Built by gcc-boot0-wrapped against glibc 2.43 +" \
+            "bootstrap. Built by gcc-boot-wrapper against glibc 2.43 +" \
             "binutils, --enable-shared, threads=posix, real C++ EH."
 homepage "https://gcc.gnu.org/"
 license "GPL-3.0-or-later"
@@ -14,11 +14,11 @@ version 16.1.0 sha256=50efb4d94c3397aff3b0d61a5abd748b4dd31d9d3f2ab7be05b171d36a
 
 build_system autotools
 
-# Built by gcc-boot0-wrapped against glibc 2.43, binutils (as/ld baked in),
+# Built by gcc-boot-wrapper against glibc 2.43, binutils (as/ld baked in),
 # libstdcxx-boot1 (static libstdc++.a for the build tools it compiles).
 # linux-headers: autoconf CPP sanity check (kernel headers are symlinked into
 # glibc's include, so --with-native-system-header-dir=glibc covers both).
-depends_on gcc-boot0-wrapped glibc binutils@2.46.0 libstdcxx-boot1 linux-headers \
+depends_on gcc-boot-wrapper glibc binutils@2.46.0 libstdcxx-boot1 linux-headers \
     gmake sed grep gawk@3.0.4 diffutils findutils tar xz
 
 # Same in-tree gmp/mpfr/mpc as gcc-boot@16.1.0 (GCC 16's prerequisite set).
@@ -62,7 +62,7 @@ ld_so_of() {
 configure() {
     local triple gcc glibc libstdcxx binutils p real_cc ld_so tflags
     triple=$(triple gnu)
-    gcc=$(prefix_of gcc-boot0-wrapped)
+    gcc=$(prefix_of gcc-boot-wrapper)
     glibc=$(prefix_of glibc)
     libstdcxx=$(prefix_of libstdcxx-boot1)
     binutils=$(prefix_of binutils)

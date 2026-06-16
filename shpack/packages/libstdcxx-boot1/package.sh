@@ -12,12 +12,12 @@ version 16.1.0 sha256=50efb4d94c3397aff3b0d61a5abd748b4dd31d9d3f2ab7be05b171d36a
 
 build_system generic
 
-# Built by gcc-boot0-wrapped against glibc 2.43 (static libstdc++.a, no .so).
+# Built by gcc-boot-wrapper against glibc 2.43 (static libstdc++.a, no .so).
 # linux-headers: autoconf CPP sanity check. find/diff: libtool merges the
 # libsupc++/c++NN convenience archives into libstdc++.a by extracting them and
 # enumerating objects with find -- without findutils, libstdc++.a ships only
 # the compatibility*.o and every downstream C++ link breaks.
-depends_on gcc-boot0-wrapped glibc linux-headers gmake sed grep gawk diffutils \
+depends_on gcc-boot-wrapper glibc linux-headers gmake sed grep gawk diffutils \
     findutils tar xz
 
 setup_build_environment() {
@@ -32,7 +32,7 @@ setup_build_environment() {
 install() {
     local triple gcc
     triple=$(triple gnu)
-    gcc=$(prefix_of gcc-boot0-wrapped)
+    gcc=$(prefix_of gcc-boot-wrapper)
 
     # libstdc++-v3 configure probes `g++ -v`; make it a no-op so the probe
     # cannot fail when the compiler binary name differs.

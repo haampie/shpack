@@ -14,7 +14,7 @@ license "GPL-3.0-or-later"
 # single node. Nothing depends on a bare `binutils` (every consumer pins a
 # version), so the fact that vercmp ranks 2.46.0-musl as "newest" is moot.
 
-# 2.46.0: glibc-linked, built by gcc-boot0-wrapped against glibc 2.43; gprofng
+# 2.46.0: glibc-linked, built by gcc-boot-wrapper against glibc 2.43; gprofng
 # links the static libstdcxx-boot1. The as/ld baked into the final GCC.
 version 2.46.0 sha256=0f3152632a2a9ce066f20963e9bb40af7cf85b9b6c409ed892fd0676e84ecd12 \
     url=https://ftp.gnu.org/gnu/binutils/binutils-2.46.0.tar.bz2
@@ -37,10 +37,10 @@ depends_on tcc musl@1.1.24 gmake grep gawk@3.0.4 diffutils m4 when=2.30-musl
 # configure needs sed -E and its tarball is pax (seed sed/tar are too old).
 depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake grep gawk@3.0.4 diffutils sed tar \
     when=2.46.0-musl
-# 2.46.0 (glibc): built by gcc-boot0-wrapped against glibc 2.43. linux-headers:
+# 2.46.0 (glibc): built by gcc-boot-wrapper against glibc 2.43. linux-headers:
 # autoconf CPP sanity check. libstdcxx-boot1: gprofng is C++ and links the
 # static libstdc++.a. binutils@2.46.0-musl supplies plain as/ld/ar on PATH.
-depends_on gcc-boot0-wrapped glibc linux-headers libstdcxx-boot1 binutils@2.46.0-musl \
+depends_on gcc-boot-wrapper glibc linux-headers libstdcxx-boot1 binutils@2.46.0-musl \
     bison gmake sed grep gawk@3.0.4 diffutils tar when=2.46.0
 
 # 2.30 only: the HOWTO table in bfd/elfnn-aarch64.c has #if/#else inside macro
@@ -126,8 +126,8 @@ configure_args() {
                 --disable-shared
             ;;
         2.46.0)
-            # gcc-boot0-wrapped against glibc; gprofng links static libstdcxx-boot1.
-            gcc=$(prefix_of gcc-boot0-wrapped)
+            # gcc-boot-wrapper against glibc; gprofng links static libstdcxx-boot1.
+            gcc=$(prefix_of gcc-boot-wrapper)
             libstdcxx=$(prefix_of libstdcxx-boot1)
             printf '%s\n' \
                 CONFIG_SHELL=/bin/sh \
