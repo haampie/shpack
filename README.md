@@ -1,21 +1,18 @@
 # shpack
 
-`shpack` is a fully self-bootstrappable package manager for Linux that builds a reproducible software stack from a few hundred bytes of binary seed.
+`shpack` is a fast, fully source-bootstrapping package manager for Linux. It starts from a few hundred bytes of trusted machine code (from [stage0-posix][3]) and builds everything above it from sources: from a basic shell, to increasinbly capable C compilers and libraries, up to a complete modern toolchain. The only binaries it trusts are that seed, `bwrap` to set up a sandbox, and the host kernel; everything else is compiled from checksummed sources.
 
-The first C/C++ compiler from GCC 4.7 bootstraps in just 2 minutes and 30 seconds. From there, it continues to build a modern, dynamically linked toolchain (GCC 16, glibc 2.43, and binutils 2.46) in under 30 minutes total, as benchmarked on an 8-core AMD Ryzen 7 3700X CPU from 2019.
+The first C/C++ compiler, GCC 4.7, comes up in about **2 minutes and 30 seconds**, and a modern, dynamically linked toolchain (GCC 16, glibc 2.43, binutils 2.46) finishes in under 30 minutes total, benchmarked on an 8-core AMD Ryzen 7 3700X from 2019. It gets there by compiling natively the whole way, with no interpreter step: thanks to [MES replacement][1], the TCC C-compiler with musl libc is bootstrapped straight out of stage0-posix, and early GNU `make` then drives the package builds in parallel.
 
-It targets `x86_64` and `AArch64` natively from the start. This is critical for modern systems where 32-bit support (x86, arm32) is either disabled in the kernel or unsupported by the CPU (e.g., Apple Silicon).
+It targets `x86_64` and `AArch64` natively from the start. That matters on modern systems, where 32-bit support (x86, arm32) may be disabled in the kernel or missing from the CPU (e.g. Apple Silicon).
 
-Written entirely in POSIX shell (running on early `dash`, `make`, and minimal coreutils), it brings package management to the bottom of the stack. Because it evaluates dependency DAGs and emits parallelizable Makefiles, it can be used to bootstrap a much wider ecosystem of software beyond just a base compiler. It provides a simple DSL for package recipes, making it incredibly easy to read, write, and maintain packages.
+The package manager itself is written entirely in POSIX shell, running on an early `dash`, `make`, and minimal coreutils, bringing the package manager close to the bottom of the stack.
 
-`shpack` borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes and Merkle-hashed dependency graphs. It is not a coincidence that the [declarative `package.sh` recipes][5] are reminiscent of the Spack package manager: a motivation for this project is to bootstrap the Spack package manager itself.
+It features a simple dependency resolver that emits a `Makefile`, leading to package-level parallelism under a global jobserver.
 
-Thanks to Guix and [live-bootstrap][2] for showing a full bootstrap is possible, and to [MES replacement][1] for making it fast.
+`shpack` borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes and Merkle-hashed dependency graphs. Its small package recipe DSL stays easy to read, write, and maintain. It is no coincidence that the [declarative `package.sh` recipes][5] resemble Spack's: one motivation for the project is to bootstrap the Spack package manager itself. Thanks to Guix and [live-bootstrap][2] for showing that a full bootstrap is possible, and to [MES replacement][1] for making it fast.
 
-Bootstrapping speed is achieved by:
-
-* Compiling natively the whole way, with no interpreter step (GNU mes runs a Scheme interpreter): a small C compiler (`vendor/mes-replacement/tcc_cc.c`) plus a stack-machine transpiler (`vendor/mes-replacement/stack_c_*.c`) grow TCC and musl directly out of [stage0-posix][3].
-* Using early GNU make as a driver to expose package-level parallelism.
+A note on scope: `shpack` trusts the generated files that upstream ships in release tarballs, including `configure` scripts and pre-generated source files. live-bootstrap takes the stricter path and rebuilds those artifacts too; that rigor is its whole point. `shpack` makes the other tradeoff deliberately: optimizing for a modern, real-world toolchain that bootstraps quickly, and keeping the dependency set small -- regenerating those artifacts would otherwise pull flex, bison, autotools and texinfo into the chain.
 
 ## Bootstrapping a recent GNU compiler toolchain
 
