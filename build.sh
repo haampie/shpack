@@ -57,6 +57,7 @@ T_DISTFILES=/external/distfiles
 T_SEEDDIR=/tmp/seed
 T_BUILDDIR=/tmp
 T_SHPACK=/shpack
+T_SH_LINK_DIR=/bin            # dash installs /bin/sh inside the chroot
 
 # Parallelism for the shell-phase package builds (make -j${JOBS}). The kaem phase
 # (tcc/musl) is serial regardless. Defaults to the host core count; override with

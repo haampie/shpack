@@ -40,7 +40,7 @@ CONFIG=${SHPACK_CONFIG:-$SHPACK_ROOT/etc/config}
 [ -f "$CONFIG" ] || die "no config at $CONFIG (set SHPACK_CONFIG?)"
 . "$CONFIG"
 
-for v in ARCH JOBS STORE DISTFILES BASEPATH; do
+for v in ARCH JOBS STORE DISTFILES BASEPATH CONFIG_SHELL; do
     eval "val=\${$v:-}"
     [ -n "$val" ] || die "config $CONFIG does not set $v"
 done
@@ -55,6 +55,12 @@ mkdir -p "$VAR"
 # Children spawned from dag.mk recipes must see the same world.
 export SHPACK_VAR="$VAR" SHPACK_REPO="$REPO" SHPACK_EXTERNALS="$EXTERNALS" \
        SHPACK_CONFIG="$CONFIG"
+
+# The explicit build shell (see etc/config). SHELL mirrors it so any make that
+# honours the environment SHELL also avoids a /bin/sh shebang lookup.
+export CONFIG_SHELL
+SHELL=$CONFIG_SHELL
+export SHELL
 
 usage() {
     cat <<'EOF'

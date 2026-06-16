@@ -92,11 +92,14 @@ tcc -c -DHAVE_CONFIG_H -I. -I.. -include ../config.h -DBSD=1 -DSHELL -o times.o 
 tcc -static -o ${BINDIR}/dash alias.o arith_yacc.o arith_yylex.o cd.o error.o eval.o exec.o expand.o histedit.o input.o jobs.o mail.o main.o memalloc.o miscbltin.o mystring.o options.o parser.o redir.o show.o trap.o output.o system.o var.o builtins.o init.o nodes.o signames.o syntax.o printf.o test.o times.o
 
 # Install as the system shell. dash is the only shell from here on; it lives in
-# its own store prefix (${BINDIR} == /opt/dash-0.5.12/bin, picked up via PATH),
-# and /bin/sh points at it so later #!/bin/sh scripts and ./configure resolve.
+# its own store prefix (${BINDIR} == @STORE@/dash-0.5.12/bin, picked up via
+# PATH). ${SH_LINK_DIR}/sh points at it so later #!/bin/sh scripts and
+# ./configure resolve: SH_LINK_DIR is /bin inside the chroot, or the store bin
+# on the host (no writable /bin), where the shell phase reaches it explicitly
+# via CONFIG_SHELL. See 0.kaem.in.
 cp ${BINDIR}/dash ${BINDIR}/sh
-mkdir -p /bin
-cp ${BINDIR}/dash /bin/sh
+mkdir -p ${SH_LINK_DIR}
+cp ${BINDIR}/dash ${SH_LINK_DIR}/sh
 
 # Smoke test
 dash -c "echo dash bootstrap ok"

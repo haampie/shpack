@@ -18,6 +18,9 @@
 #   T_SEEDDIR    -- seed working-tree root   (@SEEDDIR@)
 #   T_BUILDDIR   -- kaem TMPDIR / scratch    (@BUILDDIR@)
 #   T_SHPACK     -- shpack tree root         (@SHPACK@)
+#   T_SH_LINK_DIR-- dir dash installs `sh` into, beside its store bin
+#                   (@SH_LINK_DIR@; /bin under chroot, the dash store bin on host
+#                   where /bin is not writable -- see dash-0.5.12/kaem.run)
 # derive_paths "$T_STORE" then fills T_SEED_PATH / T_BASEPATH from the store.
 
 # derive_paths STORE -- compute the seed-tool PATH and the shell-phase PATH floor
@@ -44,6 +47,7 @@ subst() {
         -e "s|@SEEDDIR@|${T_SEEDDIR}|g" \
         -e "s|@BUILDDIR@|${T_BUILDDIR}|g" \
         -e "s|@SHPACK@|${T_SHPACK}|g" \
+        -e "s|@SH_LINK_DIR@|${T_SH_LINK_DIR}|g" \
         "$1" > "$2"
 }
 

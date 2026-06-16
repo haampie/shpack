@@ -36,6 +36,10 @@ SEEDDIR=@SEEDDIR@
 LIBC_PREFIX=@STORE@/musl-1.1.24
 LIBDIR=@STORE@/musl-1.1.24/lib
 INCDIR=@STORE@/musl-1.1.24/include
+# Where dash installs its `sh` so #!/bin/sh scripts resolve. /bin under chroot;
+# the dash store bin on the host (no writable /bin) -- where the shell phase
+# instead reaches it explicitly via CONFIG_SHELL. See dash-0.5.12/kaem.run.
+SH_LINK_DIR=@SH_LINK_DIR@
 
 # simple-patch: exact-match patcher, used until GNU patch exists.
 pkg=simple-patch-1.0

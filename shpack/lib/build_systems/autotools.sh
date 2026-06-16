@@ -20,16 +20,21 @@ default_configure() {
         cd "$(cat "$VAR/recipe/$name/build_directory")"
         cfg=$source_dir/configure
     fi
+    # Invoke configure through CONFIG_SHELL explicitly rather than relying on
+    # its #!/bin/sh shebang (there is no writable /bin/sh on the host). Passing
+    # CONFIG_SHELL= and SHELL= makes configure use the same shell for the
+    # makefiles it writes and for any sub-configures it recurses into.
     # --disable-dependency-tracking: these are one-shot builds that never
     # incrementally rebuild, so automake's .deps/depcomp machinery is pure
     # overhead (an extra preprocessor pass per object on compilers without fast
     # -MD, e.g. tcc). Autoconf configure that isn't automake just ignores it.
-    with_hook_args configure_args "$cfg" --prefix="$PREFIX" \
-        --disable-dependency-tracking
+    with_hook_args configure_args "$CONFIG_SHELL" "$cfg" --prefix="$PREFIX" \
+        --disable-dependency-tracking \
+        "CONFIG_SHELL=$CONFIG_SHELL" "SHELL=$CONFIG_SHELL"
 }
 
 default_build() {
-    with_hook_args build_args make $MAKEJOBS
+    with_hook_args build_args make "SHELL=$CONFIG_SHELL" $MAKEJOBS
 }
 
 default_install() {
@@ -40,5 +45,5 @@ default_install() {
     set +f
     unset IFS
     if [ $# -eq 0 ]; then set -- install; fi
-    make "$@"
+    make "SHELL=$CONFIG_SHELL" "$@"
 }

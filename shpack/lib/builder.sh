@@ -215,7 +215,14 @@ cmd_build_one() {
         && [ "$(cat "$VAR/recipe/$name/parallel")" = false ]; then
         MAKEJOBS=-j1
     fi
-    export PREFIX ARCH JOBS MAKEJOBS SOURCE_DATE_EPOCH=0 HOME=/tmp PATH
+    # HOME under the build's own scratch ($VAR, itself under $TMPDIR on the
+    # host): some configure/test steps write dotfiles, and a build must not
+    # depend on or pollute a real home. CONFIG_SHELL/SHELL: the explicit build
+    # shell (etc/config), so nothing relies on a /bin/sh shebang.
+    BUILD_HOME=$VAR/home
+    mkdir -p "$BUILD_HOME"
+    export PREFIX ARCH JOBS MAKEJOBS SOURCE_DATE_EPOCH=0 HOME="$BUILD_HOME" \
+        CONFIG_SHELL SHELL PATH
 
     stage_dir=$VAR/stage/$id
     rm -rf "$stage_dir"

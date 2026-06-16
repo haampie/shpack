@@ -37,17 +37,32 @@ abspath() { case "$1" in /*) printf '%s\n' "$1";; *) printf '%s/%s\n' "$PWD" "$1
 
 ARCH=""
 STORE="$ROOT/store"
-SCRATCH="/tmp/$(id -un)"          # Spack multi-tenant pattern: per-user, NOT mktemp
+# The one effective tempdir for the entire build: kaem TMPDIR, the seed tree,
+# the staged shpack base, the shell phase's HOME and SHPACK_VAR all live under
+# it. Honour the POSIX $TMPDIR (default /tmp), per-user (Spack multi-tenant
+# pattern), NOT mktemp -- a fixed path so a build is reproducible/resumable.
+SCRATCH="${TMPDIR:-/tmp}/$(id -un)"
+PHASE=all                          # all | base | shell  (see usage below)
+SPECS=""                           # shell-phase targets; default gcc
+usage="usage: $0 <aarch64> [--store DIR] [--build DIR] [--base|--shell] [spec...]
+  --base   stop after the kaem base (tcc..dash); wipes and rebuilds the store
+  --shell  skip the kaem base, run only the shell phase over the existing store
+  default  do both; build the given specs (default: gcc)"
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --store) STORE=$(abspath "$2"); shift 2 ;;
         --build) SCRATCH=$(abspath "$2"); shift 2 ;;
+        --base)  PHASE=base; shift ;;
+        --shell) PHASE=shell; shift ;;
         amd64|aarch64) ARCH=$1; shift ;;
-        *) die "usage: $0 <aarch64> [--store DIR] [--build DIR]" ;;
+        --*) die "$usage" ;;
+        *) SPECS="$SPECS $1"; shift ;;     # trailing specs for the shell phase
     esac
 done
-[ -n "$ARCH" ] || die "usage: $0 <aarch64> [--store DIR] [--build DIR]"
-[ "$ARCH" = aarch64 ] || die "only aarch64 is supported here (host is $(uname -m); no qemu path)"
+[ -n "$SPECS" ] || SPECS=gcc
+[ -n "$ARCH" ] || die "$usage"
+[ "$ARCH" = aarch64 ] || die "only aarch64 is supported here (host is $(uname -m); no qemu path).
+$usage"
 [ "$(uname -m)" = aarch64 ] || die "host is $(uname -m), not aarch64 -- the seeds run natively, no qemu"
 
 case "$ARCH" in
@@ -69,6 +84,10 @@ SEEDDIR="$SCRATCH/seed"        # on-disk seed working tree ...
 T_SEEDDIR="$SEEDDIR"           # @SEEDDIR@    -- ... and the token that names it
 T_BUILDDIR="$SCRATCH"          # @BUILDDIR@   -- kaem TMPDIR (builds -> $SCRATCH/build/*)
 T_SHPACK="$SCRATCH/shpack"     # @SHPACK@     -- staged kaem-phase shpack base
+# /bin is not writable without root, so dash installs its `sh` into its own
+# store bin; configure/make reach it via CONFIG_SHELL/SHELL (see etc/config.in),
+# not via a /bin/sh shebang.
+T_SH_LINK_DIR="$STORE/dash-0.5.12/bin"   # @SH_LINK_DIR@
 derive_paths "$T_STORE"
 
 [ -d "$T_DISTFILES" ] || die "no distfiles at $T_DISTFILES -- run ./fetch-distfiles.sh first"
@@ -81,39 +100,66 @@ mkdir -p "$SCRATCH"
 [ -d "$SCRATCH" ] || die "$SCRATCH is not a directory"
 [ "$(stat -c %u "$SCRATCH")" = "$(id -u)" ] || die "$SCRATCH is not owned by you -- refusing (use --build DIR)"
 
-# Wipe only the subdirs we manage (never the whole $SCRATCH, which may be shared,
-# nor anything outside it). The store is wiped for a clean, reproducible build.
-rm -rf "$SEEDDIR" "$T_SHPACK" "$SCRATCH/build" "$SCRATCH/tcc_cc.sl64" "$STORE"
-mkdir -p "$STORE"
+# stage the shpack base (etc/config, externals, bootstrap/) every run: cheap, and
+# it picks up recipe/config edits. The live shpack/{bin,lib,packages} are used
+# directly for the shell phase, so edits there are live with no re-stage.
+stage_shpack "$T_SHPACK"
 
-# --- Stage (shared with build.sh) --------------------------------------------
-stage_seed_tree "$SEEDDIR"
-stage_shpack "$T_SHPACK" truncate    # truncate the chain at the tcc+musl sentinel
+# ============================================================================
+# Phase 1: kaem base (tcc..dash) -- runs unless --shell
+# ============================================================================
+if [ "$PHASE" != shell ]; then
+    # Wipe only the subdirs we manage (never the whole $SCRATCH, which may be
+    # shared, nor anything outside it). The store is wiped for a clean build.
+    rm -rf "$SEEDDIR" "$SCRATCH/build" "$SCRATCH/tcc_cc.sl64" "$STORE"
+    mkdir -p "$STORE"
+    stage_seed_tree "$SEEDDIR"
 
-# --- Launch natively: no chroot, no bwrap, no sudo ---------------------------
-# The stage0 scripts are CWD-relative, so we cd into the seed tree (the guarantee
-# chroot used to give via chdir("/")). env -i + the seed-only PATH is the host
-# hygiene; real /proc and /dev are used as-is.
-echo "build-host.sh: bootstrapping tcc+musl into $STORE (no sandbox) ..."
-cd "$SEEDDIR"
-env -i \
-    PATH="$T_SEED_PATH" \
-    HOME="$SCRATCH" \
-    TERM="${TERM:-dumb}" \
-    "./bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed" "kaem.${ARCH}"
+    # --- Launch natively: no chroot, no bwrap, no sudo -----------------------
+    # The stage0 scripts are CWD-relative, so we cd into the seed tree (the
+    # guarantee chroot used to give via chdir("/")). env -i + the seed-only PATH
+    # is the host hygiene; real /proc and /dev are used as-is.
+    echo "build-host.sh: building the kaem base (tcc..dash) into $STORE ..."
+    cd "$SEEDDIR"
+    env -i \
+        PATH="$T_SEED_PATH" \
+        HOME="$SCRATCH" \
+        TERM="${TERM:-dumb}" \
+        "./bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed" "kaem.${ARCH}"
+    cd "$ROOT"
 
-# The stage0 seed chain doesn't reliably propagate a nested kaem failure as its
-# own exit status, so assert the deliverables exist rather than trusting $?.
+    # The stage0 seed chain doesn't reliably propagate a nested kaem failure as
+    # its own exit status, so assert the deliverables exist rather than $?.
+    [ -x "$STORE/tcc-0.9.27/bin/tcc" ]   || die "kaem base failed: no $STORE/tcc-0.9.27/bin/tcc (see output above)"
+    [ -f "$STORE/musl-1.1.24/lib/libc.a" ] || die "kaem base failed: no $STORE/musl-1.1.24/lib/libc.a (see output above)"
+    [ -x "$STORE/dash-0.5.12/bin/sh" ]   || die "kaem base failed: no $STORE/dash-0.5.12/bin/sh (see output above)"
+    echo "build-host.sh: kaem base ready (dash is the first shell)."
+fi
+
+if [ "$PHASE" = base ]; then
+    echo "build-host.sh: --base done; store at $STORE"
+    exit 0
+fi
+
+# ============================================================================
+# Phase 2: shell phase -- shpack concretizes + builds the requested specs,
+# natively, over the kaem base. Uses the LIVE shpack/{bin,lib,packages} (so lib
+# and recipe edits are picked up without re-staging) but the staged, substituted
+# etc/{config,externals}. SHPACK_VAR lives under the one build tempdir.
+# ============================================================================
+[ -x "$STORE/dash-0.5.12/bin/sh" ] || die "no kaem base in $STORE (run without --shell first)"
+SH="$STORE/dash-0.5.12/bin/sh"
+echo "build-host.sh: shell phase -- shpack install$SPECS (no sandbox) ..."
 cd "$ROOT"
-[ -x "$STORE/tcc-0.9.27/bin/tcc" ] || die "bootstrap failed: no $STORE/tcc-0.9.27/bin/tcc (see output above)"
-[ -f "$STORE/musl-1.1.24/lib/libc.a" ] || die "bootstrap failed: no $STORE/musl-1.1.24/lib/libc.a (see output above)"
+# shellcheck disable=SC2086  # $SPECS is an intentional word list
+env -i \
+    PATH="$T_BASEPATH" \
+    HOME="$SCRATCH/home" \
+    TERM="${TERM:-dumb}" \
+    SHPACK_VAR="$SCRATCH/var" \
+    SHPACK_CONFIG="$T_SHPACK/etc/config" \
+    SHPACK_EXTERNALS="$T_SHPACK/etc/externals" \
+    SHPACK_REPO="$ROOT/shpack/packages" \
+    "$SH" "$ROOT/shpack/bin/shpack" install $SPECS
 
-cat <<EOF
-
-build-host.sh: done. tcc + musl are in the relocatable store:
-  $STORE/tcc-0.9.27/bin/tcc
-  $STORE/musl-1.1.24/lib/libc.a
-Smoke test:
-  printf 'int main(){return 42;}\\n' > /tmp/t.c
-  $STORE/tcc-0.9.27/bin/tcc /tmp/t.c -o /tmp/t && /tmp/t; echo \$?   # expect 42
-EOF
+echo "build-host.sh: done. Installed:$SPECS into $STORE"

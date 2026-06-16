@@ -22,7 +22,8 @@ default_edit() {
 }
 
 default_build() {
-    with_hook_args build_targets make -f Makefile $MAKEJOBS PREFIX="$PREFIX"
+    with_hook_args build_targets make -f Makefile "SHELL=$CONFIG_SHELL" \
+        $MAKEJOBS PREFIX="$PREFIX"
 }
 
 default_install() {
@@ -33,5 +34,5 @@ default_install() {
     set +f
     unset IFS
     if [ $# -eq 0 ]; then set -- install; fi
-    make -f Makefile PREFIX="$PREFIX" "$@"
+    make -f Makefile "SHELL=$CONFIG_SHELL" PREFIX="$PREFIX" "$@"
 }
