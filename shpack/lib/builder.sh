@@ -207,10 +207,13 @@ cmd_build_one() {
         || die "$name: unknown build system '$bs'"
     . "$SHPACK_LIB/build_systems/$bs.sh"
 
-    MAKEJOBS=-j$JOBS
+    # Empty so the inner make inherits the dag.mk jobserver from MAKEFLAGS;
+    # an explicit -j would override it and oversubscribe JOBS x JOBS.
+    # 'parallel false' needs -j1 to serialize against that jobserver.
+    MAKEJOBS=
     if [ -f "$VAR/recipe/$name/parallel" ] \
         && [ "$(cat "$VAR/recipe/$name/parallel")" = false ]; then
-        MAKEJOBS=
+        MAKEJOBS=-j1
     fi
     export PREFIX ARCH JOBS MAKEJOBS SOURCE_DATE_EPOCH=0 HOME=/tmp PATH
 
