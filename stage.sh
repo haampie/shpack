@@ -100,7 +100,7 @@ stage_seed_tree() {
     subst shpack/bootstrap/check-tools.kaem "${SEEDROOT}/${ARCH}/check-tools.kaem"
     # The reproducibility pin checked by check-tools.kaem (sha256 of the committed
     # tcc_cc seed) and the stack_c intro/prelude.
-    cp -f vendor/mes-replacement/tcc_cc.${ARCH}.sl64.sha256 "${SEEDROOT}/${ARCH}/tcc_cc.sl64.sha256"
+    subst vendor/mes-replacement/tcc_cc.${ARCH}.sl64.sha256 "${SEEDROOT}/${ARCH}/tcc_cc.sl64.sha256"
     cp -f vendor/mes-replacement/stack_c_intro_${ARCH}.M1   "${SEEDROOT}/${ARCH}/stack_c_intro.M1"
 
     # Generic C sources
