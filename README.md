@@ -5,7 +5,7 @@
 [^fast]: 14 minutes 9 seconds on an Intel Core Ultra 9 285 from 2025.
 [^bench]: 28-29 minutes on an 8-core AMD Ryzen 7 3700X from 2019.
 
-The project has two parts: the package manager itself, and the bootstrapping path it follows. It bootstraps a basic shell first, then increasingly capable C compilers and libraries, and finally the complete toolchain. The only binaries it trusts are that seed, the host kernel, and `bwrap` to set up the sandbox; everything else is compiled from checksummed sources. It features a new bootstrapping path where the TCC C compiler with musl libc is built straight out of stage0-posix using [MES replacement][1].
+The project has two parts: the package manager itself, and the bootstrapping path it follows. It bootstraps a basic shell first, then increasingly capable C compilers and libraries, and finally the complete toolchain. The only binaries it trusts are that seed, the host kernel, and `bwrap` to set up the sandbox; everything else is compiled from checksummed sources. It features a new bootstrapping path where the TinyCC C compiler with musl libc is built straight out of stage0-posix using [MES replacement][1].
 
 It targets `x86_64` and `AArch64` natively from the start. That matters on modern systems, where 32-bit support (x86, arm32) may be disabled in the kernel or missing from the CPU (e.g. Apple Silicon).
 
