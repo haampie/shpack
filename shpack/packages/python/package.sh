@@ -64,9 +64,9 @@ _sha256 sha256module.c
 _sha512 sha512module.c
 EOF
 
-    sh ./configure \
-        CONFIG_SHELL=/bin/sh \
-        SHELL=/bin/sh \
+    "$CONFIG_SHELL" ./configure \
+        "CONFIG_SHELL=$CONFIG_SHELL" \
+        "SHELL=$CONFIG_SHELL" \
         "CC=$(prefix_of gcc-boot)/bin/gcc" \
         --build="$triple" \
         --host="$triple" \

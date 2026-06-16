@@ -56,8 +56,8 @@ install() {
     # -> the C++23 `std` module (std-clib.cc) fails ("ceilf not declared in
     # std"). Adding -lm lets those checks link. Harmless to the static archive
     # build (libstdc++.a is ar'd, not linked).
-    ../libstdc++-v3/configure \
-        CONFIG_SHELL=/bin/sh \
+    "$CONFIG_SHELL" ../libstdc++-v3/configure \
+        "CONFIG_SHELL=$CONFIG_SHELL" \
         "CC=$gcc/bin/gcc" \
         "CXX=$gcc/bin/g++" \
         MAKEINFO=true \

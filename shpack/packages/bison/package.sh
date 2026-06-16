@@ -24,8 +24,8 @@ setup_build_environment() {
 configure_args() {
     triple=$(triple musl)
     printf '%s\n' \
-        CONFIG_SHELL=/bin/sh \
-        SHELL=/bin/sh \
+        "CONFIG_SHELL=$CONFIG_SHELL" \
+        "SHELL=$CONFIG_SHELL" \
         "CC=$(prefix_of gcc-boot)/bin/gcc" \
         --build="$triple" \
         --host="$triple" \

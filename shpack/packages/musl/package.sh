@@ -26,8 +26,9 @@ install() {
     ar=$(prefix_of binutils)/bin/ar
     ranlib=$(prefix_of binutils)/bin/ranlib
 
-    # "./configure" (not "configure"): musl derives srcdir from ${0%/configure}.
-    ./configure \
+    # "./configure" (not "configure"): musl derives srcdir from ${0%/configure},
+    # which is still "." when invoked as `$CONFIG_SHELL ./configure`.
+    "$CONFIG_SHELL" ./configure \
         CC=gcc \
         --target="$triple" \
         --prefix="$PREFIX" \

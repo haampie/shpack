@@ -221,7 +221,7 @@ configure_args() {
             gcc=$(prefix_of gcc-boot)/bin/gcc
             gxx=$(prefix_of gcc-boot)/bin/g++
             printf '%s\n' \
-                CONFIG_SHELL=/bin/sh \
+                "CONFIG_SHELL=$CONFIG_SHELL" \
                 CC="$gcc" \
                 CXX="$gxx" \
                 CFLAGS=-O2 \

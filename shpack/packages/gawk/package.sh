@@ -45,8 +45,8 @@ install() {
             # --disable-extensions: gawk's loadable .so extensions can't link
             # against the non-PIC static musl 1.2.5 libc.a (R_AARCH64 reloc
             # errors); the interpreter doesn't need them and glibc just runs gawk.
-            ./configure \
-                CONFIG_SHELL=/bin/sh \
+            "$CONFIG_SHELL" ./configure \
+                "CONFIG_SHELL=$CONFIG_SHELL" \
                 "CC=$(prefix_of gcc-boot)/bin/gcc" \
                 MAKEINFO=true \
                 --build="$triple" \

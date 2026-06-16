@@ -36,11 +36,11 @@ install() {
     # glibc requires an out-of-tree build.
     mkdir -p build
     cd build
-    ../configure \
-        CONFIG_SHELL=/bin/sh \
-        SHELL=/bin/sh \
+    "$CONFIG_SHELL" ../configure \
+        "CONFIG_SHELL=$CONFIG_SHELL" \
+        "SHELL=$CONFIG_SHELL" \
         CC="$cc" \
-        BASH_SHELL=/bin/sh \
+        "BASH_SHELL=$CONFIG_SHELL" \
         "PYTHON=$python/bin/python3" \
         --build="$triple" \
         --host="$triple" \

@@ -114,7 +114,7 @@ configure_args() {
             # gcc 9.5 + the plain binutils 2.30-musl tools on PATH; install
             # libbfd, skip gprofng (no C++/libstdc++ in the musl world yet).
             printf '%s\n' \
-                CONFIG_SHELL=/bin/sh \
+                "CONFIG_SHELL=$CONFIG_SHELL" \
                 "CC=$(prefix_of gcc-boot)/bin/gcc" \
                 "CXX=$(prefix_of gcc-boot)/bin/g++" \
                 AR=ar AS=as NM=nm RANLIB=ranlib \
@@ -130,7 +130,7 @@ configure_args() {
             gcc=$(prefix_of gcc-boot-wrapper)
             libstdcxx=$(prefix_of libstdcxx-boot1)
             printf '%s\n' \
-                CONFIG_SHELL=/bin/sh \
+                "CONFIG_SHELL=$CONFIG_SHELL" \
                 "CC=$gcc/bin/gcc" \
                 "CXX=$gcc/bin/g++" \
                 "LDFLAGS=-L$libstdcxx/lib64 -L$libstdcxx/lib" \

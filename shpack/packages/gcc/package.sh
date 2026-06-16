@@ -83,7 +83,7 @@ configure() {
     # fail. Wrap the wrapped-boot0 gcc to demote that error.
     real_cc="$gcc/bin/gcc"
     cat > "$stage_dir/cc-relaxed.sh" <<EOF
-#!/bin/sh
+#!$CONFIG_SHELL
 exec $real_cc "\$@" -Wno-error=implicit-function-declaration
 EOF
     chmod 755 "$stage_dir/cc-relaxed.sh"
@@ -124,8 +124,8 @@ EOF
     # shipped libs stay debuggable. This is the bootstrap's longest stage.
     mkdir -p build
     cd build
-    ../configure \
-        CONFIG_SHELL=/bin/sh \
+    "$CONFIG_SHELL" ../configure \
+        "CONFIG_SHELL=$CONFIG_SHELL" \
         "CC=$stage_dir/cc-relaxed.sh" \
         "CXX=$gcc/bin/g++" \
         MAKEINFO=true \

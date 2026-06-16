@@ -32,7 +32,7 @@ install() {
     for prog in gcc g++; do
         real="$gcc/bin/$prog"
         {
-            printf '#!/bin/sh\n'
+            printf '#!%s\n' "$CONFIG_SHELL"
             printf 'exec %s -B%s/lib -Wl,-dynamic-linker -Wl,%s -Wl,-rpath -Wl,%s/lib "$@"\n' \
                 "$real" "$glibc" "$ld_so" "$glibc"
         } > "$PREFIX/bin/$prog"
