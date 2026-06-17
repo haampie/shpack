@@ -79,8 +79,8 @@ after the shell is bootstrapped, which means you can use `shpack` interactively 
 dropping in the just-built shell:
 
 ```sh
-./run-local.sh sh                   # interactive shell, shpack on PATH
-./run-local.sh shpack install xz    # build one package over the existing base
+./run-local.sh sh    # drops you in bootstrapped dash
+$ shpack install xz  # shpack is in PATH
 ```
 
 ### What `shpack install gcc` resolves
