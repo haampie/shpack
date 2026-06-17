@@ -13,6 +13,17 @@ build_system generic
 
 depends_on compiler-wrapper gmake
 
+edit() {
+    # cmake's generated Unix Makefiles hardcode `SHELL = /bin/sh`, and cmake
+    # unsets MAKEFLAGS for its internal try_compile probes, so the builder's
+    # SHELL=$sh override can't reach those sub-makes -- and the sandbox has no
+    # host /bin/sh, so every probe dies with "/bin/sh: Permission denied".
+    # Repoint cmake's baked shell at the store shell. This patches the source, so
+    # it fixes the bootstrap cmake, the installed cmake, and thus clingo's build.
+    sed -i "s|\"SHELL = /bin/sh|\"SHELL = $sh|" Source/cmLocalUnixMakefileGenerator3.cxx
+    sed -i "s|\"/bin/sh\"|\"$sh\"|" Source/cmExecProgramCommand.cxx
+}
+
 install() {
     export CC=$(prefix_of compiler-wrapper)/bin/gcc
     export CXX=$(prefix_of compiler-wrapper)/bin/g++
@@ -22,15 +33,6 @@ install() {
     # implicit declarations a hard error -- so set it for the whole build.
     export CFLAGS="-D_GNU_SOURCE"
     export CXXFLAGS="-D_GNU_SOURCE"
-
-    # cmake's generated Unix Makefiles hardcode `SHELL = /bin/sh`, and cmake
-    # unsets MAKEFLAGS for its internal try_compile probes, so the builder's
-    # SHELL=$sh override can't reach those sub-makes -- and the sandbox has no
-    # host /bin/sh, so every probe dies with "/bin/sh: Permission denied".
-    # Repoint cmake's baked shell at the store shell. This patches the source, so
-    # it fixes the bootstrap cmake, the installed cmake, and thus clingo's build.
-    sed -i "s|\"SHELL = /bin/sh|\"SHELL = $sh|" Source/cmLocalUnixMakefileGenerator3.cxx
-    sed -i "s|\"/bin/sh\"|\"$sh\"|" Source/cmExecProgramCommand.cxx
 
     # ./bootstrap builds a minimal cmake with make, then the full cmake. Bundled
     # third-party libs keep this self-contained; OpenSSL (no perl/openssl in the

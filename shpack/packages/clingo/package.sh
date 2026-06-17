@@ -27,10 +27,8 @@ build_system generic
 # musl-static build tool) is reused.
 depends_on compiler-wrapper cpython re2c cmake bison
 
-install() {
-    local src py
-    py=$(prefix_of cpython)
-
+edit() {
+    local src
     # do_stage left us cd'd into whichever flat dir sorted first (clasp-*, before
     # clingo-*); work from the stage dir explicitly instead.
     cd "$stage_dir"
@@ -51,6 +49,12 @@ install() {
     # Doxygen can't be disabled via a -D; neutralize the lookup (as Spack does).
     sed -i 's/find_package(Doxygen)/message("Doxygen disabled")/' \
         clasp/CMakeLists.txt clasp/libpotassco/CMakeLists.txt
+}
+
+install() {
+    local py suffix
+    py=$(prefix_of cpython)
+    # edit() rebuilt the submodule tree and left us in the clingo source dir.
 
     export CC=$(prefix_of compiler-wrapper)/bin/cc
     export CXX=$(prefix_of compiler-wrapper)/bin/c++
@@ -59,7 +63,6 @@ install() {
     # Pass PYCLINGO_INSTALL_DIR *and* PYCLINGO_SUFFIX (EXT_SUFFIX from sysconfig)
     # exactly as Spack's clingo recipe does, so the cmake never falls back to
     # cmake/python-site.py -- which imports distutils, removed in Python 3.12+.
-    local suffix
     suffix=$("$py/bin/python3" -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 
     mkdir -p build
