@@ -73,7 +73,10 @@ stage_shpack "$T_SHPACK"
 # --- Phase 1: kaem base (tcc..dash), launched natively from the seed tree -------
 # stage0 scripts are CWD-relative, so we cd into the seed tree. env -i + the
 # seed-only PATH is the host hygiene; real /proc and /dev are used as-is.
-rm -rf "$SEEDDIR" "$SCRATCH/build" "$SCRATCH/tcc_cc.sl64" "$STORE"
+# Wipe shell-phase state ($SCRATCH/var) with the store: full provision rebuilds
+# the store, so stale dag.mk stamps would mark nodes up-to-date though their
+# prefixes are gone (build-one short-circuits on the stamp, not the prefix).
+rm -rf "$SEEDDIR" "$SCRATCH/build" "$SCRATCH/tcc_cc.sl64" "$SCRATCH/var" "$STORE"
 mkdir -p "$STORE"
 stage_seed_tree "$SEEDDIR"
 echo "build-host.sh: building the kaem base (tcc..dash) into $STORE ..."
