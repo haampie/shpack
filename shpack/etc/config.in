@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 #
-# shpack configuration. @TOKEN@ placeholders are substituted by build.sh on
-# the host when staging the rootfs (this replaces live-bootstrap's in-chroot
+# shpack configuration. @TOKEN@ placeholders are substituted by the launchers
+# (stage.sh) on the host when staging (this replaces live-bootstrap's in-chroot
 # configurator). Plain POSIX-shell assignments; sourced by bin/shpack.
 
 ARCH=@ARCH@

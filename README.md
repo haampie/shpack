@@ -2,7 +2,7 @@
 
 `shpack` is a fast, bootstrappable package manager for Linux. It builds a complete modern compiler toolchain (GCC 16, glibc 2.43, binutils 2.46) from source, starting from a few hundred bytes of trusted machine code (from [stage0-posix][3]). The first C/C++ compiler, GCC 4.7, comes up in about **2 minutes 30 seconds**, and the full dynamically linked toolchain finishes in **15**[^fast] to **30**[^bench] minutes total.
 
-The project has two parts: the package manager itself, and the bootstrapping path it follows. It bootstraps a basic shell first, then increasingly capable C compilers and libraries, and finally the complete toolchain. The only binaries it trusts are that seed, the host kernel, and `bwrap` to set up the sandbox[^bwrap]; everything else is compiled from checksummed sources. It features a new bootstrapping path where the TinyCC C compiler with musl libc is built straight out of stage0-posix using [MES replacement][1].
+The project has two parts: the package manager itself, and the bootstrapping path it follows. It bootstraps a basic shell first, then increasingly capable C compilers and libraries, and finally the complete toolchain. The only binaries it trusts are that seed, the host kernel, and `bwrap`[^bwrap]; everything else is compiled from checksummed sources. It features a new bootstrapping path where the TinyCC C compiler with musl libc is built straight out of stage0-posix using [MES replacement][1].
 
 It targets `x86_64` and `AArch64` natively from the start. That matters on modern systems, where 32-bit support (x86, arm32) may be disabled in the kernel or missing from the CPU (e.g. Apple Silicon).
 
@@ -25,14 +25,41 @@ The following is an end-to-end demo that:
 ```sh
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
 cd shpack
-./fetch-distfiles.sh   # download sources of all packages
-./build.sh amd64       # run the build up to latest GCC
-./build.sh aarch64
+./fetch-distfiles.sh        # download sources of all packages
+./build-rootfs.sh           # bootstrap + build GCC for the host arch (in a bwrap rootfs)
+./build-rootfs.sh --arch aarch64
 ```
 
-`shpack` needs unprivileged user namespaces for its rootless `bwrap` sandbox. These are
+There are two launchers, differing only in *where* the build runs. Both produce
+an identical store, and both isolate every package build the same way.
+
+- `build-rootfs.sh` **changes root**: a rootless `bwrap` namespace bind-mounts a
+  staged `rootfs/` at `/`, so the build sees only the store and the host `/usr`
+  is invisible. Needs unprivileged user namespaces.
+- `build-local.sh` builds **directly on the host**, into a relocatable
+  `$PWD/store`, with no root change and no `bwrap` -- handy when user namespaces
+  are unavailable. Host hygiene comes from `env -i` plus a store-only `PATH`.
+
+Isolation does not depend on the launcher. Regardless of which you use, shpack
+wraps every individual package build in a **Landlock sandbox** that restricts
+filesystem access to just that build's declared inputs and its output prefix.
+That sandbox is a tiny self-contained C program (`sandbox-1.0`) bootstrapped
+early in the chain -- right after `tcc`+`musl` -- so it is available for the
+entire shell phase. So "rootfs vs local" is about the change of root, not about
+whether builds are sandboxed; they always are.
+
+Both launchers are idempotent (they reprovision only when arch, config or seeds
+change) and take an optional command (default `shpack install gcc`):
+
+```sh
+./build-local.sh                  # bootstrap + build GCC directly on the host, into ./store
+./build-rootfs.sh shpack install xz   # build one package over the existing base
+```
+
+`build-rootfs.sh` needs unprivileged user namespaces for its rootless `bwrap`. These are
 enabled by default on most distributions, but Debian and Ubuntu restrict them. If `bwrap`
-fails with a permission error, enable them:
+fails with a permission error, either enable them or just use `build-local.sh` instead (it
+needs no namespaces):
 
 ```sh
 sudo sysctl -w kernel.unprivileged_userns_clone=1   # Debian
@@ -44,7 +71,7 @@ dependencies:
 
 ```
 ...
-+ exec ./run.sh shpack install gcc
+==> shpack install gcc
 dc9a082    gcc@16.1.0
 e71e7f1      gcc-boot-wrapper@16.1.0
 8a8e2e0        gcc-boot@16.1.0
@@ -87,8 +114,8 @@ itself:
 
 ```sh
 $ ./fetch-distfiles.sh
-$ PROVISION_ONLY=1 ./build.sh amd64   # or aarch64
-$ ./run.sh
+$ ./build-rootfs.sh --base-only   # provision the base only (host arch)
+$ ./build-rootfs.sh sh            # interactive shell inside the rootfs
 # shpack install xz
 # shpack install gcc
 ```
@@ -198,8 +225,8 @@ shpack core runs under the first bootstrap shell: dash 0.5.12, coreutils 5.0,
 sed 4.0.9, make 3.82, and the stage0 `sha256sum`. There is no grep, awk, find,
 xargs or mktemp at that point, and `expr`/`cut`/`tac` are avoided to keep the
 budget small; `tests/t-lint.sh` enforces this. Configuration (`etc/config`:
-ARCH, JOBS, STORE, DISTFILES, BASEPATH) is substituted on the host by `build.sh`
-when staging the rootfs -- there is no in-chroot configurator.
+ARCH, JOBS, STORE, DISTFILES, BASEPATH) is substituted on the host by the
+launchers (`stage.sh`) when staging -- there is no in-chroot configurator.
 
 ### Tests
 

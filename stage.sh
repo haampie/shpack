@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 #
 # stage.sh -- shared rootfs/seed-tree staging, sourced by both launchers:
-#   build.sh       (sandboxed: stage under rootfs/, run the kaem chain via bwrap)
-#   build-host.sh  (no sandbox: stage under a scratch dir, run natively)
+#   build-rootfs.sh  (sandboxed: stage under rootfs/, run the kaem chain via bwrap)
+#   build-local.sh   (no sandbox: stage under a scratch dir, run natively)
 #
 # The two launchers differ only in WHERE the seed tree and the store live and
 # HOW the kaem chain is launched. The staging itself -- which seed binaries and
@@ -22,6 +22,18 @@
 #                   (@SH_LINK_DIR@; /bin under chroot, the dash store bin on host
 #                   where /bin is not writable -- see dash-0.5.12/kaem.run)
 # derive_paths "$T_STORE" then fills T_SEED_PATH / T_BASEPATH from the store.
+
+# provision_stamp -- echo a fingerprint of everything that, per the design,
+# requires a re-provision when it changes: the target arch, the resolved token
+# roots baked into the staged base, and the provisioning input templates. The
+# launchers save this beside the store (.provisioned) and re-provision when it
+# no longer matches. Host sha256sum here (staging-time, not the in-sandbox tool
+# budget that constrains shpack core). Caller runs from the repo root.
+provision_stamp() {
+    printf 'arch=%s store=%s seeddir=%s shpack=%s distfiles=%s\n' \
+        "$ARCH" "$T_STORE" "$T_SEEDDIR" "$T_SHPACK" "$T_DISTFILES"
+    sha256sum shpack/etc/config.in shpack/etc/externals.in shpack/bootstrap/0.kaem.in
+}
 
 # derive_paths STORE -- compute the seed-tool PATH and the shell-phase PATH floor
 # from a store root, so a relocated store relocates both PATHs with it. Mirrors
@@ -121,14 +133,12 @@ stage_seed_tree() {
     fi
 }
 
-# stage_shpack DEST [truncate] -- stage the kaem-phase shpack base (bootstrap/ +
-# the substituted config/externals) under DEST (the on-disk path @SHPACK@ resolves
-# to). With "truncate", the staged 0.kaem is cut at the tcc+musl sentinel so the
-# chain stops once tcc 0.9.27 + musl are in the store (used by build-host.sh).
-# shpack/{bin,lib,packages} are deliberately NOT staged -- the launchers bind or
-# point at the live host checkout for those.
+# stage_shpack DEST -- stage the kaem-phase shpack base (bootstrap/ + the
+# substituted config/externals) under DEST (the on-disk path @SHPACK@ resolves
+# to). shpack/{bin,lib,packages} are deliberately NOT staged -- the launchers
+# bind or point at the live host checkout for those.
 stage_shpack() {
-    local DEST="$1" trunc="${2:-}" f
+    local DEST="$1" f
     mkdir -p "${DEST}/etc"
     cp -r shpack/bootstrap "${DEST}/"
     subst shpack/bootstrap/0.kaem.in "${DEST}/bootstrap/0.kaem"
@@ -143,9 +153,6 @@ stage_shpack() {
     for f in "${DEST}"/bootstrap/musl-1.1.24/shpack-shell/*.after; do
         subst "$f" "$f.tmp" && mv "$f.tmp" "$f"
     done
-    if [ "$trunc" = truncate ]; then
-        sed -i '/@@STOP_AFTER_TCC_MUSL@@/q' "${DEST}/bootstrap/0.kaem"
-    fi
     subst shpack/etc/config.in    "${DEST}/etc/config"
     subst shpack/etc/externals.in "${DEST}/etc/externals"
 }

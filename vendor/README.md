@@ -41,8 +41,8 @@ slower than dash. This copy reuses per-command token/string pools, caches the
 envp array, and stops copying argv, driving per-command `brk` toward 0. It also
 raises `MAX_ARRAY` to 4096 (musl's full-libc `ar` line lists ~1260 objects in
 one command, and `tcc -ar` can't split). Output is byte-identical, gated on the
-musl `libc.a` sha256. `build.sh` drops these files over the staged submodule
-copy (`mescc-tools/Kaem/`), which stays pristine. Still compiled by M2-Planet,
+musl `libc.a` sha256. Staging (`stage.sh`) drops these files over the staged
+submodule copy (`mescc-tools/Kaem/`), which stays pristine. Still compiled by M2-Planet,
 so it stays within that C subset. See the header comment in `kaem.c`.
 
 ## `stage0-posix/`
@@ -50,5 +50,5 @@ so it stays within that C subset. See the header comment in `kaem.c`.
 Submodule, [oriansj/stage0-posix](https://github.com/oriansj/stage0-posix) at
 Release_1.9.1. The upstream binary seeds and the hex0/M1/M2 bring-up chain
 (mescc-tools, M2-Planet, M2-Mesoplanet, M2libc). Pristine — local
-modifications are layered on at stage time by `build.sh`, never committed into
+modifications are layered on at stage time by `stage.sh`, never committed into
 the submodule.

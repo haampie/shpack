@@ -4,8 +4,8 @@
 # The kaem-phase package chain: a static, hand-written driver that takes the
 # system from the stage0 seed tools to the first shell, then hands over to
 # shpack. This file is the whole "package manager" of the kaem phase -- the
-# package order is fixed, so nothing needs to be computed in-chroot: build.sh
-# substitutes the @TOKEN@ values when staging the rootfs.
+# package order is fixed, so nothing needs to be computed in-chroot: the
+# launchers substitute the @TOKEN@ values (via stage.sh) when staging.
 #
 # Per package: install prefix /opt/<name-version>, one PATH prepend, one
 # child kaem running /shpack/bootstrap/<name-version>/kaem.run. The scripts
@@ -15,9 +15,9 @@
 #
 # The chain: simple-patch -> tcc-0.9.26 (+ subset musl) -> full musl ->
 # tcc-0.9.27 -> make -> patch -> gzip -> tar -> sed -> bzip2 -> coreutils ->
-# dash. dash is the first shell, and the chain ends there: the resulting rootfs
-# is the reusable base over which the launcher (run.sh) runs shpack to build
-# everything else up to gcc (see the top-level README.md).
+# dash. dash is the first shell, and the chain ends there: the result is the
+# reusable base over which a launcher (build-rootfs.sh or build-local.sh) runs
+# shpack to build everything else up to gcc (see the top-level README.md).
 
 # Globals, inherited through the environment by every kaem.run child.
 PATH=@SEED_PATH@
@@ -28,7 +28,7 @@ BOOT=@SHPACK@/bootstrap
 # The seed working tree (stage0 tools, M2libc, our C sources, per-arch check
 # assets). The seed phase runs with this as its CWD; the kaem phase reaches a
 # few seed inputs here by absolute path (our tcc_cc/stack_c sources, M2libc ELF
-# stubs, stack_c_intro.M1) -- see stage0-hook.kaem and build.sh's SEEDROOT.
+# stubs, stack_c_intro.M1) -- see stage0-hook.kaem and stage_seed_tree (stage.sh).
 SEEDDIR=@SEEDDIR@
 # The libc's own store prefix. Expanded once here (not derived from any
 # package's PREFIX): tcc bakes LIBDIR/INCDIR in as its crt-prefix and
@@ -101,9 +101,9 @@ PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
 # sandbox: the Landlock build-step launcher (project-original C, statically
-# linked with the just-built tcc+musl). Built here so it lands in the store
-# before the truncation point -- the shell phase wraps every build with it (see
-# concretize.sh emit_dagmk), so build-host.sh's truncated chain needs it too.
+# linked with the just-built tcc+musl). The shell phase wraps every build with
+# it (see concretize.sh emit_dagmk) regardless of launcher, so it is built here
+# as soon as tcc+musl exist.
 pkg=sandbox-1.0
 PKG=${BOOT}/${pkg}
 PREFIX=@STORE@/${pkg}
@@ -112,9 +112,9 @@ mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
-# patch-shebangs: rewrites #!/bin/sh shebangs to the store shell so sandboxed
-# shell-phase builds need no host /bin/sh. Built here for the same reason as
-# sandbox -- it must precede the truncation point so build-host.sh gets it.
+# patch-shebangs: rewrites #!/bin/sh shebangs to the store shell so shell-phase
+# builds need no host /bin/sh. Built here for the same reason as sandbox -- as
+# soon as tcc+musl exist.
 pkg=patch-shebangs-1.0
 PKG=${BOOT}/${pkg}
 PREFIX=@STORE@/${pkg}
@@ -123,11 +123,8 @@ mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
-# @@STOP_AFTER_TCC_MUSL@@ -- tcc 0.9.27 + (float-healed) musl 1.1.24 are now in
-# the store. The chroot-free host launcher (build-host.sh) truncates the chain
-# here (sed '/@@STOP_AFTER_TCC_MUSL@@/q') so nothing past this point -- which
-# includes dash's `cp dash /bin/sh` -- runs or writes outside the store. The
-# sandboxed build.sh keeps the full chain (this line is an inert comment there).
+# tcc 0.9.27 + (float-healed) musl 1.1.24 are now in the store. The chain runs in
+# full for both launchers; what follows builds with a real makefile.
 
 # make 3.82: first build tool; everything below builds with a real makefile.
 pkg=make-3.82
@@ -197,7 +194,7 @@ PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
 # Base ready: dash is the first shell and the kaem-phase /opt tools exist, so
-# shpack is runnable. The kaem chain ends here -- this rootfs is the reusable
-# "base image". The shell phase (concretize + build up to gcc) is NOT run here;
-# the launcher (run.sh) bind-mounts shpack/{bin,lib,packages} over this base and
-# runs `shpack install <target>`. See build.sh and the top-level README.md.
+# shpack is runnable. The kaem chain ends here -- this is the reusable "base
+# image". The shell phase (concretize + build up to gcc) is NOT run here; a
+# launcher (build-rootfs.sh or build-local.sh) brings in shpack/{bin,lib,packages}
+# over this base and runs `shpack install <target>`. See the top-level README.md.

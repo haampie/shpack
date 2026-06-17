@@ -1,8 +1,8 @@
 #!/bin/sh
 # Fetch every source tarball the bootstrap needs into distfiles/, in parallel,
 # and verify each against its sha256. Distfiles are no longer committed to the
-# repo (see .gitignore); run this once before build.sh. build.sh also calls it
-# automatically. Re-runs only download what is missing.
+# repo (see .gitignore); run this once before a build. Re-runs only download
+# what is missing.
 #
 # The manifest below is "sha256  filename  url", derived from the recipes:
 #   - shpack/packages/*/package.sh   (version/resource "sha256=.. url=..")
