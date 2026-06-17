@@ -2,72 +2,76 @@
 
 `shpack` is a fast, bootstrappable package manager for Linux. It builds a complete modern compiler toolchain (GCC 16, glibc 2.43, binutils 2.46) from source, starting from a few hundred bytes of trusted machine code (from [stage0-posix][3]). The first C/C++ compiler, GCC 4.7, comes up in about **2 minutes 30 seconds**, and the full dynamically linked toolchain finishes in **15**[^fast] to **30**[^bench] minutes total.
 
-The project has two parts: the package manager itself, and the bootstrapping path it follows. It bootstraps a basic shell first, then increasingly capable C compilers and libraries, and finally the complete toolchain. The only binaries it trusts are that seed, the host kernel, and `bwrap`[^bwrap]; everything else is compiled from checksummed sources. It features a new bootstrapping path where the TinyCC C compiler with musl libc is built straight out of stage0-posix using [MES replacement][1].
+The only binaries it trusts are that seed, the host kernel, and `bwrap`[^bwrap]; everything else is compiled from checksummed sources. It bootstraps a basic shell first, then increasingly capable C compilers and libraries, and finally the complete toolchain — using a new bootstrapping path where the TinyCC C compiler with musl libc is built straight out of stage0-posix via [MES replacement][1]. It targets `x86_64` and `AArch64` natively from the start, which matters on modern systems where 32-bit support (x86, arm32) may be disabled in the kernel or missing from the CPU (e.g. Apple Silicon).
 
-It targets `x86_64` and `AArch64` natively from the start. That matters on modern systems, where 32-bit support (x86, arm32) may be disabled in the kernel or missing from the CPU (e.g. Apple Silicon).
-
-The package manager is written entirely in POSIX shell, so it runs on an early `dash`, `make`, and minimal coreutils; it can take over as soon as the first real shell exists. Packages are described by small [declarative `package.sh` recipes][5] that are easy to read and maintain.
-
-Its simple dependency resolver emits a `Makefile`, so independent packages build in parallel under a single `make` jobserver.
-
-`shpack` borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes and Merkle-hashed dependency graphs. It is no coincidence that the `package.sh` recipes resemble Spack's: one motivation for the project is to bootstrap the Spack package manager itself. Thanks to Guix and [live-bootstrap][2] for showing that a full bootstrap is possible, and to [MES replacement][1] for making it fast.
+`shpack` borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes and Merkle-hashed dependency graphs. It is no coincidence that the [`package.sh` recipes][5] resemble Spack's: one motivation for the project is to bootstrap the Spack package manager itself. Thanks to Guix and [live-bootstrap][2] for showing that a full bootstrap is possible, and to [MES replacement][1] for making it fast.
 
 A note on scope: `shpack` trusts the generated files that upstream ships in release tarballs, including `configure` scripts and pre-generated source files. live-bootstrap takes the stricter path and rebuilds those artifacts too. `shpack` makes the other tradeoff deliberately: optimizing for a modern, real-world toolchain that bootstraps quickly, and keeping the dependency set small -- regenerating those artifacts would otherwise pull flex, bison, autotools and texinfo into the chain.
 
-## Bootstrapping a recent GNU compiler toolchain
+## Quick start
 
-The following is an end-to-end demo that:
-
-1. sets up a `rootfs/`
-2. bootstraps `shpack`'s own dependencies
-3. runs `shpack install gcc` to build a modern GCC toolchain
+Get the sources, then bootstrap the base once and drive `shpack` like any package
+manager:
 
 ```sh
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
 cd shpack
-./fetch-distfiles.sh                  # download sources of all packages
-./run-rootfs.sh shpack install gcc  # bootstrap, then build a modern GCC
+./fetch-distfiles.sh     # download the sources of all packages
+./run-local.sh sh        # bootstrap the base, then drop into a shpack shell
+# shpack install gcc     # build a modern GCC toolchain
+# shpack install xz      # ...or any single package
 ```
 
-There are two launchers, differing only in *where* the build runs. Both produce
-an identical store, and both isolate every package build the same way.
+`run-local.sh` provisions the bootstrap base (the stage0 seed up through `dash`)
+and then runs whatever command you pass it. Passing `sh` drops you into the
+bootstrapped `dash` with `shpack` on `PATH`, so you can use it interactively. It
+needs no root and no namespaces, and installs into a local `./store` (override
+with `--store DIR`).
 
+If you would rather build the whole toolchain in one shot, pass the command
+directly instead of `sh` (this is also the default if you pass nothing):
+
+```sh
+./run-local.sh                      # same as: ./run-local.sh shpack install gcc
+./run-local.sh shpack install xz    # build one package over the existing base
+```
+
+Launchers are idempotent: they reprovision only when arch, config or seeds
+change, otherwise they skip straight to running your command over the existing
+store, where only out-of-date packages rebuild.
+
+### Sandboxing & isolation
+
+Every individual package build is wrapped in a **Landlock sandbox** that restricts
+filesystem access to just that build's declared inputs and its output prefix. That
+sandbox is a tiny self-contained C program (`sandbox-1.0`) bootstrapped early in
+the chain -- right after `tcc`+`musl` -- so it covers the entire shell phase. There
+is no `/bin/sh` anywhere: the `shpack` wrapper and every build invoke the store
+`dash` explicitly, so the host shell is never picked up.
+
+There are two launchers, differing only in *where* the build runs. Both produce an
+identical store and sandbox every build the same way; the difference is the change
+of root, not the per-build isolation:
+
+- `run-local.sh` (default) builds **directly on the host**, into `./store`, with
+  no root change and no `bwrap`. Host hygiene comes from `env -i` plus a store-only
+  `PATH`. Works without user namespaces.
 - `run-rootfs.sh` **changes root**: a rootless `bwrap` namespace bind-mounts a
-  staged `rootfs/` at `/`, so the build sees only the store and the host `/usr`
-  is invisible. Needs unprivileged user namespaces.
-- `run-local.sh` builds **directly on the host**, into a local `$PWD/store`
-  (or `--store DIR`), with no root change and no `bwrap` -- handy when user
-  namespaces are unavailable. Host hygiene comes from `env -i` plus a store-only
-  `PATH`.
+  staged `rootfs/` at `/`, so the build sees only the store and the host `/usr` is
+  invisible. More hermetic, but needs unprivileged user namespaces.
 
-Isolation does not depend on the launcher. Regardless of which you use, shpack
-wraps every individual package build in a **Landlock sandbox** that restricts
-filesystem access to just that build's declared inputs and its output prefix.
-That sandbox is a tiny self-contained C program (`sandbox-1.0`) bootstrapped
-early in the chain -- right after `tcc`+`musl` -- so it is available for the
-entire shell phase. So "rootfs vs local" is about the change of root, not about
-whether builds are sandboxed; they always are.
-
-Both launchers are idempotent (they reprovision only when arch, config or seeds
-change) and take an optional command (default `shpack install gcc`):
+User namespaces are enabled by default on most distributions, but Debian and Ubuntu
+restrict them. If `run-rootfs.sh` fails with a permission error, either use
+`run-local.sh` (which needs no namespaces) or enable them:
 
 ```sh
-./run-local.sh                  # bootstrap + build GCC directly on the host, into ./store
-./run-rootfs.sh shpack install xz   # build one package over the existing base
-```
-
-`run-rootfs.sh` needs unprivileged user namespaces for its rootless `bwrap`. These are
-enabled by default on most distributions, but Debian and Ubuntu restrict them. If `bwrap`
-fails with a permission error, either enable them or just use `run-local.sh` instead (it
-needs no namespaces):
-
-```sh
-sudo sysctl -w kernel.unprivileged_userns_clone=1   # Debian
+sudo sysctl -w kernel.unprivileged_userns_clone=1            # Debian
 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0   # Ubuntu 24.04+
 ```
 
-Once `shpack` is bootstrapped, you will see that it runs `shpack install gcc`, which resolves the
-dependencies:
+### What `shpack install gcc` resolves
+
+`shpack install gcc` resolves the dependency graph and builds it:
 
 ```
 ...
@@ -103,30 +107,12 @@ df74cac      binutils@2.46.0
 0ee9ae9        libstdcxx-boot1@16.1.0
 ```
 
-The `(external)` nodes are part of the initial bootstrapping phase.
+The `(external)` nodes are part of the initial bootstrapping phase. All installed
+packages are put into unique prefixes `/opt/<name>-<version>[-<hash>]`.
 
-All installed packages are put into unique prefixes `/opt/<name>-<version>[-<hash>]`.
+## Recipes
 
-## Interactive use
-
-You can also use the `shpack` package manager interactively. Passing `sh` to
-either launcher provisions the base if needed, then drops you into the
-bootstrapped `dash` with `shpack` on `PATH` (a small wrapper), so you can run it
-by name. There is no `/bin/sh` anywhere: the wrapper and every build invoke the
-store `dash` explicitly, so the host shell is never picked up.
-
-```sh
-$ ./fetch-distfiles.sh
-$ ./run-rootfs.sh sh   # a shell inside the rootfs (or ./run-local.sh sh, on the host)
-# shpack install xz
-# shpack install gcc
-```
-
-## shpack packages
-
-Paths in this section are relative to [shpack/](shpack/)
-
-### Recipes
+Paths in this section are relative to [shpack/](shpack/).
 
 One directory per package name: `packages/<name>/package.sh`, with optional
 `patches/` and `files/`. A recipe declares versions (with source checksums),
@@ -156,7 +142,16 @@ depends_on mpfr@2.4.2 when=4.7-2013.11
 depends_on mpfr@3.1.6 when=8.5.0
 ```
 
-### Concretization and store
+---
+
+# How it works
+
+`shpack` is written entirely in POSIX shell, so it runs on an early `dash`, `make`,
+and minimal coreutils; it can take over as soon as the first real shell exists. Its
+simple dependency resolver emits a `Makefile`, so independent packages build in
+parallel under a single `make` jobserver.
+
+## Concretization and store
 
 `shpack install <name>` resolves names to concrete versions (newest wins;
 `name@version` pins; the externals table wins ties), walks `depends_on` into a
@@ -173,7 +168,7 @@ from the store. Packages the kaem phase already installed (unhashed
 Spack-`packages.yaml`-style; they resolve like any other candidate and
 contribute their identity to dependents' hashes.
 
-### Scheduling
+## Scheduling
 
 Concretization emits `dag.mk` (one stamp target per node, direct deps as
 prerequisites) and GNU make runs the DAG in parallel. Each build is its own
@@ -185,7 +180,7 @@ per-package; a failure prints the log tail and stops. When the DAG contains
 race-prone bootstrap make 3.82, and everything else runs `-j$JOBS` under the new
 make's fifo jobserver.
 
-### Build systems and phases
+## Build systems and phases
 
 Every build runs: `fetch` (sha256-verify distfiles) -> `stage` (unpack to a
 scratch dir) -> `patch` -> build-system phases -> `finalize` (write `.shpack/`
@@ -206,7 +201,7 @@ before the first phase. Recipes see: `name`, `version`, `id`, `PREFIX`,
 that overrides `install()` and needs the coreutils binary of the same name must
 call `command install`.
 
-### CLI
+## CLI
 
 ```
 shpack install <spec>...     concretize + build (spec: name or name@version)
@@ -221,7 +216,7 @@ State lives under `$SHPACK_VAR` (default `/tmp/shpack`): `spec/<id>/` node dirs,
 only persistent output; `build-one` short-circuits when a node's prefix already
 carries `.shpack/spec`.
 
-### Tool budget
+## Tool budget
 
 shpack core runs under the first bootstrap shell: dash 0.5.12, coreutils 5.0,
 sed 4.0.9, make 3.82, and the stage0 `sha256sum`. There is no grep, awk, find,
@@ -230,7 +225,7 @@ budget small; `tests/t-lint.sh` enforces this. Configuration (`etc/config`:
 ARCH, JOBS, STORE, DISTFILES, BASEPATH) is substituted on the host by the
 launchers (`stage.sh`) when staging -- there is no in-chroot configurator.
 
-### Tests
+## Tests
 
 `tests/run.sh` runs the suite on the host under dash: version comparison,
 resolution/concretization, Merkle-hash propagation, end-to-end installs of toy
@@ -239,7 +234,7 @@ bring-up), and the tool-budget lint. No chroot required.
 
 [^fast]: 14 minutes 9 seconds on an Intel Core Ultra 9 285 from 2025.
 [^bench]: 28-29 minutes on an 8-core AMD Ryzen 7 3700X from 2019.
-[^bwrap]: `bwrap` is used for convenience today; this may be replaced with a simpler `chroot`/`unshare`-based sandbox later.
+[^bwrap]: `bwrap` is used for convenience today (only by `run-rootfs.sh`); this may be replaced with a simpler `chroot`/`unshare`-based sandbox later.
 
 [1]: https://github.com/FransFaase/MES-replacement
 [2]: https://github.com/fosslinux/live-bootstrap
