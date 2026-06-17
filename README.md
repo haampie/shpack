@@ -114,8 +114,7 @@ itself:
 
 ```sh
 $ ./fetch-distfiles.sh
-$ ./build-rootfs.sh --base-only   # provision the base only (host arch)
-$ ./build-rootfs.sh sh            # interactive shell inside the rootfs
+$ ./build-rootfs.sh sh   # provisions the base if needed, then opens a shell inside the rootfs
 # shpack install xz
 # shpack install gcc
 ```
