@@ -52,10 +52,10 @@ See [Sandboxing](#sandboxing) for more information.
 
 #### `run-rootfs.sh`
 
-`run-rootfs.sh` builds inside a changed root. It currently depends on `bwrap`[^bwrap],
-which uses unprivileged namespaces for bind mounting and change of root to `rootfs/`.
-It is more hermetic, but needs unprivileged user namespaces. It installs packages to `/opt`
-inside the rootfs:
+`run-rootfs.sh` builds inside a changed root. It currently depends on
+`bwrap`[^bwrap], for bind mounting in and change of root to `rootfs/`.  It is
+more hermetic, but needs (unprivileged) user namespaces. It installs packages
+to `/opt` inside the rootfs:
 
 ```console
 $ ./run-rootfs.sh shpack install gcc
@@ -63,13 +63,13 @@ $ ./run-rootfs.sh shpack install gcc
 [+] dc9a082 gcc@16.1.0 /opt/gcc-16.1.0-dc9a082
 ```
 
-NOTE: user namespaces are enabled by default on most distributions, but Debian and Ubuntu
-restrict them. If `run-rootfs.sh` fails with a permission error, either use
-`run-local.sh` (which needs no namespaces) or enable them:
+User namespaces are enabled by default on most distributions, but Debian and
+Ubuntu restrict them. If `run-rootfs.sh` fails with a permission error, either
+use `run-local.sh` (which needs no namespaces) or enable them:
 
 ```sh
-sudo sysctl -w kernel.unprivileged_userns_clone=1            # Debian
-sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0   # Ubuntu 24.04+
+sudo sysctl -w kernel.unprivileged_userns_clone=1  # Debian
+sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0  # Ubuntu 24.04+
 ```
 
 ### Running interactively
