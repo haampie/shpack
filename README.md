@@ -8,38 +8,50 @@ The build itself trusts only a single binary seed. Everything else is compiled f
 
 ## Quick start
 
-Get the sources, then bootstrap the base once and drive `shpack` like any package
-manager:
+### Setup
+
+Clone the repository and download the package sources once:
 
 ```sh
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
 cd shpack
-./fetch-distfiles.sh     # download the sources of all packages
-./run-local.sh sh        # bootstrap the base, then drop into a shell with shpack on PATH
-# shpack install gcc     # build a modern GCC toolchain
-# shpack install xz      # ...or any single package
+./fetch-distfiles.sh     # download the sources of every package
 ```
 
-`run-local.sh` provisions the bootstrap base (the stage0 seed up through `dash`)
-and then runs whatever command you pass it. Passing `sh` drops you into the
-bootstrapped `dash` with `shpack` on `PATH`, so you can use it interactively. It
-does not need sudo nor namespaces, and installs into a local `./store` (override
-with `--store DIR`).
+### Two ways to run
 
-If you would rather build the whole toolchain in one shot, pass the command
-directly instead of `sh` (this is also the default if you pass nothing):
+There are two launchers. Both provision the bootstrap base once (the stage0 seed up
+through `dash`) and then drive `shpack` like any package manager. Pass a command to
+run it directly, `sh` to drop into a shell with `shpack` on `PATH`, or nothing at all
+(the default is `shpack install gcc`).
+
+**`run-local.sh` -- build directly on the host.** No chroot, no `bwrap`, no user
+namespaces, so it runs almost anywhere. Installs into a local `./store` (override
+with `--store DIR`):
+
+```console
+$ ./run-local.sh shpack install gcc
+...
+[+] dc9a082 gcc@16.1.0 /home/you/shpack/store/gcc-16.1.0-dc9a082
+```
+
+**`run-rootfs.sh` -- build inside a changed root.** Same recipes, identical store,
+but a rootless `bwrap`[^bwrap] namespace bind-mounts a staged `rootfs/` at `/`, so
+the build sees only the store and the host `/usr` is invisible. More hermetic, but
+needs unprivileged user namespaces. Installs into `/opt` inside the rootfs:
+
+```console
+$ ./run-rootfs.sh shpack install gcc
+...
+[+] dc9a082 gcc@16.1.0 /opt/gcc-16.1.0-dc9a082
+```
+
+Either launcher also takes `sh` for an interactive shell, or any single package:
 
 ```sh
-./run-local.sh                      # same as: ./run-local.sh shpack install gcc
+./run-local.sh sh                   # interactive shell, shpack on PATH
 ./run-local.sh shpack install xz    # build one package over the existing base
 ```
-
-There are two launchers. `run-local.sh` (shown above) builds **directly on the
-host** into `./store` -- no chroot, no `bwrap`, no user namespaces -- so it runs
-almost anywhere. `run-rootfs.sh` takes the same recipes and produces an identical
-store, but **changes root**: a rootless `bwrap`[^bwrap] namespace bind-mounts a
-staged `rootfs/` at `/`, so the build sees only the store and the host `/usr` is
-invisible. It is more hermetic, but needs unprivileged user namespaces.
 
 User namespaces are enabled by default on most distributions, but Debian and Ubuntu
 restrict them. If `run-rootfs.sh` fails with a permission error, either use
@@ -98,38 +110,6 @@ packages are put into unique prefixes `/opt/<name>-<version>[-<hash>]`.
 
 By design, `shpack` bootstraps *on top of a running Linux*: the build does syscalls (`execve` and friends), so it depends on the kernel's ABI, and getting it started leans on the ordinary userland (a shell, `sed`, coreutils) the launcher uses to stage and kick off the bootstrap. This is a deliberate scope, not full bare-metal trustlessness -- for that you would boot into the bootstrap and run it directly on hardware. What `shpack` aims for instead is reproducibility: the same seed and sources should yield the same toolchain across different Linux machines, so a [Thompson-style][6] compromise would have to be present on *every* host you compare to go unnoticed. `shpack` also trusts the generated files that upstream ships in release tarballs, including `configure` scripts and pre-generated source files. live-bootstrap takes the stricter path and rebuilds those artifacts too; `shpack` makes the other tradeoff deliberately, optimizing for a modern, real-world toolchain that bootstraps quickly and keeping the dependency set small -- regenerating those artifacts would otherwise pull flex, bison, autotools and texinfo into the chain.
 
-## Recipes
-
-Paths in this section are relative to [shpack/](shpack/).
-
-One directory per package name: `packages/<name>/package.sh`, with optional
-`patches/` and `files/`. A recipe declares versions (with source checksums),
-dependencies, patches and a build system via shell directives, and may override
-build phases with hook functions:
-
-```sh
-description "GNU binary utilities"
-version 2.30 sha256=8c38... url=https://ftp.gnu.org/gnu/binutils/binutils-2.30.tar.gz
-build_system autotools
-depends_on tcc musl gmake@4.4.1
-patch arm64-elfnn-howto.patch arch=aarch64
-
-configure_args() {
-    printf '%s\n' --with-sysroot="$(prefix_of musl)" --disable-nls
-}
-```
-
-A `version` line is repeatable, and `depends_on ... when=VER` ties a dependency
-to one declared version (no `when=` means all versions), so one recipe can carry
-several versions with different pinned deps:
-
-```sh
-version 4.7-2013.11 sha256=... url=...
-version 8.5.0       sha256=... url=...
-depends_on mpfr@2.4.2 when=4.7-2013.11
-depends_on mpfr@3.1.6 when=8.5.0
-```
-
 ---
 
 # How it works
@@ -183,6 +163,38 @@ This is what makes `run-local.sh` safe to run directly on the host: even with no
 chroot, a build cannot read or write outside its declared inputs and output
 prefix. `run-rootfs.sh` adds a change of root on top, hiding the host `/usr`
 entirely, but the per-build confinement is identical either way.
+
+## Recipes
+
+Paths in this section are relative to [shpack/](shpack/).
+
+One directory per package name: `packages/<name>/package.sh`, with optional
+`patches/` and `files/`. A recipe declares versions (with source checksums),
+dependencies, patches and a build system via shell directives, and may override
+build phases with hook functions:
+
+```sh
+description "GNU binary utilities"
+version 2.30 sha256=8c38... url=https://ftp.gnu.org/gnu/binutils/binutils-2.30.tar.gz
+build_system autotools
+depends_on tcc musl gmake@4.4.1
+patch arm64-elfnn-howto.patch arch=aarch64
+
+configure_args() {
+    printf '%s\n' --with-sysroot="$(prefix_of musl)" --disable-nls
+}
+```
+
+A `version` line is repeatable, and `depends_on ... when=VER` ties a dependency
+to one declared version (no `when=` means all versions), so one recipe can carry
+several versions with different pinned deps:
+
+```sh
+version 4.7-2013.11 sha256=... url=...
+version 8.5.0       sha256=... url=...
+depends_on mpfr@2.4.2 when=4.7-2013.11
+depends_on mpfr@3.1.6 when=8.5.0
+```
 
 ## Build systems and phases
 
