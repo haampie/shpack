@@ -35,7 +35,13 @@ $ ./run-local.sh shpack install gcc
 [+] dc9a082 gcc@16.1.0 /home/you/shpack/store/gcc-16.1.0-dc9a082
 ```
 
-and the installed compiler can be used directly from the host.
+and the installed compiler can be used directly without chroot:
+
+```console
+$ /home/you/shpack/store/gcc-16.1.0-dc9a082/bin/g++ hello.cc -o hello
+$ ./hello
+hello world
+```
 
 Building without chroot might sound risky, but builds are confined by a Linux Landlock
 sandbox regardless of launcher, which offers protection from the host.
