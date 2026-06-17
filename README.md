@@ -43,7 +43,7 @@ $ ./hello
 hello world
 ```
 
-Building without chroot might sound risky, but builds are confined by a Linux Landlock
+Building without chroot might sound risky, but builds are confined by a [Linux Landlock][7]
 sandbox regardless of launcher, which offers protection from the host's filesystem.
 See [Sandboxing](#sandboxing) for more information.
 
@@ -269,3 +269,4 @@ bring-up), and the tool-budget lint. No chroot required.
 [4]: https://github.com/spack/spack
 [5]: shpack/packages
 [6]: https://dl.acm.org/doi/10.1145/358198.358210
+[7]: https://docs.kernel.org/userspace-api/landlock.html
