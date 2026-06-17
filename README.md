@@ -23,7 +23,7 @@ cd shpack
 `run-local.sh` provisions the bootstrap base (the stage0 seed up through `dash`)
 and then runs whatever command you pass it. Passing `sh` drops you into the
 bootstrapped `dash` with `shpack` on `PATH`, so you can use it interactively. It
-needs no root and no namespaces, and installs into a local `./store` (override
+does not need sudo nor namespaces, and installs into a local `./store` (override
 with `--store DIR`).
 
 If you would rather build the whole toolchain in one shot, pass the command
@@ -52,10 +52,6 @@ sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0   # Ubuntu 24.04+
 
 Building on the host might sound risky, but every package build is confined by a
 Landlock sandbox regardless of launcher -- see [Sandboxing](#sandboxing).
-
-Launchers are idempotent: they reprovision only when arch, config or seeds
-change, otherwise they skip straight to running your command over the existing
-store, where only out-of-date packages rebuild.
 
 ### What `shpack install gcc` resolves
 
