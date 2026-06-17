@@ -246,6 +246,28 @@ cmd_build_one() {
     export PREFIX ARCH JOBS makejobs MAKEFLAGS SOURCE_DATE_EPOCH=0 \
         HOME="$BUILD_HOME" CONFIG_SHELL SHELL sh PATH
 
+    # Dirs the compiler-wrapper package injects as -I / -L / -Wl,-rpath, plus
+    # PKG_CONFIG_PATH for configure. Direct deps only: each shared lib records
+    # its own DT_RUNPATH at build time, so transitive libs resolve without the
+    # whole closure. Harmless for packages that don't use the wrapper -- the
+    # SHPACK_* vars are read only by the wrapper shims.
+    local depdir liblist p
+    SHPACK_INCLUDE_DIRS= SHPACK_LINK_DIRS= SHPACK_RPATH_DIRS=
+    PKG_CONFIG_PATH=${PKG_CONFIG_PATH:-}
+    for depdir in $(cat "$SPEC/deps"); do
+        p=$(cat "$VAR/spec/$depdir/prefix")
+        [ -d "$p/include" ] && \
+            SHPACK_INCLUDE_DIRS=${SHPACK_INCLUDE_DIRS:+$SHPACK_INCLUDE_DIRS:}$p/include
+        for liblist in "$p/lib64" "$p/lib"; do
+            [ -d "$liblist" ] || continue
+            SHPACK_LINK_DIRS=${SHPACK_LINK_DIRS:+$SHPACK_LINK_DIRS:}$liblist
+            SHPACK_RPATH_DIRS=${SHPACK_RPATH_DIRS:+$SHPACK_RPATH_DIRS:}$liblist
+            [ -d "$liblist/pkgconfig" ] && \
+                PKG_CONFIG_PATH=${PKG_CONFIG_PATH:+$PKG_CONFIG_PATH:}$liblist/pkgconfig
+        done
+    done
+    export SHPACK_INCLUDE_DIRS SHPACK_LINK_DIRS SHPACK_RPATH_DIRS PKG_CONFIG_PATH
+
     stage_dir=$VAR/stage/$id
     rm -rf "$stage_dir"
     mkdir -p "$stage_dir"

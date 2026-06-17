@@ -58,6 +58,21 @@ c365874794187f8444e5d22998cd5888ffa47f36def4b77517a808dec27c0600  sed-4.0.9.tar.
 c6c37e888b136ccefab903c51149f4b7bd659d69d4aea21245f61053a57aa60a  tar-1.12.tar.gz                   https://mirrors.kernel.org/gnu/tar/tar-1.12.tar.gz
 6b8cbd0a5fed0636d4f0f763a603247bc1935e206e1cc5bda6a2818bab6e819f  tcc-0.9.26.tar.gz                 https://lilypond.org/janneke/tcc/tcc-0.9.26-1147-gee75a10c.tar.gz
 de23af78fca90ce32dff2dd45b3432b2334740bb9bb7b05bf60fdbfc396ceb9c  tcc-0.9.27.tar.bz2                https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27.tar.bz2
+
+# spack bootstrap (cpython + clingo + spack)
+9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23  zlib-1.3.1.tar.gz                https://zlib.net/fossils/zlib-1.3.1.tar.gz
+b3babbbb1461e13fe22c630a40c43885efcfbbbb585830c6f4c0d791cf82ba0b  re2c-3.0.tar.xz                  https://github.com/skvadrik/re2c/releases/download/3.0/re2c-3.0.tar.xz
+c0a3b3f2912b2166f522d5010ffb6029d8454ee635f5ad7a3247e0be7f9a15c9  cmake-3.31.11.tar.gz             https://github.com/Kitware/CMake/releases/download/v3.31.11/cmake-3.31.11.tar.gz
+b0dea9df23c863a7a50e825440f3ebffabd65df1497108e5d437747843895a4e  libffi-3.4.6.tar.gz              https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz
+10d4647cfbb543a7f9ae3e5f6851ec49305232ea7621aed24c7cfbb0bef4b70d  perl-5.40.2.tar.gz               https://www.cpan.org/src/5.0/perl-5.40.2.tar.gz
+b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e  openssl-3.6.1.tar.gz             https://github.com/openssl/openssl/releases/download/openssl-3.6.1/openssl-3.6.1.tar.gz
+64dfd5b1026700e0a0a324964749da9adc69ae5e51e899bf16ff47d6fd0e9a5e  cacert-2025-08-12.pem            https://curl.se/ca/cacert-2025-08-12.pem
+7e32597b99e5d9a39abed35de4693fa169df3e5850d4c334337ffd6a19a36db6  Python-3.14.5.tar.xz             https://www.python.org/ftp/python/3.14.5/Python-3.14.5.tar.xz
+7818eef2296c17ad38a57a77f7925c8df41744c4e736ab81042df95c1330f43b  clingo-2a025667.tar.gz           https://github.com/potassco/clingo/archive/2a025667090d71b2c9dce60fe924feb6bde8f667.tar.gz
+ab2ac6601292619f94831065ee5c009f3168e14be52a65df7b9abdc20a1fc33f  clasp-b089aa15.tar.gz            https://github.com/potassco/clasp/archive/b089aa1509511ab403c0b9abd0d13eb9e873af44.tar.gz
+41eb8b7d87ecea48392de4ada455cda179cbd62fd63496355dea87e1e44b599f  libpotassco-2f9fb7ca.tar.gz      https://github.com/potassco/libpotassco/archive/2f9fb7ca2c202f1b47643aa414054f2f4f9c1821.tar.gz
+aeda9424b679cbbbc338bc55fd93a95b9c2eb24a010d4ea701f0d60c416f4e28  spack-packages-119680ae.tar.gz   https://github.com/spack/spack-packages/archive/119680aeee8ea802c6111b7167583bddef97e82f.tar.gz
+518474f546e87723c43b80143d83a51c065a8d54333c8140da6f48bc7d9e50c1  spack-1.1.0.tar.gz               https://github.com/spack/spack/releases/download/v1.1.0/spack-1.1.0.tar.gz
 EOF
 )
 
