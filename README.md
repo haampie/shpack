@@ -25,7 +25,9 @@ through `dash`) and then drive `shpack` like any package manager. Pass a command
 run it directly, `sh` to drop into a shell with `shpack` on `PATH`, or nothing at all
 (the default is `shpack install gcc`).
 
-**`run-local.sh`** builds directly on the host, without a chroot. This method should
+#### `run-local.sh`
+
+`run-local.sh` builds directly on the host, without a chroot. This method should
 work almost everywhere as it doesn't require user namespaces. It install into a local
 `./store` (or any dir specified by `--store DIR`):
 
@@ -48,7 +50,9 @@ Building without chroot might sound "nonreproducible", but builds are confined b
 early on, and packages bootstrapped prior to that do not use system file paths.
 See [Sandboxing](#sandboxing) for more information.
 
-**`run-rootfs.sh`** builds inside a changed root. It currently depends on `bwrap`[^bwrap],
+#### `run-rootfs.sh`
+
+`run-rootfs.sh` builds inside a changed root. It currently depends on `bwrap`[^bwrap],
 which uses unprivileged namespaces for bind mounting and change of root to `rootfs/`.
 It is more hermetic, but needs unprivileged user namespaces. It installs packages to `/opt`
 inside the rootfs:
