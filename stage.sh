@@ -138,6 +138,11 @@ stage_shpack() {
     for f in "${DEST}"/bootstrap/*/sources.sha256; do
         subst "$f" "$f.tmp" && mv "$f.tmp" "$f"
     done
+    # musl's shpack-shell fragments hardcode the store dash path (@STORE@) into
+    # system()/popen() so sandboxed builds reach the store shell, not /bin/sh.
+    for f in "${DEST}"/bootstrap/musl-1.1.24/shpack-shell/*.after; do
+        subst "$f" "$f.tmp" && mv "$f.tmp" "$f"
+    done
     if [ "$trunc" = truncate ]; then
         sed -i '/@@STOP_AFTER_TCC_MUSL@@/q' "${DEST}/bootstrap/0.kaem"
     fi

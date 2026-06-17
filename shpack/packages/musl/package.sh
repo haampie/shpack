@@ -26,6 +26,12 @@ install() {
     ar=$(prefix_of binutils)/bin/ar
     ranlib=$(prefix_of binutils)/bin/ranlib
 
+    # Point system()/popen() at the store dash, which the sandbox grants (host
+    # /bin/sh it doesn't). Absolute path is fine: bootstrap-only libc, never
+    # relocated. The kaem-phase musl 1.1.24 carries the same change via @STORE@
+    # subst; the deliverable glibc is left alone.
+    sed -i "s|\"/bin/sh\"|\"$CONFIG_SHELL\"|" src/process/system.c src/stdio/popen.c
+
     # "./configure" (not "configure"): musl derives srcdir from ${0%/configure},
     # which is still "." when invoked as `$CONFIG_SHELL ./configure`.
     "$CONFIG_SHELL" ./configure \

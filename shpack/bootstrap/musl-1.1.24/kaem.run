@@ -49,6 +49,15 @@ untar --non-strict --file musl-1.1.24.tar
 # Apply the full tcc-compat patch set, then drop in the pre-generated headers.
 cd musl-1.1.24
 kaem --file ${MSRC}/${ARCH}/apply-full.kaem
+
+# Point musl's system()/popen() at the store dash: the sandbox grants no host
+# /bin/sh, so musl-linked tools that popen (gawk@3.0.4's `print | "cmd"`) must
+# reach the store shell. The .after fragments carry @STORE@, baked by stage.sh.
+# Bootstrap-only libc, never relocated, so absolute is fine. packages/musl does
+# the same for 1.2.5; the deliverable glibc keeps /bin/sh.
+SS=${MSRC}/shpack-shell
+simple-patch src/process/system.c ${SS}/system.c.before ${SS}/system.c.after
+simple-patch src/stdio/popen.c ${SS}/popen.c.before ${SS}/popen.c.after
 mkdir -p obj/include/bits
 mkdir -p obj/src/internal
 cp ${MSRC}/${ARCH}/generated/bits/alltypes.h obj/include/bits/alltypes.h

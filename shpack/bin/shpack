@@ -49,6 +49,11 @@ done
 # unset, e.g. the test fixture) means build unsandboxed.
 SANDBOX=${SANDBOX:-}
 
+# Optional: the shebang rewriter builder.sh runs on each source tree. Empty
+# (or unset, e.g. the test fixture) means leave shebangs as-is.
+PATCH_SHEBANGS=${PATCH_SHEBANGS:-}
+export PATCH_SHEBANGS
+
 . "$SHPACK_LIB/spec.sh"
 . "$SHPACK_LIB/repo.sh"
 . "$SHPACK_LIB/concretize.sh"

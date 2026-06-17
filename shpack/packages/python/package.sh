@@ -33,6 +33,11 @@ install() {
     sed -i '/extensions\.append(ctypes)/d' setup.py
     sed -i "s/'linux', //" setup.py
 
+    # subprocess(shell=True) hardcodes ["/bin/sh", "-c"] in pure Python, bypassing
+    # libc, so the musl patch can't reach it. The sandbox denies host /bin/sh
+    # (glibc's glibcextract.py drives the compiler this way) -- point at store dash.
+    sed -i "s|\[\"/bin/sh\", \"-c\"\]|[\"$CONFIG_SHELL\", \"-c\"]|" Lib/subprocess.py
+
     # Static musl has no dlopen, so shared C-extension modules can't be
     # imported. glibc's gen-as-const.py transitively needs several stdlib C
     # extensions, so link the dep-free ones STATICALLY into the interpreter via

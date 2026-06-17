@@ -1,0 +1,13 @@
+#!/kaem --verbose --strict
+# SPDX-License-Identifier: MIT
+#
+# patch-shebangs: rewrites #!/bin/sh shebangs to the store shell so sandboxed
+# builds need no host /bin/sh. Built before the truncation point (so build-host.sh
+# gets it); the shell phase runs it on every source tree (see builder.sh).
+# One source file, statically linked with musl by the just-built tcc.
+
+BLD=${TMPDIR}/build/${pkg}
+mkdir -p ${BLD}
+cd ${BLD}
+
+tcc -static -o ${BINDIR}/patch-shebangs ${PKG}/src/patch-shebangs.c

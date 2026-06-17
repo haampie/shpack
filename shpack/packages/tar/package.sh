@@ -22,6 +22,11 @@ setup_build_environment() {
     # rmt setup is intentional; the chroot drops to the real uid so this is a
     # belt-and-suspenders guard.
     export FORCE_UNSAFE_CONFIGURE=1
+
+    # tar runs compressors (`tar czf`) via execv("/bin/sh", -c) hardcoded in
+    # src/system.c, bypassing libc. The sandbox denies host /bin/sh, so `tar czf`
+    # fails ("gzip: Cannot exec"; binutils' gprofng docs hit this) -- store dash.
+    sed -i "s|\"/bin/sh\"|\"$CONFIG_SHELL\"|g" src/system.c
 }
 
 configure_args() {

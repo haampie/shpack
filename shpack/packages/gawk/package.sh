@@ -32,6 +32,12 @@ depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed tar xz when=5.3.1
 
 install() {
     local triple
+    # gawk's system()/`| getline`/`print | "cmd"` execl a hardcoded "/bin/sh"
+    # (builtin.c, io.c), bypassing libc, so the musl patch can't reach it. The
+    # sandbox has no host /bin/sh -- repoint at the store dash. (glibc's
+    # gen-sorted.awk does system("test -d ..."); without this the build descends
+    # into no subdirs and links an empty libc.)
+    sed -i "s|\"/bin/sh\"|\"$CONFIG_SHELL\"|g" builtin.c io.c
     case "$version" in
         3.0.4)
             # Replicate the old `makefile` build system: a replacement Makefile

@@ -37,3 +37,8 @@ SHPACK_BOOTSTRAP_MAKE=gmake@4.4.1
 # /usr is invisible and stray writes are denied. Leave empty to build
 # unsandboxed (the test fixture does not set it).
 SANDBOX=@STORE@/sandbox-1.0/bin/sandbox
+
+# Rewrites `#!/bin/sh` shebangs in each unpacked source to $CONFIG_SHELL before
+# building, since the sandbox has no host /bin/sh for install-sh/config.guess
+# and friends. Leave empty to skip (the test fixture does not set it).
+PATCH_SHEBANGS=@STORE@/patch-shebangs-1.0/bin/patch-shebangs

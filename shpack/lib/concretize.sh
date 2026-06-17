@@ -198,6 +198,9 @@ emit_dagmk() {
             printf 'SHPACK := %s\n' "$SHPACK_ROOT"
             printf 'REPO := %s\n' "$REPO"
             printf 'DISTFILES := %s\n' "$DISTFILES"
+            # etc dir each build-one re-sources: the staged base, distinct from
+            # $SHPACK_ROOT (live bin/lib/packages), so its own read grant.
+            printf 'ETC := %s\n' "${CONFIG%/*}"
             printf 'V := %s\n' "$VAR"
         fi
         printf '\n'
@@ -227,7 +230,7 @@ emit_dagmk() {
             pre= wrap=
             if [ -n "$SANDBOX" ]; then
                 pre="mkdir -p $prefix; "
-                wrap="\$(SANDBOX) --read \$(STORE) --read \$(SHPACK) --read \$(REPO) --read \$(DISTFILES) --write \$(V) --write $prefix -- "
+                wrap="\$(SANDBOX) --read \$(STORE) --read \$(SHPACK) --read \$(REPO) --read \$(DISTFILES) --read \$(ETC) --write \$(V) --write $prefix -- "
             fi
             printf '\t+@echo "=> %s"; %s\\\n' "$id" "$pre"
             printf '\tPATH=%s$(BASEPATH) \\\n' "$(compose_path "$id")"

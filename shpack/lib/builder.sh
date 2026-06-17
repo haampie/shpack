@@ -221,8 +221,13 @@ cmd_build_one() {
     # shell (etc/config), so nothing relies on a /bin/sh shebang.
     BUILD_HOME=$VAR/home
     mkdir -p "$BUILD_HOME"
-    export PREFIX ARCH JOBS MAKEJOBS SOURCE_DATE_EPOCH=0 HOME="$BUILD_HOME" \
-        CONFIG_SHELL SHELL PATH
+    # SHELL via MAKEFLAGS so it reaches recursive sub-makes and overrides even a
+    # baked-in `SHELL = /bin/sh` (kernel headers, musl, gawk@3.0.4); otherwise a
+    # sub-make falls back to host /bin/sh, which the sandbox denies. Append to
+    # preserve the dag.mk jobserver flags already here.
+    MAKEFLAGS="${MAKEFLAGS:-} SHELL=$CONFIG_SHELL"
+    export PREFIX ARCH JOBS MAKEJOBS MAKEFLAGS SOURCE_DATE_EPOCH=0 \
+        HOME="$BUILD_HOME" CONFIG_SHELL SHELL PATH
 
     stage_dir=$VAR/stage/$id
     rm -rf "$stage_dir"
@@ -234,6 +239,15 @@ cmd_build_one() {
     echo "==> $id: stage"
     do_stage
     do_patch
+
+    # Repoint #!/bin/sh shebangs (build helpers like install-sh, config.guess are
+    # exec'd directly) at the store shell, since the sandbox has no host /bin/sh.
+    # Whole $stage_dir, not just $source_dir: a `resource` (gcc's in-tree gmp/
+    # mpfr/mpc) sits as a sibling until setup_build_environment relocates it.
+    if [ -n "${PATCH_SHEBANGS:-}" ]; then
+        echo "==> $id: patch-shebangs"
+        "$PATCH_SHEBANGS" "$CONFIG_SHELL" "$stage_dir"
+    fi
 
     if is_function setup_build_environment; then
         setup_build_environment

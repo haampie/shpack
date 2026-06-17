@@ -112,6 +112,17 @@ mkdir -p ${BINDIR}
 PATH=${BINDIR}:${PATH}
 kaem --verbose --strict --file ${PKG}/kaem.run
 
+# patch-shebangs: rewrites #!/bin/sh shebangs to the store shell so sandboxed
+# shell-phase builds need no host /bin/sh. Built here for the same reason as
+# sandbox -- it must precede the truncation point so build-host.sh gets it.
+pkg=patch-shebangs-1.0
+PKG=${BOOT}/${pkg}
+PREFIX=@STORE@/${pkg}
+BINDIR=${PREFIX}/bin
+mkdir -p ${BINDIR}
+PATH=${BINDIR}:${PATH}
+kaem --verbose --strict --file ${PKG}/kaem.run
+
 # @@STOP_AFTER_TCC_MUSL@@ -- tcc 0.9.27 + (float-healed) musl 1.1.24 are now in
 # the store. The chroot-free host launcher (build-host.sh) truncates the chain
 # here (sed '/@@STOP_AFTER_TCC_MUSL@@/q') so nothing past this point -- which
