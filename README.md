@@ -1,12 +1,12 @@
 # shpack
 
-`shpack` is a fast, bootstrappable package manager for Linux. It builds a complete modern compiler toolchain (GCC 16, glibc 2.43, binutils 2.46) from source, starting from a few hundred bytes of trusted machine code (from [stage0-posix][3]). The first C/C++ compiler, GCC 4.7, comes up in about **2 minutes 30 seconds**, and the full dynamically linked toolchain finishes in **15**[^fast] to **30**[^bench] minutes total.
+`shpack` is a fast, bootstrappable package manager for Linux. It is capable of building a complete modern compiler toolchain (GCC 16, glibc 2.43, binutils 2.46) from sources, starting from a few hundred bytes of trusted machine code (from [stage0-posix][3]). The first C/C++ compiler, GCC 4.7, comes up in about **2 minutes 30 seconds**, and the full dynamically linked toolchain finishes in **15**[^fast] to **30**[^bench] minutes total. It runs rootless and the default launcher does not require user namespaces.
 
-The only binaries it trusts are that seed, the host kernel, and `bwrap`[^bwrap]; everything else is compiled from checksummed sources. It bootstraps a basic shell first, then increasingly capable C compilers and libraries, and finally the complete toolchain — using a new bootstrapping path where the TinyCC C compiler with musl libc is built straight out of stage0-posix via [MES replacement][1]. It targets `x86_64` and `AArch64` natively from the start, which matters on modern systems where 32-bit support (x86, arm32) may be disabled in the kernel or missing from the CPU (e.g. Apple Silicon).
+The build itself trusts only a single binary seed. Everything else is compiled from checksummed sources. It bootstraps a basic shell first, then increasingly capable C compilers and libraries, and finally the complete toolchain using a new bootstrapping path where the TinyCC C compiler with musl libc is built straight out of stage0-posix via [MES replacement][1]. It targets `x86_64` and `AArch64` natively from the start, which matters on modern systems where 32-bit support (x86, arm32) may be disabled in the kernel or missing from the CPU (e.g. Apple Silicon).
 
 `shpack` borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes and Merkle-hashed dependency graphs. It is no coincidence that the [`package.sh` recipes][5] resemble Spack's: one motivation for the project is to bootstrap the Spack package manager itself. Thanks to Guix and [live-bootstrap][2] for showing that a full bootstrap is possible, and to [MES replacement][1] for making it fast.
 
-A note on scope: `shpack` trusts the generated files that upstream ships in release tarballs, including `configure` scripts and pre-generated source files. live-bootstrap takes the stricter path and rebuilds those artifacts too. `shpack` makes the other tradeoff deliberately: optimizing for a modern, real-world toolchain that bootstraps quickly, and keeping the dependency set small -- regenerating those artifacts would otherwise pull flex, bison, autotools and texinfo into the chain.
+A note on scope and trust. The *build* needs nothing but the seed, but getting it started leans on the host system: the Linux kernel, and the ordinary userland (a shell, `sed`, coreutils) the launcher uses to stage and kick off the bootstrap. Purists will point out that for ultimate trust you would boot into this and run it on bare metal; `shpack` instead trusts a normal Linux host to launch the build. It also trusts the generated files that upstream ships in release tarballs, including `configure` scripts and pre-generated source files. live-bootstrap takes the stricter path and rebuilds those artifacts too. `shpack` makes the other tradeoff deliberately: optimizing for a modern, real-world toolchain that bootstraps quickly, and keeping the dependency set small -- regenerating those artifacts would otherwise pull flex, bison, autotools and texinfo into the chain.
 
 ## Quick start
 
@@ -56,7 +56,7 @@ of root, not the per-build isolation:
 - `run-local.sh` (default) builds **directly on the host**, into `./store`, with
   no root change and no `bwrap`. Host hygiene comes from `env -i` plus a store-only
   `PATH`. Works without user namespaces.
-- `run-rootfs.sh` **changes root**: a rootless `bwrap` namespace bind-mounts a
+- `run-rootfs.sh` **changes root**: a rootless `bwrap`[^bwrap] namespace bind-mounts a
   staged `rootfs/` at `/`, so the build sees only the store and the host `/usr` is
   invisible. More hermetic, but needs unprivileged user namespaces.
 
