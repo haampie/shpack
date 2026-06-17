@@ -20,12 +20,6 @@ build_system generic
 depends_on gcc-boot@16.1.0 binutils@2.46.0-musl linux-headers gmake python bison m4 \
     sed gawk@5.3.1 grep diffutils tar xz
 
-setup_build_environment() {
-    # Don't let inherited include paths shadow glibc's own headers.
-    unset C_INCLUDE_PATH
-    unset CPLUS_INCLUDE_PATH
-}
-
 install() {
     local triple cc headers python n b
     triple=$(triple gnu)
