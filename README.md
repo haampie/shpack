@@ -137,54 +137,9 @@ and minimal coreutils; it can take over as soon as the first real shell exists. 
 simple dependency resolver emits a `Makefile`, so independent packages build in
 parallel under a single `make` jobserver.
 
-## Concretization and store
-
-`shpack install <name>` resolves names to concrete versions (newest wins;
-`name@version` pins; the externals table wins ties), walks `depends_on` into a
-DAG, and assigns every node a Merkle hash: sha256 over the recipe text,
-auxiliary files, source checksums, target arch, and the hashes of all direct
-dependencies. Anything changing anywhere in a package's closure changes its
-hash.
-
-Every package installs into its own prefix `$STORE/<name>-<version>-<hash7>`,
-with metadata in `.shpack/` (spec, dep edges, the hash manifest, the recipe, the
-build log) -- what a future `spack reindex` needs to reconstruct concrete specs
-from the store. Packages the kaem phase already installed (unhashed
-`/opt/<name>-<version>` prefixes) are registered in `etc/externals`,
-Spack-`packages.yaml`-style; they resolve like any other candidate and
-contribute their identity to dependents' hashes.
-
-## Scheduling
-
-Concretization emits `dag.mk` (one stamp target per node, direct deps as
-prerequisites) and GNU make runs the DAG in parallel. Each build is its own
-process with a precomposed PATH: own prefix, then the dependency closure
-most-derived-first, then `BASEPATH` (the kaem-phase base layer plus stage0 seed
-dirs). No runtime PATH composition, exactly one provider per tool. Logs are
-per-package; a failure prints the log tail and stops. When the DAG contains
-`SHPACK_BOOTSTRAP_MAKE` (gmake@4.4.1), it is built first serially under the
-race-prone bootstrap make 3.82, and everything else runs `-j$JOBS` under the new
-make's fifo jobserver.
-
-## Sandboxing
-
-The launcher choice (host vs. chroot) is orthogonal to per-build isolation: both
-launchers sandbox every build the same way. Every individual package build is
-wrapped in a **Landlock sandbox** that restricts filesystem access to just that
-build's declared inputs and its output prefix. That sandbox is a tiny
-self-contained C program (`sandbox-1.0`) bootstrapped early in the chain -- right
-after `tcc`+`musl` -- so it covers the entire shell phase. There is no `/bin/sh`
-anywhere: the `shpack` wrapper and every build invoke the store `dash`
-explicitly, so the host shell is never picked up.
-
-This is what makes `run-local.sh` safe to run directly on the host: even with no
-chroot, a build cannot read or write outside its declared inputs and output
-prefix. `run-rootfs.sh` adds a change of root on top, hiding the host `/usr`
-entirely, but the per-build confinement is identical either way.
+Paths in this section are relative to [shpack/](shpack/).
 
 ## Recipes
-
-Paths in this section are relative to [shpack/](shpack/).
 
 One directory per package name: `packages/<name>/package.sh`, with optional
 `patches/` and `files/`. A recipe declares versions (with source checksums),
@@ -235,6 +190,35 @@ before the first phase. Recipes see: `name`, `version`, `id`, `PREFIX`,
 that overrides `install()` and needs the coreutils binary of the same name must
 call `command install`.
 
+## Concretization and store
+
+`shpack install <name>` resolves names to concrete versions (newest wins;
+`name@version` pins; the externals table wins ties), walks `depends_on` into a
+DAG, and assigns every node a Merkle hash: sha256 over the recipe text,
+auxiliary files, source checksums, target arch, and the hashes of all direct
+dependencies. Anything changing anywhere in a package's closure changes its
+hash.
+
+Every package installs into its own prefix `$STORE/<name>-<version>-<hash7>`,
+with metadata in `.shpack/` (spec, dep edges, the hash manifest, the recipe, the
+build log) -- what a future `spack reindex` needs to reconstruct concrete specs
+from the store. Packages the kaem phase already installed (unhashed
+`/opt/<name>-<version>` prefixes) are registered in `etc/externals`,
+Spack-`packages.yaml`-style; they resolve like any other candidate and
+contribute their identity to dependents' hashes.
+
+## Scheduling
+
+Concretization emits `dag.mk` (one stamp target per node, direct deps as
+prerequisites) and GNU make runs the DAG in parallel. Each build is its own
+process with a precomposed PATH: own prefix, then the dependency closure
+most-derived-first, then `BASEPATH` (the kaem-phase base layer plus stage0 seed
+dirs). No runtime PATH composition, exactly one provider per tool. Logs are
+per-package; a failure prints the log tail and stops. When the DAG contains
+`SHPACK_BOOTSTRAP_MAKE` (gmake@4.4.1), it is built first serially under the
+race-prone bootstrap make 3.82, and everything else runs `-j$JOBS` under the new
+make's fifo jobserver.
+
 ## CLI
 
 ```
@@ -249,6 +233,22 @@ State lives under `$SHPACK_VAR` (default `/tmp/shpack`): `spec/<id>/` node dirs,
 `topo`, `index`, `dag.mk`, `stamps/`, `logs/`, `stage/`. The store itself is the
 only persistent output; `build-one` short-circuits when a node's prefix already
 carries `.shpack/spec`.
+
+## Sandboxing
+
+The launcher choice (host vs. chroot) is orthogonal to per-build isolation: both
+launchers sandbox every build the same way. Every individual package build is
+wrapped in a **Landlock sandbox** that restricts filesystem access to just that
+build's declared inputs and its output prefix. That sandbox is a tiny
+self-contained C program (`sandbox-1.0`) bootstrapped early in the chain -- right
+after `tcc`+`musl` -- so it covers the entire shell phase. There is no `/bin/sh`
+anywhere: the `shpack` wrapper and every build invoke the store `dash`
+explicitly, so the host shell is never picked up.
+
+This is what makes `run-local.sh` safe to run directly on the host: even with no
+chroot, a build cannot read or write outside its declared inputs and output
+prefix. `run-rootfs.sh` adds a change of root on top, hiding the host `/usr`
+entirely, but the per-build confinement is identical either way.
 
 ## Tool budget
 
