@@ -25,9 +25,9 @@ through `dash`) and then drive `shpack` like any package manager. Pass a command
 run it directly, `sh` to drop into a shell with `shpack` on `PATH`, or nothing at all
 (the default is `shpack install gcc`).
 
-**`run-local.sh` -- build directly on the host.** No chroot, no `bwrap`, no user
-namespaces, so it runs almost anywhere. Installs into a local `./store` (override
-with `--store DIR`):
+**`run-local.sh`** builds directly on the host, without a chroot. This method should
+work almost everywhere as it doesn't require user namespaces. It install into a local
+`./store` (or any dir specified by `--store DIR`):
 
 ```console
 $ ./run-local.sh shpack install gcc
@@ -35,10 +35,16 @@ $ ./run-local.sh shpack install gcc
 [+] dc9a082 gcc@16.1.0 /home/you/shpack/store/gcc-16.1.0-dc9a082
 ```
 
-**`run-rootfs.sh` -- build inside a changed root.** Same recipes, identical store,
-but a rootless `bwrap`[^bwrap] namespace bind-mounts a staged `rootfs/` at `/`, so
-the build sees only the store and the host `/usr` is invisible. More hermetic, but
-needs unprivileged user namespaces. Installs into `/opt` inside the rootfs:
+and the installed compiler can be used directly from the host.
+
+Building without chroot might sound risky, but builds are confined by a Linux Landlock
+sandbox regardless of launcher, which offers protection from the host.
+See [Sandboxing](#sandboxing) for more information.
+
+**`run-rootfs.sh`** builds inside a changed root. It currently depends on `bwrap`[^bwrap],
+which uses unprivileged namespaces for bind mounting and change of root to `rootfs/`.
+It is more hermetic, but needs unprivileged user namespaces. It installs packages to `/opt`
+inside the rootfs:
 
 ```console
 $ ./run-rootfs.sh shpack install gcc
@@ -46,14 +52,16 @@ $ ./run-rootfs.sh shpack install gcc
 [+] dc9a082 gcc@16.1.0 /opt/gcc-16.1.0-dc9a082
 ```
 
-Either launcher also takes `sh` for an interactive shell, or any single package:
+Both `./run-local.sh CMD...` and `./run-rootfs.sh CMD...` execute the given command
+after the shell is bootstrapped, which means you can use `shpack` interactively by
+dropping in the just-built shell:
 
 ```sh
 ./run-local.sh sh                   # interactive shell, shpack on PATH
 ./run-local.sh shpack install xz    # build one package over the existing base
 ```
 
-User namespaces are enabled by default on most distributions, but Debian and Ubuntu
+NOTE: user namespaces are enabled by default on most distributions, but Debian and Ubuntu
 restrict them. If `run-rootfs.sh` fails with a permission error, either use
 `run-local.sh` (which needs no namespaces) or enable them:
 
@@ -61,9 +69,6 @@ restrict them. If `run-rootfs.sh` fails with a permission error, either use
 sudo sysctl -w kernel.unprivileged_userns_clone=1            # Debian
 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0   # Ubuntu 24.04+
 ```
-
-Building on the host might sound risky, but every package build is confined by a
-Landlock sandbox regardless of launcher -- see [Sandboxing](#sandboxing).
 
 ### What `shpack install gcc` resolves
 
