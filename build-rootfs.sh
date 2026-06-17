@@ -92,7 +92,6 @@ T_DISTFILES=/external/distfiles
 T_SEEDDIR=/tmp/seed
 T_BUILDDIR=/tmp
 T_SHPACK=/shpack
-T_SH_LINK_DIR=/bin            # dash installs /bin/sh inside the rootfs
 derive_paths "$T_STORE"
 
 [ -d "$ROOT/distfiles" ] || die "no distfiles at $ROOT/distfiles -- run ./fetch-distfiles.sh first"
@@ -140,11 +139,19 @@ else
     echo "build-rootfs.sh: base present ($ARCH) -- skipping provision (--clean to rebuild)"
 fi
 
+# The `shpack` launcher wrapper, written into the rootfs store (virtual /opt) so
+# it is on BASEPATH (shpack-driver/bin). Its store-dash shebang + body exec the
+# bind-mounted live driver at /shpack/bin, so nothing relies on a #!/bin/sh
+# shebang -- the reason the rootfs no longer carries a /bin/sh. The on-disk path
+# is rootfs/opt/..., but its contents reference the virtual /opt and /shpack.
+stage_driver_wrapper "$ROOT/rootfs/opt/shpack-driver/bin" \
+    "/opt/dash-0.5.12/bin/sh" "/shpack/bin"
+
 [ "$BASE_ONLY" = 1 ] && exit 0
 
 # --- Launch -------------------------------------------------------------------
 # Default to building the toolchain; otherwise run the given command (shpack
-# resolves via /shpack/bin on PATH, so `shpack install xz`, `sh`, etc. all work).
+# resolves via the wrapper on BASEPATH, so `shpack install xz`, `sh`, etc. work).
 [ "$#" -gt 0 ] || set -- shpack install gcc
 
 # PATH floor handed to shpack: the BASEPATH the kaem phase baked into the config.
@@ -157,7 +164,7 @@ BP=$(sed -n 's/^BASEPATH=//p' rootfs/shpack/etc/config | head -1)
 # reaches a build.
 in_rootfs "$ROOT/rootfs" \
     --clearenv \
-    --setenv PATH "/shpack/bin:$BP" \
+    --setenv PATH "$BP" \
     --setenv HOME /tmp \
     --setenv TERM "${TERM:-dumb}" \
     --ro-bind "$ROOT/shpack/bin"      /shpack/bin \

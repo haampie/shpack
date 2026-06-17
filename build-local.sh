@@ -79,9 +79,6 @@ SEEDDIR="$SCRATCH/seed"
 T_SEEDDIR="$SEEDDIR"           # @SEEDDIR@    -- on-disk seed working tree
 T_BUILDDIR="$SCRATCH"          # @BUILDDIR@   -- kaem TMPDIR
 T_SHPACK="$SCRATCH/shpack"     # @SHPACK@     -- staged kaem-phase shpack base
-# /bin is not writable without root, so dash installs its `sh` into its own store
-# bin; configure/make reach it via CONFIG_SHELL/SHELL, not a /bin/sh shebang.
-T_SH_LINK_DIR="$STORE/dash-0.5.12/bin"   # @SH_LINK_DIR@
 derive_paths "$T_STORE"
 
 [ -d "$T_DISTFILES" ] || die "no distfiles at $T_DISTFILES -- run ./fetch-distfiles.sh first"
@@ -128,18 +125,20 @@ else
     echo "build-local.sh: base present ($ARCH) in $STORE -- skipping provision (--clean to rebuild)"
 fi
 
+# The `shpack` launcher wrapper: a store-resident shim (store dash shebang +
+# body) that execs the live driver, so `shpack` resolves via BASEPATH without
+# ever hitting the host /bin/sh. Regenerated each run (cheap; points at the live
+# checkout). Written after provisioning so it survives a --clean store wipe.
+stage_driver_wrapper "$STORE/shpack-driver/bin" \
+    "$STORE/dash-0.5.12/bin/sh" "$ROOT/shpack/bin"
+
 [ "$BASE_ONLY" = 1 ] && exit 0
 
 # --- Launch -------------------------------------------------------------------
-# Default to building the toolchain; otherwise run the given command. A leading
-# `shpack` is routed to the live host package manager via the store dash (its
-# #!/bin/sh shebang would otherwise hit the host shell); any other command runs
-# straight under env -i with the shell-phase PATH (so `sh`, coreutils, etc. work).
+# Default to building the toolchain; otherwise run the given command. `shpack`
+# resolves via the wrapper on BASEPATH (shpack-driver/bin), so `shpack install
+# xz`, `sh`, coreutils, etc. all work under env -i with the shell-phase PATH.
 [ "$#" -gt 0 ] || set -- shpack install gcc
-if [ "$1" = shpack ]; then
-    shift
-    set -- "$STORE/dash-0.5.12/bin/sh" "$ROOT/shpack/bin/shpack" "$@"
-fi
 
 # Uses the live shpack/{bin,lib,packages} (recipe edits picked up without
 # re-staging) but the staged, substituted etc/{config,externals}.

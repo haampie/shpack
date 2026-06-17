@@ -18,9 +18,6 @@
 #   T_SEEDDIR    -- seed working-tree root   (@SEEDDIR@)
 #   T_BUILDDIR   -- kaem TMPDIR / scratch    (@BUILDDIR@)
 #   T_SHPACK     -- shpack tree root         (@SHPACK@)
-#   T_SH_LINK_DIR-- dir dash installs `sh` into, beside its store bin
-#                   (@SH_LINK_DIR@; /bin under chroot, the dash store bin on host
-#                   where /bin is not writable -- see dash-0.5.12/kaem.run)
 # derive_paths "$T_STORE" then fills T_SEED_PATH / T_BASEPATH from the store.
 
 # provision_stamp -- echo a fingerprint of everything that, per the design,
@@ -42,7 +39,21 @@ provision_stamp() {
 derive_paths() {
     local S="$1"
     T_SEED_PATH="${S}/mescc-tools-1.7.0/bin:${S}/mescc-tools-extra-1.4.0/bin:${S}/M2-Mesoplanet-1.13.0/bin:${S}/tcc_cc/bin:${S}/stack_c/bin"
-    T_BASEPATH="${S}/dash-0.5.12/bin:${S}/coreutils-5.0/bin:${S}/bzip2-1.0.8/bin:${S}/sed-4.0.9/bin:${S}/tar-1.12/bin:${S}/gzip-1.2.4/bin:${S}/patch-2.5.9/bin:${S}/make-3.82/bin:${S}/tcc-0.9.27/bin:${S}/musl-1.1.24/bin:${S}/tcc-0.9.26/bin:${S}/simple-patch-1.0/bin:${T_SEED_PATH}"
+    # shpack-driver/bin holds the `shpack` launcher wrapper (stage_driver_wrapper):
+    # both launchers expose it here so a dropped-in shell can run `shpack` by name.
+    T_BASEPATH="${S}/shpack-driver/bin:${S}/dash-0.5.12/bin:${S}/coreutils-5.0/bin:${S}/bzip2-1.0.8/bin:${S}/sed-4.0.9/bin:${S}/tar-1.12/bin:${S}/gzip-1.2.4/bin:${S}/patch-2.5.9/bin:${S}/make-3.82/bin:${S}/tcc-0.9.27/bin:${S}/musl-1.1.24/bin:${S}/tcc-0.9.26/bin:${S}/simple-patch-1.0/bin:${T_SEED_PATH}"
+}
+
+# stage_driver_wrapper DEST_DIR STORE_DASH DRIVER_BIN -- write the `shpack`
+# launcher wrapper into DEST_DIR. Both the shebang and the body name STORE_DASH
+# explicitly, so the host /bin/sh is never resolved (the driver's own #!/bin/sh
+# shebang is bypassed); DRIVER_BIN/shpack is the live driver checkout. DEST_DIR
+# is an on-disk path that may differ from the in-content absolute paths (under
+# chroot the file lands at rootfs/opt/... but must reference the virtual /opt).
+stage_driver_wrapper() {
+    mkdir -p "$1"
+    printf '#!%s\nexec %s %s/shpack "$@"\n' "$2" "$2" "$3" > "$1/shpack"
+    chmod 755 "$1/shpack"
 }
 
 # subst SRC DST -- instantiate one @TOKEN@ template. Host sed (part of staging,
@@ -59,7 +70,6 @@ subst() {
         -e "s|@SEEDDIR@|${T_SEEDDIR}|g" \
         -e "s|@BUILDDIR@|${T_BUILDDIR}|g" \
         -e "s|@SHPACK@|${T_SHPACK}|g" \
-        -e "s|@SH_LINK_DIR@|${T_SH_LINK_DIR}|g" \
         "$1" > "$2"
 }
 
