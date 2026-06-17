@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: MIT
 #
 # build-local.sh -- bootstrap and run shpack DIRECTLY on the host, with NO ROOT
-# CHANGE: no bwrap, chroot or sudo. Installs into a relocatable store ($PWD/store
-# by default); the resulting ./store/tcc-0.9.27/bin/tcc runs standalone. Contrast
+# CHANGE: no bwrap, chroot or sudo. Installs into a local store ($PWD/store by
+# default; --store DIR to override); the resulting ./store/tcc-0.9.27/bin/tcc runs
+# standalone. Contrast
 # build-rootfs.sh, which bind-mounts a rootfs/ at /. This is not "unsandboxed":
 # shpack still wraps every package build in its self-bootstrapped landlock
 # sandbox (etc/config's SANDBOX=) -- what is dropped here is only the chroot.
@@ -72,7 +73,7 @@ JOBS="${JOBS:-$(nproc 2>/dev/null || echo 1)}"
 . "$ROOT/stage.sh"
 
 # Token roots: real host paths (cf. build-rootfs.sh's virtual /opt, /tmp/seed).
-T_STORE="$STORE"               # @STORE@      -- relocatable install prefix
+T_STORE="$STORE"               # @STORE@      -- local install prefix root
 T_DISTFILES="$ROOT/distfiles"  # @DISTFILES@  -- host checkout, read in place
 SEEDDIR="$SCRATCH/seed"
 T_SEEDDIR="$SEEDDIR"           # @SEEDDIR@    -- on-disk seed working tree

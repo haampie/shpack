@@ -25,9 +25,8 @@ The following is an end-to-end demo that:
 ```sh
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
 cd shpack
-./fetch-distfiles.sh        # download sources of all packages
-./build-rootfs.sh           # bootstrap + build GCC for the host arch (in a bwrap rootfs)
-./build-rootfs.sh --arch aarch64
+./fetch-distfiles.sh                  # download sources of all packages
+./build-rootfs.sh shpack install gcc  # bootstrap, then build a modern GCC
 ```
 
 There are two launchers, differing only in *where* the build runs. Both produce
@@ -36,9 +35,10 @@ an identical store, and both isolate every package build the same way.
 - `build-rootfs.sh` **changes root**: a rootless `bwrap` namespace bind-mounts a
   staged `rootfs/` at `/`, so the build sees only the store and the host `/usr`
   is invisible. Needs unprivileged user namespaces.
-- `build-local.sh` builds **directly on the host**, into a relocatable
-  `$PWD/store`, with no root change and no `bwrap` -- handy when user namespaces
-  are unavailable. Host hygiene comes from `env -i` plus a store-only `PATH`.
+- `build-local.sh` builds **directly on the host**, into a local `$PWD/store`
+  (or `--store DIR`), with no root change and no `bwrap` -- handy when user
+  namespaces are unavailable. Host hygiene comes from `env -i` plus a store-only
+  `PATH`.
 
 Isolation does not depend on the launcher. Regardless of which you use, shpack
 wraps every individual package build in a **Landlock sandbox** that restricts
