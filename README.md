@@ -44,7 +44,7 @@ hello world
 ```
 
 Building without chroot might sound risky, but builds are confined by a Linux Landlock
-sandbox regardless of launcher, which offers protection from the host.
+sandbox regardless of launcher, which offers protection from the host's filesystem.
 See [Sandboxing](#sandboxing) for more information.
 
 **`run-rootfs.sh`** builds inside a changed root. It currently depends on `bwrap`[^bwrap],
