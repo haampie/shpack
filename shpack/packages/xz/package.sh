@@ -23,6 +23,7 @@ build_system autotools
 depends_on gcc-boot@4.7-2013.11 binutils@2.30-musl gmake
 
 configure_args() {
+    local triple
     # config.guess cannot probe this environment (uname "unknown", no
     # /usr/bin/file), so pass an explicit triple, like the other tools.
     triple=$(triple musl unknown)

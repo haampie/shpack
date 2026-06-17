@@ -90,7 +90,7 @@ patch 0004-libstdcxx-generic-ctype.patch when=4.7-2013.11
 # GCC 9.5 needs no patches: its libstdc++ already handles musl/__GLIBC_PREREQ,
 # and the 4.7-era alloca/ctype fixes do not apply. Add reactively only.
 
-setup_build_environment() {
+edit() {
     local p
     case "$version" in
         9.5.0|16.1.0)
@@ -105,6 +105,13 @@ setup_build_environment() {
                 # read-only (mode 555); cp -f unlinks the dest and retries.
                 cp -f config.sub config.guess "./$p/"
             done
+            ;;
+    esac
+}
+
+setup_build_environment() {
+    case "$version" in
+        9.5.0|16.1.0)
             # In-tree gmp's AC_PROG_LEX fatally runs flex's output probe if flex
             # is on PATH; flex is only used by gmp demos, so skip the probe.
             export ac_cv_prog_lex_root=lex.yy
@@ -221,7 +228,6 @@ configure_args() {
             gcc=$(prefix_of gcc-boot)/bin/gcc
             gxx=$(prefix_of gcc-boot)/bin/g++
             printf '%s\n' \
-                "CONFIG_SHELL=$CONFIG_SHELL" \
                 CC="$gcc" \
                 CXX="$gxx" \
                 CFLAGS=-O2 \

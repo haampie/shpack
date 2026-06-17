@@ -59,8 +59,21 @@ ld_so_of() {
     esac
 }
 
+edit() {
+    local p
+    # Relocate the flat-unpacked resources into the GCC tree as gmp/ mpfr/ mpc/.
+    for p in gmp mpfr mpc; do
+        mv "$stage_dir"/$p-*/ "./$p"
+        cp -f config.sub config.guess "./$p/"
+    done
+
+    # libstdc++'s convenience-archive rules `date > stamp-*` just touch a make
+    # stamp; `date` isn't in the seed coreutils and a real date is non-reproducible.
+    sed -i 's/date > stamp/touch stamp/g' libstdc++-v3/src/Makefile.in
+}
+
 configure() {
-    local triple gcc glibc libstdcxx binutils p real_cc ld_so tflags
+    local triple gcc glibc libstdcxx binutils real_cc ld_so tflags
     triple=$(triple gnu)
     gcc=$(prefix_of gcc-boot-wrapper)
     glibc=$(prefix_of glibc)
@@ -72,18 +85,12 @@ configure() {
     # configure conftests link and run. See the comment at the configure call.
     tflags="-B$glibc/lib -L$glibc/lib -Wl,-rpath,$glibc/lib -Wl,--dynamic-linker=$glibc/lib/$ld_so"
 
-    # Relocate the flat-unpacked resources into the GCC tree as gmp/ mpfr/ mpc/.
-    for p in gmp mpfr mpc; do
-        mv "$stage_dir"/$p-*/ "./$p"
-        cp -f config.sub config.guess "./$p/"
-    done
-
     # GCC 16 makes implicit-function-declaration an error. The in-tree gmp's
     # build-compiler probes (main(){exit(0);}) compile with no CFLAGS and would
     # fail. Wrap the wrapped-boot0 gcc to demote that error.
     real_cc="$gcc/bin/gcc"
     cat > "$stage_dir/cc-relaxed.sh" <<EOF
-#!$CONFIG_SHELL
+#!$sh
 exec $real_cc "\$@" -Wno-error=implicit-function-declaration
 EOF
     chmod 755 "$stage_dir/cc-relaxed.sh"
@@ -104,10 +111,6 @@ EOF
     # match glibcxx_PCHFLAGS.
     sed -i "s|^PCHFLAGS = |${reset}PCHFLAGS = |" libstdc++-v3/include/Makefile.in
 
-    # libstdc++'s convenience-archive rules `date > stamp-*` just touch a make
-    # stamp; `date` isn't in the seed coreutils and a real date is non-reproducible.
-    sed -i 's/date > stamp/touch stamp/g' libstdc++-v3/src/Makefile.in
-
     # Target-lib loader, via *_FOR_TARGET (NOT --with-sysroot). The reference
     # builds the target libs (libgcc, libatomic, libstdc++) on a host whose
     # /lib/ld-linux-*.so exists, so the freshly-built xgcc's configure conftests
@@ -124,8 +127,8 @@ EOF
     # shipped libs stay debuggable. This is the bootstrap's longest stage.
     mkdir -p build
     cd build
-    "$CONFIG_SHELL" ../configure \
-        "CONFIG_SHELL=$CONFIG_SHELL" \
+    "$sh" ../configure \
+        "CONFIG_SHELL=$sh" \
         "CC=$stage_dir/cc-relaxed.sh" \
         "CXX=$gcc/bin/g++" \
         MAKEINFO=true \

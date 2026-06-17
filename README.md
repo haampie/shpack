@@ -178,17 +178,24 @@ the same name in the recipe:
 
 | build_system | phases | argument hooks |
 |---|---|---|
-| `generic` | `install` (required) | -- |
+| `generic` | `edit install` (install required) | -- |
 | `makefile` | `edit build install` | `build_targets`, `install_targets` |
-| `autotools` | `configure build install` | `configure_args`, `build_args`, `install_targets` |
+| `autotools` | `edit configure build install` | `configure_args`, `build_args`, `install_targets` |
 
 Argument hooks emit one argument per output line (so arguments may contain
-spaces: `printf '%s\n' 'AR=tcc -ar'`). Plus `setup_build_environment`, run
-before the first phase. Recipes see: `name`, `version`, `id`, `PREFIX`,
-`package_dir`, `stage_dir`, `ARCH`, `JOBS`, `MAKEJOBS`, and `prefix_of
-<dep-name>`. `parallel false` disables `-j` for the package's make. A recipe
-that overrides `install()` and needs the coreutils binary of the same name must
-call `command install`.
+spaces: `printf '%s\n' 'AR=tcc -ar'`). The `edit` phase (no-op by default;
+makefile's default copies `files/Makefile`) is the home for programmatic source
+mutation -- the `replace_bin_sh` repoint, in-tree resource relocation, stamp
+rewrites -- so `setup_build_environment` (also run before the first phase) only
+ever sets environment variables.
+
+Recipes see lowercase shpack metadata and helpers -- `name`, `version`, `id`,
+`package_dir`, `stage_dir`, `source_dir`, `sh` (the store shell), `makejobs`
+(the `-jN` for make), `prefix_of <dep-name>`, `triple [libc] [vendor]`,
+`replace_bin_sh FILE...` -- plus the UPPER env-var/config constants tools
+consume: `PREFIX`, `ARCH`, `JOBS`. `parallel false` disables `-j` for the
+package's make. A recipe that overrides `install()` and needs the coreutils
+binary of the same name must call `command install`.
 
 ## Concretization and store
 

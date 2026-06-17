@@ -16,6 +16,7 @@ build_system generic
 depends_on gcc-boot@4.7-2013.11 gmake sed xz
 
 install() {
+    local karch
     # Linux ARCH uses its own arch names: aarch64 -> arm64 (selects the arm64
     # asm/ uapi), amd64 -> x86_64.
     case "$ARCH" in

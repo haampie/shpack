@@ -29,11 +29,7 @@ setup_build_environment() {
 }
 
 
-install() {
-    local triple gcc
-    triple=$(triple gnu)
-    gcc=$(prefix_of gcc-boot-wrapper)
-
+edit() {
     # libstdc++-v3 configure probes `g++ -v`; make it a no-op so the probe
     # cannot fail when the compiler binary name differs.
     sed -i 's/g++ -v/true/' libstdc++-v3/configure
@@ -42,6 +38,12 @@ install() {
     # stamp. `date` isn't in the seed coreutils subset, and a real timestamp
     # would be non-reproducible anyway -- use `touch` (which the seed has).
     sed -i 's/date > stamp/touch stamp/g' libstdc++-v3/src/Makefile.in
+}
+
+install() {
+    local triple gcc
+    triple=$(triple gnu)
+    gcc=$(prefix_of gcc-boot-wrapper)
 
     mkdir -p build
     cd build
@@ -56,8 +58,8 @@ install() {
     # -> the C++23 `std` module (std-clib.cc) fails ("ceilf not declared in
     # std"). Adding -lm lets those checks link. Harmless to the static archive
     # build (libstdc++.a is ar'd, not linked).
-    "$CONFIG_SHELL" ../libstdc++-v3/configure \
-        "CONFIG_SHELL=$CONFIG_SHELL" \
+    "$sh" ../libstdc++-v3/configure \
+        "CONFIG_SHELL=$sh" \
         "CC=$gcc/bin/gcc" \
         "CXX=$gcc/bin/g++" \
         MAKEINFO=true \
@@ -71,6 +73,6 @@ install() {
         --disable-libstdcxx-pch \
         --with-gxx-include-dir="$PREFIX/include"
 
-    make $MAKEJOBS
+    make $makejobs
     make install
 }

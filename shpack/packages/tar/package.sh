@@ -22,14 +22,17 @@ setup_build_environment() {
     # rmt setup is intentional; the chroot drops to the real uid so this is a
     # belt-and-suspenders guard.
     export FORCE_UNSAFE_CONFIGURE=1
+}
 
+edit() {
     # tar runs compressors (`tar czf`) via execv("/bin/sh", -c) hardcoded in
     # src/system.c, bypassing libc. The sandbox denies host /bin/sh, so `tar czf`
-    # fails ("gzip: Cannot exec"; binutils' gprofng docs hit this) -- store dash.
-    sed -i "s|\"/bin/sh\"|\"$CONFIG_SHELL\"|g" src/system.c
+    # would fail ("gzip: Cannot exec"; binutils' gprofng docs hit this).
+    replace_bin_sh src/system.c
 }
 
 configure_args() {
+    local triple
     # config.guess cannot probe this environment, so pass an explicit triple.
     triple=$(triple musl unknown)
     printf '%s\n' \

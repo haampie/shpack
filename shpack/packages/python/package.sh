@@ -14,6 +14,13 @@ build_system generic
 
 depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed tar xz
 
+edit() {
+    # subprocess(shell=True) hardcodes ["/bin/sh", "-c"] in pure Python,
+    # bypassing libc, so the musl patch can't reach it. The sandbox denies host
+    # /bin/sh (glibc's glibcextract.py drives the compiler this way).
+    replace_bin_sh Lib/subprocess.py
+}
+
 setup_build_environment() {
     export CC="$(prefix_of gcc-boot)/bin/gcc"
     export CXX="$(prefix_of gcc-boot)/bin/g++"
@@ -26,17 +33,13 @@ setup_build_environment() {
 }
 
 install() {
+    local triple
     triple=$(triple musl)
 
     # Disable ctypes (needs libffi, absent) and ossaudiodev (needs ALSA/OSS
     # headers, absent) -- both would fail setup.py's extension build.
     sed -i '/extensions\.append(ctypes)/d' setup.py
     sed -i "s/'linux', //" setup.py
-
-    # subprocess(shell=True) hardcodes ["/bin/sh", "-c"] in pure Python, bypassing
-    # libc, so the musl patch can't reach it. The sandbox denies host /bin/sh
-    # (glibc's glibcextract.py drives the compiler this way) -- point at store dash.
-    sed -i "s|\[\"/bin/sh\", \"-c\"\]|[\"$CONFIG_SHELL\", \"-c\"]|" Lib/subprocess.py
 
     # Static musl has no dlopen, so shared C-extension modules can't be
     # imported. glibc's gen-as-const.py transitively needs several stdlib C
@@ -69,9 +72,9 @@ _sha256 sha256module.c
 _sha512 sha512module.c
 EOF
 
-    "$CONFIG_SHELL" ./configure \
-        "CONFIG_SHELL=$CONFIG_SHELL" \
-        "SHELL=$CONFIG_SHELL" \
+    "$sh" ./configure \
+        "CONFIG_SHELL=$sh" \
+        "SHELL=$sh" \
         "CC=$(prefix_of gcc-boot)/bin/gcc" \
         --build="$triple" \
         --host="$triple" \
@@ -80,7 +83,7 @@ EOF
         --without-threads \
         --disable-shared
 
-    make $MAKEJOBS
+    make $makejobs
 
     # `uname` is absent in the chroot, so configure sets MACHDEP=unknown and
     # PLATDIR=plat-unknown. `make install`'s rule for $(srcdir)/Lib/$(PLATDIR)

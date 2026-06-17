@@ -27,7 +27,7 @@ setup_build_environment() {
 }
 
 install() {
-    local triple cc headers python n
+    local triple cc headers python n b
     triple=$(triple gnu)
     cc=$(prefix_of gcc-boot)/bin/gcc
     headers=$(prefix_of linux-headers)
@@ -36,11 +36,11 @@ install() {
     # glibc requires an out-of-tree build.
     mkdir -p build
     cd build
-    "$CONFIG_SHELL" ../configure \
-        "CONFIG_SHELL=$CONFIG_SHELL" \
-        "SHELL=$CONFIG_SHELL" \
+    "$sh" ../configure \
+        "CONFIG_SHELL=$sh" \
+        "SHELL=$sh" \
         CC="$cc" \
-        "BASH_SHELL=$CONFIG_SHELL" \
+        "BASH_SHELL=$sh" \
         "PYTHON=$python/bin/python3" \
         --build="$triple" \
         --host="$triple" \
@@ -52,7 +52,7 @@ install() {
         --disable-profile \
         --with-default-link=no
 
-    make $MAKEJOBS
+    make $makejobs
     make install
 
     # Make <prefix>/include a complete /usr/include: glibc installs the libc

@@ -15,6 +15,7 @@ depends_on tcc musl@1.1.24 grep
 # The release tarball ships a working pregenerated ./configure, so unlike
 # live-bootstrap no autoreconf chain is needed; we just run it.
 configure_args() {
+    local triple
     # musl is unknown to the 2007 config.sub, so present as -gnu; uname says
     # "unknown" in the bare chroot, so give --build/--host explicitly.
     # __UCLIBC__ tells gnulib we are uClibc-like, avoiding glibc-only paths.

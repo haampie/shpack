@@ -30,20 +30,23 @@ depends_on tcc musl@1.1.24 when=3.0.4
 # configure needs sed -E and its tarball is xz.
 depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed tar xz when=5.3.1
 
-install() {
-    local triple
+edit() {
     # gawk's system()/`| getline`/`print | "cmd"` execl a hardcoded "/bin/sh"
     # (builtin.c, io.c), bypassing libc, so the musl patch can't reach it. The
-    # sandbox has no host /bin/sh -- repoint at the store dash. (glibc's
+    # sandbox has no host /bin/sh -- repoint at the store shell. (glibc's
     # gen-sorted.awk does system("test -d ..."); without this the build descends
     # into no subdirs and links an empty libc.)
-    sed -i "s|\"/bin/sh\"|\"$CONFIG_SHELL\"|g" builtin.c io.c
+    replace_bin_sh builtin.c io.c
+}
+
+install() {
+    local triple
     case "$version" in
         3.0.4)
             # Replicate the old `makefile` build system: a replacement Makefile
             # (files/Makefile) drives the tcc build (PREFIX-parameterized).
             cp "$package_dir/files/Makefile" ./Makefile
-            make -f Makefile $MAKEJOBS PREFIX="$PREFIX"
+            make -f Makefile $makejobs PREFIX="$PREFIX"
             make -f Makefile PREFIX="$PREFIX" install
             ;;
         5.3.1)
@@ -51,8 +54,8 @@ install() {
             # --disable-extensions: gawk's loadable .so extensions can't link
             # against the non-PIC static musl 1.2.5 libc.a (R_AARCH64 reloc
             # errors); the interpreter doesn't need them and glibc just runs gawk.
-            "$CONFIG_SHELL" ./configure \
-                "CONFIG_SHELL=$CONFIG_SHELL" \
+            "$sh" ./configure \
+                "CONFIG_SHELL=$sh" \
                 "CC=$(prefix_of gcc-boot)/bin/gcc" \
                 MAKEINFO=true \
                 --build="$triple" \
@@ -62,7 +65,7 @@ install() {
                 --disable-mpfr \
                 --disable-extensions \
                 --without-libsigsegv-prefix
-            make $MAKEJOBS
+            make $makejobs
             make install
             ;;
     esac

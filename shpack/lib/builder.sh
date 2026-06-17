@@ -12,8 +12,10 @@
 #            each overridable by a hook function in the recipe
 #   finalize write $PREFIX/.shpack metadata: spec, deps, manifest, recipe
 #
-# Globals exposed to recipe hooks: name, version, id, PREFIX, package_dir,
-# stage_dir, ARCH, JOBS, MAKEJOBS, and the helper prefix_of.
+# Globals exposed to recipe hooks: name, version, id, stage_dir, package_dir,
+# source_dir, sh, makejobs (lowercase: shpack-internal recipe metadata) and the
+# UPPER env-var/config constants tools consume (PREFIX, ARCH, JOBS); plus the
+# helpers prefix_of, triple and replace_bin_sh.
 
 # is_function NAME -> true if NAME is a shell function (dash: "NAME is a
 # shell function"; bash: "NAME is a function").
@@ -75,6 +77,19 @@ triple() {
         aarch64) cpu=aarch64 ;;
     esac
     printf '%s\n' "$cpu-${vendor}linux-$libc"
+}
+
+# replace_bin_sh FILE... -- repoint the literal /bin/sh some sources execv/
+# system/popen (musl, tar, gawk, python) at the store shell $sh. Unlike
+# patch-shebangs (which only rewrites #! interpreter lines), these are string
+# literals in the program text, so they need a source edit. The bare /bin/sh
+# pattern covers every form ("/bin/sh", ["/bin/sh", "-c"], ...). For use from a
+# recipe's edit() phase. Paths are relative to the source dir (cwd in edit()).
+replace_bin_sh() {
+    local f
+    for f in "$@"; do
+        sed -i "s|/bin/sh|$sh|g" "$f"
+    done
 }
 
 # download URL DEST -- best effort, mirrors first; only meaningful once curl
@@ -210,24 +225,26 @@ cmd_build_one() {
     # Empty so the inner make inherits the dag.mk jobserver from MAKEFLAGS;
     # an explicit -j would override it and oversubscribe JOBS x JOBS.
     # 'parallel false' needs -j1 to serialize against that jobserver.
-    MAKEJOBS=
+    makejobs=
     if [ -f "$VAR/recipe/$name/parallel" ] \
         && [ "$(cat "$VAR/recipe/$name/parallel")" = false ]; then
-        MAKEJOBS=-j1
+        makejobs=-j1
     fi
     # HOME under the build's own scratch ($VAR, itself under $TMPDIR on the
     # host): some configure/test steps write dotfiles, and a build must not
     # depend on or pollute a real home. CONFIG_SHELL/SHELL: the explicit build
-    # shell (etc/config), so nothing relies on a /bin/sh shebang.
+    # shell (etc/config), so nothing relies on a /bin/sh shebang. $sh is the
+    # short recipe-facing alias for it.
     BUILD_HOME=$VAR/home
     mkdir -p "$BUILD_HOME"
+    sh=$CONFIG_SHELL
     # SHELL via MAKEFLAGS so it reaches recursive sub-makes and overrides even a
     # baked-in `SHELL = /bin/sh` (kernel headers, musl, gawk@3.0.4); otherwise a
     # sub-make falls back to host /bin/sh, which the sandbox denies. Append to
     # preserve the dag.mk jobserver flags already here.
-    MAKEFLAGS="${MAKEFLAGS:-} SHELL=$CONFIG_SHELL"
-    export PREFIX ARCH JOBS MAKEJOBS MAKEFLAGS SOURCE_DATE_EPOCH=0 \
-        HOME="$BUILD_HOME" CONFIG_SHELL SHELL PATH
+    MAKEFLAGS="${MAKEFLAGS:-} SHELL=$sh"
+    export PREFIX ARCH JOBS makejobs MAKEFLAGS SOURCE_DATE_EPOCH=0 \
+        HOME="$BUILD_HOME" CONFIG_SHELL SHELL sh PATH
 
     stage_dir=$VAR/stage/$id
     rm -rf "$stage_dir"
@@ -246,7 +263,7 @@ cmd_build_one() {
     # mpfr/mpc) sits as a sibling until setup_build_environment relocates it.
     if [ -n "${PATCH_SHEBANGS:-}" ]; then
         echo "==> $id: patch-shebangs"
-        "$PATCH_SHEBANGS" "$CONFIG_SHELL" "$stage_dir"
+        "$PATCH_SHEBANGS" "$sh" "$stage_dir"
     fi
 
     if is_function setup_build_environment; then

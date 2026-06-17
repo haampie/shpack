@@ -21,20 +21,23 @@ setup_build_environment() {
     export C_INCLUDE_PATH="$(prefix_of linux-headers)/include"
 }
 
+edit() {
+    # system()/popen() execv a hardcoded "/bin/sh"; the sandbox has no host one,
+    # so repoint at the store shell. Absolute path is fine: bootstrap-only libc,
+    # never relocated. (The kaem-phase musl 1.1.24 carries the same change via
+    # @STORE@ subst; the deliverable glibc is left alone.)
+    replace_bin_sh src/process/system.c src/stdio/popen.c
+}
+
 install() {
+    local triple ar ranlib
     triple=$(triple musl)
     ar=$(prefix_of binutils)/bin/ar
     ranlib=$(prefix_of binutils)/bin/ranlib
 
-    # Point system()/popen() at the store dash, which the sandbox grants (host
-    # /bin/sh it doesn't). Absolute path is fine: bootstrap-only libc, never
-    # relocated. The kaem-phase musl 1.1.24 carries the same change via @STORE@
-    # subst; the deliverable glibc is left alone.
-    sed -i "s|\"/bin/sh\"|\"$CONFIG_SHELL\"|" src/process/system.c src/stdio/popen.c
-
     # "./configure" (not "configure"): musl derives srcdir from ${0%/configure},
-    # which is still "." when invoked as `$CONFIG_SHELL ./configure`.
-    "$CONFIG_SHELL" ./configure \
+    # which is still "." when invoked as `$sh ./configure`.
+    "$sh" ./configure \
         CC=gcc \
         --target="$triple" \
         --prefix="$PREFIX" \
@@ -43,7 +46,7 @@ install() {
 
     # gcc (…-unknown-linux-musl) and binutils (…-linux-musl) triples differ, so
     # pin AR/RANLIB rather than relying on musl's CROSS_COMPILE-derived names.
-    make $MAKEJOBS "AR=$ar" "RANLIB=$ranlib"
+    make $makejobs "AR=$ar" "RANLIB=$ranlib"
     make install "AR=$ar" "RANLIB=$ranlib"
 
     test -f "$PREFIX/lib/libc.a" || die "musl: missing lib/libc.a"

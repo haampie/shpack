@@ -12,6 +12,7 @@ build_system autotools
 depends_on tcc musl@1.1.24 gmake binutils@2.30-musl gmp grep gawk@3.0.4
 
 configure_args() {
+    local triple
     # config.sub predates musl; the triple is cosmetic for this native
     # pure-math-library build, so use a -gnu triple the old config.sub knows.
     triple=$(triple gnu unknown)

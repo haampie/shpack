@@ -7,7 +7,12 @@
 # install_targets -- one argument per output line, so arguments may contain
 # spaces (`AR=tcc -ar`). configure also accepts VAR=value lines (CC=tcc).
 
-SHPACK_PHASES="configure build install"
+SHPACK_PHASES="edit configure build install"
+
+# edit -- programmatic source mutation before configure (the canonical home for
+# what would otherwise be ad-hoc sed in setup_build_environment/install: the
+# replace_bin_sh repoint, in-tree resource relocation, ...). No-op by default.
+default_edit() { :; }
 
 default_configure() {
     # build_directory DIR: configure out-of-tree (gcc/glibc forbid in-tree).
@@ -28,13 +33,13 @@ default_configure() {
     # incrementally rebuild, so automake's .deps/depcomp machinery is pure
     # overhead (an extra preprocessor pass per object on compilers without fast
     # -MD, e.g. tcc). Autoconf configure that isn't automake just ignores it.
-    with_hook_args configure_args "$CONFIG_SHELL" "$cfg" --prefix="$PREFIX" \
+    with_hook_args configure_args "$sh" "$cfg" --prefix="$PREFIX" \
         --disable-dependency-tracking \
-        "CONFIG_SHELL=$CONFIG_SHELL" "SHELL=$CONFIG_SHELL"
+        "CONFIG_SHELL=$sh" "SHELL=$sh"
 }
 
 default_build() {
-    with_hook_args build_args make "SHELL=$CONFIG_SHELL" $MAKEJOBS
+    with_hook_args build_args make "SHELL=$sh" $makejobs
 }
 
 default_install() {
@@ -45,5 +50,5 @@ default_install() {
     set +f
     unset IFS
     if [ $# -eq 0 ]; then set -- install; fi
-    make "SHELL=$CONFIG_SHELL" "$@"
+    make "SHELL=$sh" "$@"
 }

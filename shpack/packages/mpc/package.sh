@@ -12,6 +12,7 @@ build_system autotools
 depends_on tcc musl@1.1.24 gmake binutils@2.30-musl gmp mpfr grep gawk@3.0.4
 
 configure_args() {
+    local triple
     # config.guess cannot probe this environment (uname says "unknown", no
     # /usr/bin/file), so pass an explicit triple, matching gmp/mpfr.
     triple=$(triple gnu unknown)
