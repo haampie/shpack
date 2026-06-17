@@ -26,16 +26,16 @@ The following is an end-to-end demo that:
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
 cd shpack
 ./fetch-distfiles.sh                  # download sources of all packages
-./build-rootfs.sh shpack install gcc  # bootstrap, then build a modern GCC
+./run-rootfs.sh shpack install gcc  # bootstrap, then build a modern GCC
 ```
 
 There are two launchers, differing only in *where* the build runs. Both produce
 an identical store, and both isolate every package build the same way.
 
-- `build-rootfs.sh` **changes root**: a rootless `bwrap` namespace bind-mounts a
+- `run-rootfs.sh` **changes root**: a rootless `bwrap` namespace bind-mounts a
   staged `rootfs/` at `/`, so the build sees only the store and the host `/usr`
   is invisible. Needs unprivileged user namespaces.
-- `build-local.sh` builds **directly on the host**, into a local `$PWD/store`
+- `run-local.sh` builds **directly on the host**, into a local `$PWD/store`
   (or `--store DIR`), with no root change and no `bwrap` -- handy when user
   namespaces are unavailable. Host hygiene comes from `env -i` plus a store-only
   `PATH`.
@@ -52,13 +52,13 @@ Both launchers are idempotent (they reprovision only when arch, config or seeds
 change) and take an optional command (default `shpack install gcc`):
 
 ```sh
-./build-local.sh                  # bootstrap + build GCC directly on the host, into ./store
-./build-rootfs.sh shpack install xz   # build one package over the existing base
+./run-local.sh                  # bootstrap + build GCC directly on the host, into ./store
+./run-rootfs.sh shpack install xz   # build one package over the existing base
 ```
 
-`build-rootfs.sh` needs unprivileged user namespaces for its rootless `bwrap`. These are
+`run-rootfs.sh` needs unprivileged user namespaces for its rootless `bwrap`. These are
 enabled by default on most distributions, but Debian and Ubuntu restrict them. If `bwrap`
-fails with a permission error, either enable them or just use `build-local.sh` instead (it
+fails with a permission error, either enable them or just use `run-local.sh` instead (it
 needs no namespaces):
 
 ```sh
@@ -107,14 +107,17 @@ The `(external)` nodes are part of the initial bootstrapping phase.
 
 All installed packages are put into unique prefixes `/opt/<name>-<version>[-<hash>]`.
 
-## Entering the rootfs
+## Interactive use
 
-You can also use the `shpack` package manager interactively by bootstrapping up to `shpack`
-itself:
+You can also use the `shpack` package manager interactively. Passing `sh` to
+either launcher provisions the base if needed, then drops you into the
+bootstrapped `dash` with `shpack` on `PATH` (a small wrapper), so you can run it
+by name. There is no `/bin/sh` anywhere: the wrapper and every build invoke the
+store `dash` explicitly, so the host shell is never picked up.
 
 ```sh
 $ ./fetch-distfiles.sh
-$ ./build-rootfs.sh sh   # provisions the base if needed, then opens a shell inside the rootfs
+$ ./run-rootfs.sh sh   # a shell inside the rootfs (or ./run-local.sh sh, on the host)
 # shpack install xz
 # shpack install gcc
 ```

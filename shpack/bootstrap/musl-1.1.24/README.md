@@ -10,7 +10,7 @@ Arch-neutral inputs (`glue/`, `patches/`, `simple-patches/`, `regen.*`, `kaem.ru
 `hello-float.c`) and the per-arch `sysinclude-<arch>.tar` stay at the top level.
 
 The whole bootstrap (this step plus the tcc step) is driven from the repo root by
-`./build-rootfs.sh` or `./build-local.sh` (optionally `--arch amd64|aarch64`).
+`./run-rootfs.sh` or `./run-local.sh` (optionally `--arch amd64|aarch64`).
 
 1. **Subset** (in the `tcc-0.9.26` step): a curated 121-file closure of the ~60-symbol
    libc surface `tcc.c` needs, plus four glue files, compiled by the float-blind seed

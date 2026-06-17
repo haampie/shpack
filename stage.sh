@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 #
 # stage.sh -- shared rootfs/seed-tree staging, sourced by both launchers:
-#   build-rootfs.sh  (sandboxed: stage under rootfs/, run the kaem chain via bwrap)
-#   build-local.sh   (no sandbox: stage under a scratch dir, run natively)
+#   run-rootfs.sh  (sandboxed: stage under rootfs/, run the kaem chain via bwrap)
+#   run-local.sh   (no sandbox: stage under a scratch dir, run natively)
 #
 # The two launchers differ only in WHERE the seed tree and the store live and
 # HOW the kaem chain is launched. The staging itself -- which seed binaries and
@@ -23,8 +23,8 @@
 # provision_stamp -- echo a fingerprint of everything that, per the design,
 # requires a re-provision when it changes: the target arch, the resolved token
 # roots baked into the staged base, and the provisioning input templates. The
-# launchers save this beside the store (.provisioned) and re-provision when it
-# no longer matches. Host sha256sum here (staging-time, not the in-sandbox tool
+# launchers save this in the store root ($STORE/.provisioned) and re-provision
+# when it no longer matches. Host sha256sum here (staging-time, not the in-sandbox tool
 # budget that constrains shpack core). Caller runs from the repo root.
 provision_stamp() {
     printf 'arch=%s store=%s seeddir=%s shpack=%s distfiles=%s\n' \

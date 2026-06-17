@@ -1,19 +1,19 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
 #
-# build-rootfs.sh -- bootstrap and run shpack inside a rootless bwrap sandbox
+# run-rootfs.sh -- bootstrap and run shpack inside a rootless bwrap sandbox
 # that CHANGES ROOT: the staged rootfs/ is bind-mounted at / (hermetic, the host
-# /usr is invisible). Contrast build-local.sh, which runs directly on the host
+# /usr is invisible). Contrast run-local.sh, which runs directly on the host
 # with no root change. Both still sandbox each package build via shpack's own
 # self-bootstrapped landlock sandbox -- the difference here is the chroot, not
 # the per-build isolation.
 #
-#   ./build-rootfs.sh                    # provision if needed, then shpack install gcc
-#   ./build-rootfs.sh --arch aarch64     # build for aarch64 (see the emulation note below)
-#   ./build-rootfs.sh shpack install xz  # run a command over the existing base
-#   ./build-rootfs.sh sh                 # interactive shell inside the rootfs
-#   ./build-rootfs.sh --base-only        # provision the base, run nothing
-#   ./build-rootfs.sh --clean            # force a fresh re-provision
+#   ./run-rootfs.sh                    # provision if needed, then shpack install gcc
+#   ./run-rootfs.sh --arch aarch64     # build for aarch64 (see the emulation note below)
+#   ./run-rootfs.sh shpack install xz  # run a command over the existing base
+#   ./run-rootfs.sh sh                 # interactive shell inside the rootfs
+#   ./run-rootfs.sh --base-only        # provision the base, run nothing
+#   ./run-rootfs.sh --clean            # force a fresh re-provision
 #
 # Idempotent: it (re)provisions the rootfs -- stage the stage0 seeds + run the
 # kaem chain up to dash -- only when the base is missing or its provision stamp
@@ -35,7 +35,7 @@ set -eu
 ROOT=$(cd "$(dirname "$0")" && pwd)
 cd "$ROOT"
 
-die() { echo "build-rootfs.sh: $*" >&2; exit 1; }
+die() { echo "run-rootfs.sh: $*" >&2; exit 1; }
 
 usage="usage: $0 [--arch amd64|aarch64] [--clean] [--base-only] [cmd...]"
 ARCH=""
@@ -63,7 +63,7 @@ case "$ARCH" in
 esac
 
 # Parallelism for the shell-phase package builds (make -j${JOBS}); the kaem phase
-# is serial regardless. Override with JOBS=N ./build-rootfs.sh ...
+# is serial regardless. Override with JOBS=N ./run-rootfs.sh ...
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 1)}"
 
 # Shared staging (subst/derive_paths/stage_*). See stage.sh.
@@ -86,7 +86,7 @@ in_rootfs() {
 # Token roots baked into the staged kaem scripts. The rootfs keeps live-bootstrap's
 # layout: store at /opt, distfiles at /external/distfiles, seed tree at /tmp/seed,
 # kaem TMPDIR at /tmp, shpack at /shpack -- all virtual paths inside the bound
-# rootfs. (build-local.sh substitutes real host paths instead.)
+# rootfs. (run-local.sh substitutes real host paths instead.)
 T_STORE=/opt
 T_DISTFILES=/external/distfiles
 T_SEEDDIR=/tmp/seed
@@ -99,10 +99,10 @@ derive_paths "$T_STORE"
 # --- Provision (idempotent) ---------------------------------------------------
 # The provision stamp records arch + config + seed fingerprint (stage.sh). When
 # it still matches we reuse the rootfs as-is; otherwise rebuild it from scratch.
-STAMP=rootfs/.provisioned
+STAMP=rootfs/opt/.provisioned
 want=$(provision_stamp)
 if [ "$CLEAN" = 1 ] || [ ! -f "$STAMP" ] || [ "$(cat "$STAMP")" != "$want" ]; then
-    echo "build-rootfs.sh: provisioning rootfs/ for $ARCH ..."
+    echo "run-rootfs.sh: provisioning rootfs/ for $ARCH ..."
     rm -rf rootfs
     mkdir -p rootfs/usr/bin rootfs/tmp rootfs/external/distfiles
 
@@ -136,7 +136,7 @@ if [ "$CLEAN" = 1 ] || [ ! -f "$STAMP" ] || [ "$(cat "$STAMP")" != "$want" ]; th
         || die "kaem base failed: no rootfs/opt/dash-0.5.12/bin/sh (see output above)"
     printf '%s\n' "$want" > "$STAMP"
 else
-    echo "build-rootfs.sh: base present ($ARCH) -- skipping provision (--clean to rebuild)"
+    echo "run-rootfs.sh: base present ($ARCH) -- skipping provision (--clean to rebuild)"
 fi
 
 # The `shpack` launcher wrapper, written into the rootfs store (virtual /opt) so

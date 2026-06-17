@@ -1,22 +1,22 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
 #
-# build-local.sh -- bootstrap and run shpack DIRECTLY on the host, with NO ROOT
+# run-local.sh -- bootstrap and run shpack DIRECTLY on the host, with NO ROOT
 # CHANGE: no bwrap, chroot or sudo. Installs into a local store ($PWD/store by
 # default; --store DIR to override); the resulting ./store/tcc-0.9.27/bin/tcc runs
 # standalone. Contrast
-# build-rootfs.sh, which bind-mounts a rootfs/ at /. This is not "unsandboxed":
+# run-rootfs.sh, which bind-mounts a rootfs/ at /. This is not "unsandboxed":
 # shpack still wraps every package build in its self-bootstrapped landlock
 # sandbox (etc/config's SANDBOX=) -- what is dropped here is only the chroot.
 # Host hygiene for the outer driver is env -i plus a PATH containing only the
 # store's tool dirs, so host /usr stays off every lookup.
 #
-#   ./build-local.sh                     # provision if needed, then shpack install gcc
-#   ./build-local.sh shpack install xz   # run a command over the existing base
-#   ./build-local.sh --arch aarch64      # build for aarch64 (see the emulation note below)
-#   ./build-local.sh --base-only         # provision the base, run nothing
-#   ./build-local.sh --clean             # force a fresh re-provision (wipes the store)
-#   ./build-local.sh --store DIR --build DIR ...
+#   ./run-local.sh                     # provision if needed, then shpack install gcc
+#   ./run-local.sh shpack install xz   # run a command over the existing base
+#   ./run-local.sh --arch aarch64      # build for aarch64 (see the emulation note below)
+#   ./run-local.sh --base-only         # provision the base, run nothing
+#   ./run-local.sh --clean             # force a fresh re-provision (wipes the store)
+#   ./run-local.sh --store DIR --build DIR ...
 #
 # Idempotent: it (re)provisions the kaem base -- stage the stage0 seeds + run the
 # kaem chain up to dash -- only when the base is missing or its provision stamp
@@ -34,7 +34,7 @@ set -eu
 ROOT=$(cd "$(dirname "$0")" && pwd)
 cd "$ROOT"
 
-die() { echo "build-local.sh: $*" >&2; exit 1; }
+die() { echo "run-local.sh: $*" >&2; exit 1; }
 abspath() { case "$1" in /*) printf '%s\n' "$1";; *) printf '%s/%s\n' "$PWD" "$1";; esac; }
 
 usage="usage: $0 [--arch amd64|aarch64] [--clean] [--base-only] [--store DIR] [--build DIR] [cmd...]"
@@ -72,7 +72,7 @@ JOBS="${JOBS:-$(nproc 2>/dev/null || echo 1)}"
 
 . "$ROOT/stage.sh"
 
-# Token roots: real host paths (cf. build-rootfs.sh's virtual /opt, /tmp/seed).
+# Token roots: real host paths (cf. run-rootfs.sh's virtual /opt, /tmp/seed).
 T_STORE="$STORE"               # @STORE@      -- local install prefix root
 T_DISTFILES="$ROOT/distfiles"  # @DISTFILES@  -- host checkout, read in place
 SEEDDIR="$SCRATCH/seed"
@@ -103,7 +103,7 @@ stage_shpack "$T_SHPACK"
 STAMP="$STORE/.provisioned"
 want=$(provision_stamp)
 if [ "$CLEAN" = 1 ] || [ ! -f "$STAMP" ] || [ "$(cat "$STAMP")" != "$want" ]; then
-    echo "build-local.sh: provisioning the kaem base into $STORE for $ARCH ..."
+    echo "run-local.sh: provisioning the kaem base into $STORE for $ARCH ..."
     # stage0 scripts are CWD-relative, so we cd into the seed tree. env -i + the
     # seed-only PATH is the host hygiene; real /proc and /dev are used as-is.
     rm -rf "$SEEDDIR" "$SCRATCH/build" "$SCRATCH/tcc_cc.sl64" "$SCRATCH/var" "$STORE"
@@ -122,7 +122,7 @@ if [ "$CLEAN" = 1 ] || [ ! -f "$STAMP" ] || [ "$(cat "$STAMP")" != "$want" ]; th
         || die "kaem base failed: no $STORE/dash-0.5.12/bin/sh (see output above)"
     printf '%s\n' "$want" > "$STAMP"
 else
-    echo "build-local.sh: base present ($ARCH) in $STORE -- skipping provision (--clean to rebuild)"
+    echo "run-local.sh: base present ($ARCH) in $STORE -- skipping provision (--clean to rebuild)"
 fi
 
 # The `shpack` launcher wrapper: a store-resident shim (store dash shebang +

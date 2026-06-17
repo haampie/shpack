@@ -16,7 +16,7 @@
 # The chain: simple-patch -> tcc-0.9.26 (+ subset musl) -> full musl ->
 # tcc-0.9.27 -> make -> patch -> gzip -> tar -> sed -> bzip2 -> coreutils ->
 # dash. dash is the first shell, and the chain ends there: the result is the
-# reusable base over which a launcher (build-rootfs.sh or build-local.sh) runs
+# reusable base over which a launcher (run-rootfs.sh or run-local.sh) runs
 # shpack to build everything else up to gcc (see the top-level README.md).
 
 # Globals, inherited through the environment by every kaem.run child.
@@ -193,5 +193,5 @@ kaem --verbose --strict --file ${PKG}/kaem.run
 # Base ready: dash is the first shell and the kaem-phase /opt tools exist, so
 # shpack is runnable. The kaem chain ends here -- this is the reusable "base
 # image". The shell phase (concretize + build up to gcc) is NOT run here; a
-# launcher (build-rootfs.sh or build-local.sh) brings in shpack/{bin,lib,packages}
+# launcher (run-rootfs.sh or run-local.sh) brings in shpack/{bin,lib,packages}
 # over this base and runs `shpack install <target>`. See the top-level README.md.

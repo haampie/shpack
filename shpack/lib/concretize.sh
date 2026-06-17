@@ -87,7 +87,7 @@ visit() {
         # Externals contribute their identity to dependents' hashes but have
         # no recipe content of their own. Identity is name+version only: the
         # absolute prefix is a deployment detail (it differs between store
-        # roots, e.g. /opt under build-rootfs.sh vs $PWD/store for build-local.sh),
+        # roots, e.g. /opt under run-rootfs.sh vs $PWD/store for run-local.sh),
         # and baking it in would make every downstream hash depend on where the
         # store happens to live -- breaking relocation-invariance.
         printf 'external %s %s\n' "$name" "$version" \
