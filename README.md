@@ -63,15 +63,6 @@ $ ./run-rootfs.sh shpack install gcc
 [+] dc9a082 gcc@16.1.0 /opt/gcc-16.1.0-dc9a082
 ```
 
-Both `./run-local.sh CMD...` and `./run-rootfs.sh CMD...` execute the given command
-after the shell is bootstrapped, which means you can use `shpack` interactively by
-dropping in the just-built shell:
-
-```sh
-./run-local.sh sh                   # interactive shell, shpack on PATH
-./run-local.sh shpack install xz    # build one package over the existing base
-```
-
 NOTE: user namespaces are enabled by default on most distributions, but Debian and Ubuntu
 restrict them. If `run-rootfs.sh` fails with a permission error, either use
 `run-local.sh` (which needs no namespaces) or enable them:
@@ -79,6 +70,17 @@ restrict them. If `run-rootfs.sh` fails with a permission error, either use
 ```sh
 sudo sysctl -w kernel.unprivileged_userns_clone=1            # Debian
 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0   # Ubuntu 24.04+
+```
+
+### Running interactively
+
+Both `./run-local.sh CMD...` and `./run-rootfs.sh CMD...` execute the given command
+after the shell is bootstrapped, which means you can use `shpack` interactively by
+dropping in the just-built shell:
+
+```sh
+./run-local.sh sh                   # interactive shell, shpack on PATH
+./run-local.sh shpack install xz    # build one package over the existing base
 ```
 
 ### What `shpack install gcc` resolves
