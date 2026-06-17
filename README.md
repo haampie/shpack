@@ -6,8 +6,6 @@ The build itself trusts only a single binary seed. Everything else is compiled f
 
 `shpack` borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes and Merkle-hashed dependency graphs. It is no coincidence that the [`package.sh` recipes][5] resemble Spack's: one motivation for the project is to bootstrap the Spack package manager itself. Thanks to Guix and [live-bootstrap][2] for showing that a full bootstrap is possible, and to [MES replacement][1] for making it fast.
 
-A note on scope and trust. By design, `shpack` bootstraps *on top of a running Linux*: the build does syscalls (`execve` and friends), so it depends on the kernel's ABI, and getting it started leans on the ordinary userland (a shell, `sed`, coreutils) the launcher uses to stage and kick off the bootstrap. This is a deliberate scope, not full bare-metal trustlessness -- for that you would boot into the bootstrap and run it directly on hardware. What `shpack` aims for instead is reproducibility: the same seed and sources should yield the same toolchain across different Linux machines, so a [Thompson-style][6] compromise would have to be present on *every* host you compare to go unnoticed. `shpack` also trusts the generated files that upstream ships in release tarballs, including `configure` scripts and pre-generated source files. live-bootstrap takes the stricter path and rebuilds those artifacts too; `shpack` makes the other tradeoff deliberately, optimizing for a modern, real-world toolchain that bootstraps quickly and keeping the dependency set small -- regenerating those artifacts would otherwise pull flex, bison, autotools and texinfo into the chain.
-
 ## Quick start
 
 Get the sources, then bootstrap the base once and drive `shpack` like any package
@@ -17,7 +15,7 @@ manager:
 git clone --recursive --depth=1 https://github.com/haampie/shpack.git
 cd shpack
 ./fetch-distfiles.sh     # download the sources of all packages
-./run-local.sh sh        # bootstrap the base, then drop into a shpack shell
+./run-local.sh sh        # bootstrap the base, then drop into a shell with shpack on PATH
 # shpack install gcc     # build a modern GCC toolchain
 # shpack install xz      # ...or any single package
 ```
@@ -36,29 +34,12 @@ directly instead of `sh` (this is also the default if you pass nothing):
 ./run-local.sh shpack install xz    # build one package over the existing base
 ```
 
-Launchers are idempotent: they reprovision only when arch, config or seeds
-change, otherwise they skip straight to running your command over the existing
-store, where only out-of-date packages rebuild.
-
-### Sandboxing & isolation
-
-Every individual package build is wrapped in a **Landlock sandbox** that restricts
-filesystem access to just that build's declared inputs and its output prefix. That
-sandbox is a tiny self-contained C program (`sandbox-1.0`) bootstrapped early in
-the chain -- right after `tcc`+`musl` -- so it covers the entire shell phase. There
-is no `/bin/sh` anywhere: the `shpack` wrapper and every build invoke the store
-`dash` explicitly, so the host shell is never picked up.
-
-There are two launchers, differing only in *where* the build runs. Both produce an
-identical store and sandbox every build the same way; the difference is the change
-of root, not the per-build isolation:
-
-- `run-local.sh` (default) builds **directly on the host**, into `./store`, with
-  no root change and no `bwrap`. Host hygiene comes from `env -i` plus a store-only
-  `PATH`. Works without user namespaces.
-- `run-rootfs.sh` **changes root**: a rootless `bwrap`[^bwrap] namespace bind-mounts a
-  staged `rootfs/` at `/`, so the build sees only the store and the host `/usr` is
-  invisible. More hermetic, but needs unprivileged user namespaces.
+There are two launchers. `run-local.sh` (shown above) builds **directly on the
+host** into `./store` -- no chroot, no `bwrap`, no user namespaces -- so it runs
+almost anywhere. `run-rootfs.sh` takes the same recipes and produces an identical
+store, but **changes root**: a rootless `bwrap`[^bwrap] namespace bind-mounts a
+staged `rootfs/` at `/`, so the build sees only the store and the host `/usr` is
+invisible. It is more hermetic, but needs unprivileged user namespaces.
 
 User namespaces are enabled by default on most distributions, but Debian and Ubuntu
 restrict them. If `run-rootfs.sh` fails with a permission error, either use
@@ -68,6 +49,13 @@ restrict them. If `run-rootfs.sh` fails with a permission error, either use
 sudo sysctl -w kernel.unprivileged_userns_clone=1            # Debian
 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0   # Ubuntu 24.04+
 ```
+
+Building on the host might sound risky, but every package build is confined by a
+Landlock sandbox regardless of launcher -- see [Sandboxing](#sandboxing).
+
+Launchers are idempotent: they reprovision only when arch, config or seeds
+change, otherwise they skip straight to running your command over the existing
+store, where only out-of-date packages rebuild.
 
 ### What `shpack install gcc` resolves
 
@@ -109,6 +97,10 @@ df74cac      binutils@2.46.0
 
 The `(external)` nodes are part of the initial bootstrapping phase. All installed
 packages are put into unique prefixes `/opt/<name>-<version>[-<hash>]`.
+
+## Scope and trust
+
+By design, `shpack` bootstraps *on top of a running Linux*: the build does syscalls (`execve` and friends), so it depends on the kernel's ABI, and getting it started leans on the ordinary userland (a shell, `sed`, coreutils) the launcher uses to stage and kick off the bootstrap. This is a deliberate scope, not full bare-metal trustlessness -- for that you would boot into the bootstrap and run it directly on hardware. What `shpack` aims for instead is reproducibility: the same seed and sources should yield the same toolchain across different Linux machines, so a [Thompson-style][6] compromise would have to be present on *every* host you compare to go unnoticed. `shpack` also trusts the generated files that upstream ships in release tarballs, including `configure` scripts and pre-generated source files. live-bootstrap takes the stricter path and rebuilds those artifacts too; `shpack` makes the other tradeoff deliberately, optimizing for a modern, real-world toolchain that bootstraps quickly and keeping the dependency set small -- regenerating those artifacts would otherwise pull flex, bison, autotools and texinfo into the chain.
 
 ## Recipes
 
@@ -179,6 +171,22 @@ per-package; a failure prints the log tail and stops. When the DAG contains
 `SHPACK_BOOTSTRAP_MAKE` (gmake@4.4.1), it is built first serially under the
 race-prone bootstrap make 3.82, and everything else runs `-j$JOBS` under the new
 make's fifo jobserver.
+
+## Sandboxing
+
+The launcher choice (host vs. chroot) is orthogonal to per-build isolation: both
+launchers sandbox every build the same way. Every individual package build is
+wrapped in a **Landlock sandbox** that restricts filesystem access to just that
+build's declared inputs and its output prefix. That sandbox is a tiny
+self-contained C program (`sandbox-1.0`) bootstrapped early in the chain -- right
+after `tcc`+`musl` -- so it covers the entire shell phase. There is no `/bin/sh`
+anywhere: the `shpack` wrapper and every build invoke the store `dash`
+explicitly, so the host shell is never picked up.
+
+This is what makes `run-local.sh` safe to run directly on the host: even with no
+chroot, a build cannot read or write outside its declared inputs and output
+prefix. `run-rootfs.sh` adds a change of root on top, hiding the host `/usr`
+entirely, but the per-build confinement is identical either way.
 
 ## Build systems and phases
 
