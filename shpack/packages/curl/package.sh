@@ -19,9 +19,8 @@ depends_on compiler-wrapper openssl zlib-ng nghttp2 ca-certificates gmake
 configure_args() {
     # Explicit glibc triple (no uname/config.guess in the sandbox). Dep prefixes
     # are passed by --with-DIR (no pkg-config in the base PATH); the wrapper also
-    # injects their -I/-L/-rpath. The --without/--disable set mirrors Spack:
-    # only the backends we ship (openssl/zlib/nghttp2) are enabled, nothing is
-    # picked up from the environment. CA bundle baked to the ca-certificates pem.
+    # injects -I/-L/-rpath. Only the backends we ship (openssl/zlib/nghttp2) are
+    # enabled; the CA bundle is baked to the ca-certificates pem.
     local t
     t=$(triple gnu)
     printf '%s\n' \

@@ -12,18 +12,16 @@ build_system autotools
 
 depends_on tcc musl@1.1.24 grep@2.4-musl
 
-# The release tarball ships a working pregenerated ./configure, so unlike
-# live-bootstrap no autoreconf chain is needed; we just run it.
+# The release tarball ships a working pregenerated ./configure; no autoreconf.
 configure_args() {
     local triple
-    # musl is unknown to the 2007 config.sub, so present as -gnu; uname says
-    # "unknown" in the bare chroot, so give --build/--host explicitly.
-    # __UCLIBC__ tells gnulib we are uClibc-like, avoiding glibc-only paths.
-    # LD=tcc skips configure's fatal AC_PROG_LD probe (no binutils ld yet);
-    # tcc links internally so no real ld is ever invoked.
+    # musl is unknown to the 2007 config.sub so present as -gnu; uname says
+    # "unknown" in the bare chroot, so pass --build/--host. __UCLIBC__ tells
+    # gnulib we are uClibc-like. LD=tcc skips the fatal AC_PROG_LD probe (tcc
+    # links internally, no real ld).
     triple=$(triple gnu unknown)
-    # CFLAGS=-O2 drops the autotools default -g: tcc has no -f*-prefix-map, so -g
-    # would leak the build cwd as the stabs comp_dir (see builder.sh). Never debugged.
+    # CFLAGS=-O2 drops autotools' default -g: tcc has no -f*-prefix-map, so -g
+    # leaks the build cwd as the stabs comp_dir (see builder.sh).
     printf '%s\n' \
         CC=tcc \
         LD=tcc \
@@ -34,8 +32,7 @@ configure_args() {
         --disable-nls
 }
 
-# No binutils ar yet: tcc's built-in archiver, which lacks the `u` mode that
-# automake's default ARFLAGS=cru would ask for.
+# tcc's built-in archiver lacks the `u` mode automake's default ARFLAGS=cru asks for.
 build_args() {
     printf '%s\n' MAKEINFO=true 'AR=tcc -ar' ARFLAGS=rc
 }

@@ -15,14 +15,12 @@ build_system autotools
 depends_on tcc musl@1.1.24 grep@2.4-musl gawk@3.0.4
 
 configure_args() {
-    # No binutils ar yet and config.guess cannot probe this environment, so
-    # pin the triple and the archiver; disable everything that would pull in
-    # tools we do not have (guile, nls, dynamic load objects).
+    # No binutils ar yet and config.guess cannot probe this environment: pin the
+    # triple and archiver, and disable what needs tools we lack (guile, nls, load).
     local triple
     triple=$(triple musl unknown)
-    # CFLAGS=-O2 drops the autotools default -g: tcc has no -f*-prefix-map, so -g
-    # would leak the build cwd as the stabs comp_dir (see builder.sh). Never
-    # debugged; build.sh below picks CFLAGS up from build.cfg.
+    # CFLAGS=-O2 drops autotools' default -g: tcc has no -f*-prefix-map, so -g
+    # leaks the build cwd as the stabs comp_dir (see builder.sh).
     printf '%s\n' \
         CC=tcc \
         LD=tcc \
@@ -37,8 +35,8 @@ configure_args() {
         --disable-load
 }
 
-# There is no make that can build make yet (3.82 is what we are replacing),
-# so use the bundled build.sh: shell + tcc only, no make-to-build-make.
+# No make can build make yet (3.82 is what we replace); use the bundled
+# build.sh: shell + tcc only.
 build() {
     sed -i "s|^AR=.*|AR='tcc -ar'|; s|^ARFLAGS=.*|ARFLAGS='cr'|" build.cfg
     "$sh" ./build.sh

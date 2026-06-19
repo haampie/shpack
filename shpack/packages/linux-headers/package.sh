@@ -10,9 +10,8 @@ version 6.9.1 sha256=01b414ba98fd189ecd544435caf3860ae2a790e3ec48f5aa70fdf42dc4c
 
 build_system generic
 
-# Built by the chain's real GCC 4.7 (HOSTCC compiles scripts/basic/fixdep and
-# scripts/unifdef). The only consumers -- musl@1.2.5 and glibc -- come later, so
-# no cycle. make = gmake (musl-linked, drives the jobserver).
+# Built by the chain's GCC 4.7 (HOSTCC compiles scripts/basic/fixdep and
+# scripts/unifdef). make = gmake (musl-linked, drives the jobserver).
 depends_on gcc-boot@4.7-2013.11 gmake sed@4.9-musl xz@5.2.5-musl
 
 install() {
@@ -24,11 +23,8 @@ install() {
         aarch64) karch=arm64 ;;
     esac
     # 'headers' runs the copy+unifdef pass (strips __KERNEL__ blocks,
-    # __force/__user) into usr/include -- clean, no .install stamp files. No
-    # .config needed; the stage is always a fresh tree. (Mirrors the reference
-    # bootstrap_linux_headers, which uses `headers` + a manual copy rather than
-    # `headers_install`.) make = gmake 4.x via PATH (topo order puts the gmake
-    # dep ahead of the seed make-3.82).
+    # __force/__user) into usr/include -- no .config needed, the stage is a fresh
+    # tree. Uses `headers` + manual copy rather than `headers_install`.
     make headers ARCH="$karch" HOSTCC=gcc
     mkdir -p "$PREFIX/include"
     cp -r usr/include/. "$PREFIX/include/"

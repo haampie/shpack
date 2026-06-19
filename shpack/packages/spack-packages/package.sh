@@ -18,13 +18,12 @@ version 2026.06 \
 build_system generic
 
 # Modern tar: the GitHub tarball carries a pax_global_header the seed tar 1.12
-# can't parse. tar is otherwise the only tool this data-only package needs.
+# can't parse.
 depends_on tar@1.35
 
 install() {
-    # The repo root Spack registers is repos/spack_repo/builtin (contains
-    # repo.yaml); copy the whole repos/ tree (incl. the spack_repo namespace
-    # package). Resolve the unpacked dir explicitly rather than trusting cwd.
+    # Spack registers repos/spack_repo/builtin (contains repo.yaml); copy the
+    # whole repos/ tree. Resolve the unpacked dir explicitly rather than trust cwd.
     local src
     cd "$stage_dir"
     src=$(set -- spack-packages-*/; printf '%s' "${1%/}")

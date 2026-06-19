@@ -11,8 +11,7 @@ version 3.8.2 sha256=9bba0214ccf7f1079c5d59210045227bcf619519840ebfa80cd3849cff5
 build_system autotools
 
 # Built by gcc 9.5 in the musl world (binutils@2.30-musl as/ld). m4 is a RUN dep:
-# bison shells out to m4 to expand its skeletons. Seed m4@1.4.7 satisfies
-# bison's `m4 >= 1.4.6` requirement, so no separate modern m4 is built.
+# bison shells out to it to expand skeletons; seed m4@1.4.7 meets `m4 >= 1.4.6`.
 depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed@4.9-musl tar@1.35-musl m4 xz@5.2.5-musl
 
 setup_build_environment() {
@@ -24,8 +23,8 @@ setup_build_environment() {
 configure_args() {
     local triple
     triple=$(triple musl)
-    # CFLAGS=-O2 drops the autotools default -g: a never-debugged build tool whose
-    # -g would otherwise leak the build cwd as the DWARF comp_dir (see builder.sh).
+    # CFLAGS=-O2 drops autotools' default -g: -g would leak the build cwd as the
+    # DWARF comp_dir (see builder.sh).
     printf '%s\n' \
         "CC=$(prefix_of gcc-boot)/bin/gcc" \
         CFLAGS=-O2 \

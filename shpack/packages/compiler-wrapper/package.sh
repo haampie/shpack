@@ -13,8 +13,7 @@ version 1.0
 build_system generic
 
 # The final, shared, glibc-linked gcc. depends_on gcc puts this wrapper ahead of
-# gcc on the composed PATH (reverse topo order), so its cc/gcc shadow the real
-# ones; recipes that depend on compiler-wrapper get rpath injection for free.
+# gcc on the composed PATH (reverse topo order), so its cc/gcc shadow the real ones.
 depends_on gcc
 
 install() {
@@ -25,10 +24,9 @@ install() {
     mkdir -p "$PREFIX/bin"
 
     # One shim per driver. cc/gcc/cpp -> the C driver; c++/g++ -> the C++ driver.
-    # The shim reads the colon-separated SHPACK_*_DIRS the builder exports from
-    # this node's direct deps and prepends -I (always) / -L + -Wl,-rpath (link
-    # mode only) so store deps win over anything else, like cc.sh. Bare version
-    # probes pass through untouched so configure's compiler checks stay clean.
+    # It reads the colon-separated SHPACK_*_DIRS the builder exports and prepends
+    # -I (always) / -L + -Wl,-rpath (link mode only). Bare version probes pass
+    # through untouched so configure's compiler checks stay clean.
     emit() {
         real=$1
         cat > "$PREFIX/bin/$2" <<EOF

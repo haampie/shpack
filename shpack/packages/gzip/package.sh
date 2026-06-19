@@ -12,16 +12,15 @@ version 1.14 sha256=613d6ea44f1248d7370c7ccdeee0dd0017a09e6c39de894b3c6f03f98119
 build_system autotools
 
 # compiler-wrapper supplies gcc 16 + glibc; grep comes in transitively through
-# its closure (configure needs it), as for libffi/re2c at this layer.
+# its closure (configure needs it).
 depends_on compiler-wrapper gmake
 
-# gzip makes a recursive symlink if built in-source, so configure out-of-tree
-# (matches Spack's build_directory = "spack-build").
+# gzip makes a recursive symlink if built in-source, so configure out-of-tree.
 build_directory spack-build
 
 configure_args() {
-    # No uname/config.guess in the sandbox, so give an explicit glibc triple
-    # (same pattern as libffi/re2c). CC=gcc resolves to the wrapper on PATH.
+    # No uname/config.guess in the sandbox, so give an explicit glibc triple.
+    # CC=gcc resolves to the wrapper on PATH.
     local t
     t=$(triple gnu)
     printf '%s\n' \

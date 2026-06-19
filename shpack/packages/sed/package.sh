@@ -15,18 +15,14 @@ version 4.9-musl sha256=6e226b732e1cd739464ad6862bd1a1aba42d7982922da7a53519631d
 
 build_system autotools
 
-# 4.9-musl: the chain's real GCC 4.7 against musl 1.1.24 (static, like the rest
-# of the tool layer). Consumers (linux-headers, glibc, gcc 9+) put it ahead of
-# the seed sed-4.0.9 via the dep PATH order. 4.9: the glibc sed, built with the
-# final gcc 16 via compiler-wrapper. Each pulls the matching xz to unpack its
-# own .tar.xz source quickly.
+# 4.9-musl: GCC 4.7 against musl 1.1.24 (static). 4.9: the glibc sed, built with
+# the final gcc 16 via compiler-wrapper. Each pulls the matching xz for its source.
 depends_on gcc-boot@4.7-2013.11 binutils@2.30-musl gmake xz@5.2.5-musl when=4.9-musl
 depends_on compiler-wrapper gmake xz@5.8.3 when=4.9
 
 configure_args() {
     local triple
-    # config.guess cannot probe this environment (uname "unknown", no
-    # /usr/bin/file), so pass an explicit triple; the only common-flag diff.
+    # Explicit triple (no config.guess); the only common-flag diff.
     case "$version" in
         4.9-musl) triple=$(triple musl unknown) ;;
         4.9)      triple=$(triple gnu) ;;
@@ -36,8 +32,7 @@ configure_args() {
         --build="$triple" \
         --host="$triple" \
         --disable-nls
-    # Delta: gcc-4.7 (musl) has no -ffile-prefix-map, so CFLAGS=-O2 drops the
-    # default -g (it would leak the build cwd as comp_dir; see builder.sh). gcc
-    # 16's -g is reproducible, so leave CFLAGS at default.
+    # gcc 4.7 has no -ffile-prefix-map, so CFLAGS=-O2 drops the default -g (would
+    # leak the build cwd as comp_dir). gcc 16's -g is reproducible.
     case "$version" in 4.9-musl) printf '%s\n' CFLAGS=-O2 ;; esac
 }

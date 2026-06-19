@@ -12,26 +12,21 @@ version 2.53.0 sha256=429dc0f5fe5f14109930cdbbb588c5d6ef5b8528910f0d738040744beb
 
 build_system autotools
 
-# HTTPS transport: curl (libcurl) + openssl (TLS/hashing) + nghttp2 (via curl).
-# expat = dumb-HTTP/WebDAV push; pcre2 = `git grep -P`; zlib-ng = pack codec;
-# perl drives build-time script generation (and runtime git-svn/add--interactive,
-# largely C now). compiler-wrapper injects -I/-L/-rpath for all of these.
-# coreutils: templates/Makefile ends its boilerplate rule with `date >$@`, and
-# that exit-127 (no date on the base PATH) fails the rule. The timestamp only
-# lands in the `boilerplates.made` make stamp -- never installed -- so a real
-# date here is inert w.r.t. the reproducible output.
+# HTTPS transport: curl + openssl + nghttp2 (via curl). expat = dumb-HTTP push;
+# pcre2 = `git grep -P`; zlib-ng = pack codec; perl drives script generation.
+# coreutils: templates/Makefile's boilerplate rule ends with `date >$@`, which
+# would exit-127 without date; the timestamp only lands in a make stamp.
 depends_on compiler-wrapper curl openssl zlib-ng expat pcre2 perl gmake coreutils
 
 edit() {
-    # glibc 2.43 (>= 2.36) provides arc4random, so use it as git's CSPRNG, per
-    # Spack's git patch(). config.mak is read by git's Makefile after configure.
+    # glibc 2.43 provides arc4random, so use it as git's CSPRNG. config.mak is
+    # read by git's Makefile after configure.
     printf 'CSPRNG_METHOD=arc4random\n' > config.mak
 }
 
 configure_args() {
-    # No uname/config.guess in the sandbox -> explicit glibc triple. The dep
-    # prefixes are passed via --with-* (configure does not auto-detect them); the
-    # wrapper still supplies the -I/-L/-rpath that make the links resolve.
+    # Explicit glibc triple (no uname/config.guess). Dep prefixes via --with-*
+    # (no auto-detection); the wrapper supplies the -I/-L/-rpath.
     local t
     t=$(triple gnu)
     printf '%s\n' \

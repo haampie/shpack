@@ -13,8 +13,7 @@ build_system autotools
 
 depends_on compiler-wrapper gmake
 
-# Mirror Spack (build_directory = "spack-build"): keeps the build tree out of the
-# source so a re-configure stays clean.
+# Build out of source so a re-configure stays clean.
 build_directory spack-build
 
 configure_args() {

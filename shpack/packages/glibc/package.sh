@@ -6,17 +6,15 @@ description "glibc 2.43 -- the production aarch64 libc, built by the crippled" \
 homepage "https://www.gnu.org/software/libc/"
 license "LGPL-2.1-or-later"
 
-# sha256 of the .tar.xz (ftp.gnu.org).
 version 2.43 sha256=d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831 \
     url=https://ftp.gnu.org/gnu/glibc/glibc-2.43.tar.xz
 
 build_system generic
 
-# Built by gcc-16-boot0 (unwrapped: glibc drives -nostdlib for its own
-# bootstrap, no chicken-and-egg). binutils@2.46.0-musl as/ld (build+run). Kernel
-# headers via --with-headers (build+run: we symlink them into our include/).
-# Needs python (gen-as-const), bison+m4 (intl/plural.c), make >= 4. gawk@5.3.1 (not
-# the seed gawk 3.0.4): glibc 2.43's configure rejects gawk < 3.1.2 as too old.
+# Built by gcc-16-boot0 (unwrapped: glibc drives its own -nostdlib bootstrap).
+# binutils@2.46.0-musl as/ld; kernel headers via --with-headers. Needs python
+# (gen-as-const), bison+m4 (intl/plural.c), make >= 4, gawk@5.3.1 (configure
+# rejects gawk < 3.1.2).
 depends_on gcc-boot@16.1.0 binutils@2.46.0-musl linux-headers gmake python bison m4 \
     sed@4.9-musl gawk@5.3.1 grep@2.4-musl diffutils tar@1.35-musl xz@5.2.5-musl
 
@@ -50,10 +48,8 @@ install() {
     make $makejobs
     make install
 
-    # Make <prefix>/include a complete /usr/include: glibc installs the libc
-    # headers; symlink in the kernel headers (linux/, asm/, asm-generic/, ...)
-    # so one --with-native-system-header-dir=<prefix>/include covers both for
-    # the shipped gcc.
+    # Make <prefix>/include complete: symlink the kernel headers beside glibc's
+    # so one --with-native-system-header-dir covers both for the shipped gcc.
     for n in "$headers"/include/*; do
         b=${n##*/}
         [ -e "$PREFIX/include/$b" ] || ln -s "$n" "$PREFIX/include/$b"

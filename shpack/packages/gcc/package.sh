@@ -6,18 +6,16 @@ description "Native aarch64 GCC 16.1.0 -- the final, shared compiler of the" \
 homepage "https://gcc.gnu.org/"
 license "GPL-3.0-or-later"
 
-# Separate recipe from gcc (4.7/9.5) and gcc-boot@16.1.0 (16.1.0, crippled): this is
-# the shared, glibc-linked production GCC 16. Same source as gcc-boot@16.1.0; the
-# difference is entirely in how it's built (wrapped boot0 + glibc + binutils).
+# The shared, glibc-linked production GCC 16. Same source as gcc-boot@16.1.0;
+# the difference is how it's built (wrapped boot0 + glibc + binutils).
 version 16.1.0 sha256=50efb4d94c3397aff3b0d61a5abd748b4dd31d9d3f2ab7be05b171d36a510f79 \
     url=https://ftp.gnu.org/gnu/gcc/gcc-16.1.0/gcc-16.1.0.tar.xz
 
 build_system autotools
 
 # Built by gcc-boot-wrapper against glibc 2.43, binutils (as/ld baked in),
-# libstdcxx-boot1 (static libstdc++.a for the build tools it compiles).
-# linux-headers: autoconf CPP sanity check (kernel headers are symlinked into
-# glibc's include, so --with-native-system-header-dir=glibc covers both).
+# libstdcxx-boot1 (static libstdc++.a for the build tools). linux-headers:
+# autoconf CPP sanity check (also symlinked into glibc's include).
 depends_on gcc-boot-wrapper glibc binutils@2.46.0 libstdcxx-boot1 linux-headers \
     gmake sed@4.9-musl grep@2.4-musl gawk@3.0.4 diffutils findutils tar@1.35-musl xz@5.2.5-musl
 
@@ -33,16 +31,14 @@ resource when=16.1.0 \
     sha256=ab642492f5cf882b74aa0cb730cd410a81edcdbec895183ce930e706c1c759b8
 
 setup_build_environment() {
-    # In-tree gmp's AC_PROG_LEX fatally runs flex's output probe if flex is on
-    # PATH; flex is only used by gmp demos, so skip the probe.
+    # gmp's AC_PROG_LEX fatally runs flex if on PATH; flex is only used by gmp
+    # demos, so skip the probe.
     export ac_cv_prog_lex_root=lex.yy
 
-    # The wrapped boot0 gcc has no default path to glibc's headers (gcc-boot@16.1.0
-    # was --without-headers), so the top-level configure's conftest compile and
-    # the C++ build tools (gengenrtl, ...) wouldn't find <stdio.h>/<new>.
-    # --with-native-system-header-dir only affects the gcc being built, not these
-    # host-side compiles. Mirror binutils's env. The in-tree libstdc++
-    # compiles strip libstdcxx-boot1 back out via the Makefile.in reset (below).
+    # The wrapped boot0 gcc has no default path to glibc's headers (it was
+    # --without-headers), so host-side compiles (conftest, gengenrtl, ...) need
+    # these on the include/library path. The in-tree libstdc++ compiles strip
+    # libstdcxx-boot1 back out via the Makefile.in reset (below).
     local glibc triple libstdcxx
     glibc=$(prefix_of glibc)
     triple=$(triple gnu)
@@ -67,8 +63,8 @@ edit() {
         cp -f config.sub config.guess "./$p/"
     done
 
-    # libstdc++'s convenience-archive rules `date > stamp-*` just touch a make
-    # stamp; `date` isn't in the seed coreutils and a real date is non-reproducible.
+    # `date > stamp-*` just touches a make stamp; `date` isn't in the seed
+    # coreutils and a real date is non-reproducible.
     sed -i 's/date > stamp/touch stamp/g' libstdc++-v3/src/Makefile.in
 }
 
@@ -80,14 +76,12 @@ configure() {
     libstdcxx=$(prefix_of libstdcxx-boot1)
     binutils=$(prefix_of binutils)
     ld_so=$(ld_so_of)
-    # Flags handed to the freshly-built xgcc when it builds the TARGET libs
-    # (libgcc, libatomic, libstdc++): point it at glibc's loader + libs so its
-    # configure conftests link and run. See the comment at the configure call.
+    # Flags for the freshly-built xgcc when it builds the target libs: point it
+    # at glibc's loader + libs so its conftests link and run (see configure).
     tflags="-B$glibc/lib -L$glibc/lib -Wl,-rpath,$glibc/lib -Wl,--dynamic-linker=$glibc/lib/$ld_so"
 
-    # GCC 16 makes implicit-function-declaration an error. The in-tree gmp's
-    # build-compiler probes (main(){exit(0);}) compile with no CFLAGS and would
-    # fail. Wrap the wrapped-boot0 gcc to demote that error.
+    # GCC 16 makes implicit-function-declaration an error, failing gmp's
+    # build-compiler probes (no CFLAGS). Wrap the boot0 gcc to demote it.
     real_cc="$gcc/bin/gcc"
     cat > "$stage_dir/cc-relaxed.sh" <<EOF
 #!$sh
@@ -95,41 +89,29 @@ exec $real_cc "\$@" -Wno-error=implicit-function-declaration
 EOF
     chmod 755 "$stage_dir/cc-relaxed.sh"
 
-    # Strip the external libstdcxx-boot1 from CPLUS_INCLUDE_PATH for EVERY
-    # libstdc++-v3 C++ compile (GCC bug 100017): its headers share include
-    # guards with the in-tree libstdc++ being built, so an in-tree
-    # #include_next would hit the boot1 wrapper and never reach glibc's real
-    # header. Reset CPLUS_INCLUDE_PATH to just glibc; the kernel headers are
-    # symlinked into glibc/include and --with-native-system-header-dir=glibc
-    # keeps libc headers available.
+    # Strip libstdcxx-boot1 from CPLUS_INCLUDE_PATH for every libstdc++-v3 compile
+    # (GCC bug 100017): its headers share include guards with the in-tree
+    # libstdc++, so an in-tree #include_next would hit the boot1 wrapper and never
+    # reach glibc's header. Reset to just glibc (kernel headers are symlinked in).
     local reset="CPLUS_INCLUDE_PATH = $glibc/include\nexport CPLUS_INCLUDE_PATH\n"
     local mk
     for mk in $(find libstdc++-v3 -name Makefile.in); do
         sed -i "s|^AM_CXXFLAGS = |${reset}AM_CXXFLAGS = |" "$mk"
     done
-    # PCH rules use PCHFLAGS, not AM_CXXFLAGS. Anchor with ^ so it doesn't also
-    # match glibcxx_PCHFLAGS.
+    # PCH rules use PCHFLAGS, not AM_CXXFLAGS. ^ avoids matching glibcxx_PCHFLAGS.
     sed -i "s|^PCHFLAGS = |${reset}PCHFLAGS = |" libstdc++-v3/include/Makefile.in
 
-    # Target-lib loader, via *_FOR_TARGET (NOT --with-sysroot). The reference
-    # builds the target libs (libgcc, libatomic, libstdc++) on a host whose
-    # /lib/ld-linux-*.so exists, so the freshly-built xgcc's configure conftests
-    # link+run against the host loader. Our chroot has no host glibc, so xgcc's
-    # baked default loader /lib/ld-linux-... is missing and target conftests fail
-    # "cannot run C compiled programs". --with-sysroot=$glibc fixes that but then
-    # ld double-prepends the sysroot to the ABSOLUTE paths inside glibc's libc.so
-    # linker script (GROUP ( $glibc/lib/libc.so.6 ... )) and can't find libc.
-    # Instead pass the loader/libdir as $tflags to the target compiler only: the
-    # absolute libc.so paths resolve normally and conftests get the right interp.
-    # The installed driver's runtime paths are pinned by the specs file (install).
-    # CFLAGS/CXXFLAGS=-O2 drops DWARF from HOST objects (cc1/cc1plus/gcc/g++);
-    # *_FOR_TARGET keep -g so the shipped libs stay debuggable.
-    # Env-set so the $stage_dir inside $file_prefix_map stays out of GCC's baked
-    # TOPLEVEL_CONFIGURE_ARGUMENTS (`gcc -v`). file_prefix_map goes in CPPFLAGS
-    # rather than CFLAGS/CXXFLAGS: genchecksum (gcc/c/Make-lang.in) hashes
-    # ALL_LINKERFLAGS into cc1's executable_checksum; ALL_LINKERFLAGS = ALL_CXXFLAGS
-    # (includes CXXFLAGS) but NOT ALL_CPPFLAGS, so CPPFLAGS is absent from the
-    # hash while still reaching every compile.
+    # Target-lib loader via *_FOR_TARGET, not --with-sysroot. xgcc's baked default
+    # loader /lib/ld-linux-... is missing in our chroot, so target conftests fail
+    # "cannot run C compiled programs". --with-sysroot makes ld double-prepend the
+    # sysroot to the absolute paths in glibc's libc.so linker script. Instead pass
+    # the loader/libdir as $tflags to the target compiler only; the installed
+    # driver's runtime paths come from the specs file (install).
+    # CFLAGS/CXXFLAGS=-O2 drops DWARF from host objects (cc1, ...); *_FOR_TARGET
+    # keep -g so the shipped libs stay debuggable.
+    # file_prefix_map goes in CPPFLAGS, not CFLAGS/CXXFLAGS: genchecksum hashes
+    # ALL_LINKERFLAGS (= ALL_CXXFLAGS) into cc1's checksum but not ALL_CPPFLAGS,
+    # so the $stage_dir path reaches every compile without entering the hash.
     export CC="$stage_dir/cc-relaxed.sh"
     export CFLAGS="-O2"
     export CXXFLAGS="-O2"
@@ -179,9 +161,8 @@ install() {
 
     make install MAKEINFO=true
 
-    # Write a specs file into the installed GCC so plain gcc/g++ find glibc's
-    # startfiles + dynamic linker and use binutils's as/ld -- no wrapper
-    # scripts or env vars needed downstream.
+    # Write a specs file so plain gcc/g++ find glibc's startfiles + dynamic linker
+    # and use binutils's as/ld -- no wrapper scripts or env vars needed.
     if [ -n "$(ls "$PREFIX"/lib64/libgcc_s.* 2>/dev/null)" ]; then
         rpath_dir="$PREFIX/lib64"
     elif [ -n "$(ls "$PREFIX"/lib/libgcc_s.* 2>/dev/null)" ]; then
@@ -193,11 +174,10 @@ install() {
     gcc_exe="$PREFIX/bin/gcc"
     specs_dir="$PREFIX/lib/gcc/$triple/16.1.0"
     mkdir -p "$specs_dir"
-    # Seed with the FULL built-in spec set (-dumpspecs) so the *cc1_cpu section
-    # (-mcpu/-march=native autodetection) is preserved; a partial prefix specs
-    # file silently disables it. Capture via $(...) to strip dumpspecs' trailing
-    # blank line, then re-emit exactly ONE blank line before the '#': GCC's specs
-    # parser rejects a double blank line before a comment ("specs file malformed").
+    # Seed with the full -dumpspecs set so *cc1_cpu (-march=native autodetection)
+    # survives; a partial specs file silently disables it. $(...) strips dumpspecs'
+    # trailing blank line; re-emit exactly one (a double blank before '#' is
+    # "specs file malformed").
     local builtin_specs
     builtin_specs=$("$gcc_exe" -dumpspecs)
     {

@@ -14,12 +14,9 @@ build_system generic
 depends_on compiler-wrapper gmake
 
 edit() {
-    # cmake's generated Unix Makefiles hardcode `SHELL = /bin/sh`, and cmake
-    # unsets MAKEFLAGS for its internal try_compile probes, so the builder's
-    # SHELL=$sh override can't reach those sub-makes -- and the sandbox has no
-    # host /bin/sh, so every probe dies with "/bin/sh: Permission denied".
-    # Repoint cmake's baked shell at the store shell. This patches the source, so
-    # it fixes the bootstrap cmake, the installed cmake, and thus clingo's build.
+    # cmake bakes `SHELL = /bin/sh` into generated Makefiles and unsets MAKEFLAGS
+    # for try_compile probes, so SHELL=$sh can't reach them; the sandbox has no
+    # /bin/sh. Patch the baked shell at the source so installed cmake inherits it.
     sed -i "s|\"SHELL = /bin/sh|\"SHELL = $sh|" Source/cmLocalUnixMakefileGenerator3.cxx
     sed -i "s|\"/bin/sh\"|\"$sh\"|" Source/cmExecProgramCommand.cxx
 }
@@ -27,18 +24,15 @@ edit() {
 install() {
     export CC=$(prefix_of compiler-wrapper)/bin/gcc
     export CXX=$(prefix_of compiler-wrapper)/bin/g++
-    # cmake's bundled cmlibuv calls glibc GNU extensions (accept4, dup3, pipe2,
-    # sched_getaffinity, CPU_*) that the headers only expose under _GNU_SOURCE.
-    # The bootstrap phase doesn't define it, and GCC 16 makes the resulting
-    # implicit declarations a hard error -- so set it for the whole build.
+    # Bundled cmlibuv calls glibc GNU extensions (accept4, dup3, pipe2, CPU_*)
+    # exposed only under _GNU_SOURCE; the bootstrap doesn't set it and GCC 16
+    # makes the resulting implicit declarations a hard error.
     export CFLAGS="-D_GNU_SOURCE"
     export CXXFLAGS="-D_GNU_SOURCE"
 
-    # ./bootstrap builds a minimal cmake with make, then the full cmake. Bundled
-    # third-party libs keep this self-contained; OpenSSL (no perl/openssl in the
-    # store) and the curses dialog are turned off. No --parallel: the inner make
-    # inherits the dag.mk jobserver via MAKEFLAGS, so it shares the global -jN
-    # rather than spawning its own -j$JOBS on top of it (JOBS x JOBS).
+    # Self-contained via bundled libs; OpenSSL and the curses dialog turned off.
+    # No --parallel: the inner make inherits the dag.mk jobserver via MAKEFLAGS,
+    # so it shares the global -jN instead of spawning its own -j$JOBS on top.
     "$sh" ./bootstrap \
         --prefix="$PREFIX" \
         --no-qt-gui \

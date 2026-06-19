@@ -13,10 +13,9 @@ version 16.1.0 sha256=50efb4d94c3397aff3b0d61a5abd748b4dd31d9d3f2ab7be05b171d36a
 build_system generic
 
 # Built by gcc-boot-wrapper against glibc 2.43 (static libstdc++.a, no .so).
-# linux-headers: autoconf CPP sanity check. find/diff: libtool merges the
-# libsupc++/c++NN convenience archives into libstdc++.a by extracting them and
-# enumerating objects with find -- without findutils, libstdc++.a ships only
-# the compatibility*.o and every downstream C++ link breaks.
+# linux-headers: autoconf CPP sanity check. findutils: libtool merges the
+# convenience archives into libstdc++.a by enumerating objects with find --
+# without it the archive ships only compatibility*.o and C++ links break.
 depends_on gcc-boot-wrapper glibc linux-headers gmake sed@4.9-musl grep@2.4-musl gawk@5.3.1 diffutils \
     findutils tar@1.35-musl xz@5.2.5-musl
 
@@ -30,13 +29,12 @@ setup_build_environment() {
 
 
 edit() {
-    # libstdc++-v3 configure probes `g++ -v`; make it a no-op so the probe
-    # cannot fail when the compiler binary name differs.
+    # libstdc++-v3 configure probes `g++ -v`; no-op it so it can't fail when the
+    # compiler binary name differs.
     sed -i 's/g++ -v/true/' libstdc++-v3/configure
 
-    # The convenience-archive rules do `date > stamp-*` purely to touch a make
-    # stamp. `date` isn't in the seed coreutils subset, and a real timestamp
-    # would be non-reproducible anyway -- use `touch` (which the seed has).
+    # `date > stamp-*` just touches a make stamp; `date` isn't in the seed
+    # coreutils and a real timestamp is non-reproducible -- use `touch`.
     sed -i 's/date > stamp/touch stamp/g' libstdc++-v3/src/Makefile.in
 }
 
@@ -47,17 +45,12 @@ install() {
 
     mkdir -p build
     cd build
-    # Defaults (threads on, dual-abi on): glibc 2.43 has real pthreads and the
-    # cxx11 ABI, both of which GCC 16's C++20 src/c++20/tzdb.cc requires (with
-    # cxx11 ABI off, <chrono>'s tzdb omits zones/links but tzdb.cc references
-    # them). --disable-shared so downstream links it statically.
+    # Keep threads + dual-abi defaults on: GCC 16's C++20 tzdb.cc needs the cxx11
+    # ABI's <chrono> tzdb. --disable-shared so downstream links it statically.
     #
-    # LIBS=-lm: glibc keeps ceilf/cosf/... in libm, and libstdc++'s native
-    # AC_CHECK_FUNCS link tests (ceilf, cosf, ...) don't add -lm, so they'd come
-    # out "no" -> _GLIBCXX_HAVE_CEILF undefined -> <cmath> omits `using ::ceilf`
-    # -> the C++23 `std` module (std-clib.cc) fails ("ceilf not declared in
-    # std"). Adding -lm lets those checks link. Harmless to the static archive
-    # build (libstdc++.a is ar'd, not linked).
+    # LIBS=-lm: libstdc++'s AC_CHECK_FUNCS link tests (ceilf, cosf, ...) don't add
+    # -lm, so they'd come out "no" -> _GLIBCXX_HAVE_CEILF undefined -> <cmath>
+    # drops `using ::ceilf` -> the C++23 `std` module fails. Harmless to the .a.
     "$sh" ../libstdc++-v3/configure \
         "CONFIG_SHELL=$sh" \
         "CC=$gcc/bin/gcc" \

@@ -16,8 +16,8 @@ depends_on compiler-wrapper gmake
 
 setup_build_environment() {
     # zstd's Makefiles do `$(shell uname)` to pick the shared-lib soname/flags;
-    # uname is absent in the sandbox (see perl), so empty UNAME would drop the
-    # Linux soname. Shim a minimal uname so libzstd.so gets its proper soname.
+    # uname is absent in the sandbox (see perl), so shim a minimal one to keep
+    # libzstd.so's Linux soname.
     local m
     case "$ARCH" in amd64) m=x86_64 ;; aarch64) m=aarch64 ;; esac
     mkdir -p "$stage_dir/shimbin"
@@ -32,10 +32,9 @@ EOF
 install() {
     local cc
     cc=$(prefix_of compiler-wrapper)/bin/gcc
-    # Mirror Spack's MakefileBuilder: install the library (pkg-config file,
-    # headers, static + shared) then the programs (the zstd CLI). The optional
-    # zlib/lzma/lz4 backends in the CLI are turned off explicitly so the Makefile
-    # does not auto-detect and link them.
+    # Install the library (pkg-config, headers, static + shared) then the zstd
+    # CLI. The optional zlib/lzma/lz4 backends are turned off explicitly so the
+    # Makefile does not auto-detect and link them.
     make -C lib "SHELL=$sh" "CC=$cc" $makejobs PREFIX="$PREFIX" \
         install-pc install-includes install-static install-shared
     make -C programs "SHELL=$sh" "CC=$cc" $makejobs PREFIX="$PREFIX" \

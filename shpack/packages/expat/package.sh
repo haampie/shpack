@@ -14,9 +14,9 @@ build_system autotools
 depends_on compiler-wrapper gmake
 
 configure_args() {
-    # --without-docbook (no doc toolchain) + --enable-static, per Spack. No
-    # libbsd: glibc 2.43 provides getrandom for expat's entropy source. Explicit
-    # glibc triple (no uname/config.guess in the sandbox).
+    # --without-docbook (no doc toolchain) + --enable-static. No libbsd: glibc
+    # 2.43 provides getrandom for expat's entropy source. Explicit glibc triple
+    # (no uname/config.guess in the sandbox).
     local t
     t=$(triple gnu)
     printf '%s\n' \

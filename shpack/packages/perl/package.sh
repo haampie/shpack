@@ -11,8 +11,7 @@ version 5.40.2 sha256=10d4647cfbb543a7f9ae3e5f6851ec49305232ea7621aed24c7cfbb0be
 
 build_system generic
 
-# Configure leans on awk and grep, neither of which is in the bootstrap base
-# PATH (only sed/coreutils/make are). gawk/grep supply them.
+# Configure leans on awk and grep, neither in the bootstrap base PATH.
 depends_on compiler-wrapper gawk@5.3.1 grep@2.4-musl gmake
 
 edit() {
@@ -21,34 +20,24 @@ edit() {
     storepwd=${storecat%/cat}/pwd
     glibc=$(prefix_of glibc)
 
-    # No chroot, so the host /bin/sh exists as a *file* -- and Configure's
-    # basic-shell search (line ~1531) takes /bin/sh whenever the file is present.
-    # The sandbox then denies executing it ("./sharp: Permission denied"). Point
-    # the search at the store shell instead. This runs before Configure, so the
-    # $startsh it derives ($sh-based) flows into every helper script Configure
-    # generates at runtime (sharp, loc, ...) -- which patch-shebangs, acting only
-    # on pre-existing #! lines, can't reach.
+    # Configure's basic-shell search takes the host /bin/sh whenever the file is
+    # present, which the sandbox denies executing. Point it at the store shell;
+    # the $startsh it derives then flows into every helper script it generates
+    # (patch-shebangs, acting only on existing #! lines, can't reach those).
     sed -i "s|xxx='/bin/sh'|xxx='$sh'|" Configure
 
-    # Configure decides whether '#!' shebangs work by writing a one-line script
-    # "#!$xcat" and running it -- but xcat defaults to the host /bin/cat (then
-    # /usr/bin/cat), which the sandbox denies executing. So the test silently
-    # fails and Configure falls back to shebang-less ': use' scripts that the
-    # kernel then can't exec at all. Point xcat at the store cat (on the build
-    # PATH) so the shebang test runs an allowed interpreter and succeeds.
+    # Configure's shebang test runs "#!$xcat", but xcat defaults to the host
+    # /bin/cat, which the sandbox denies; the test then silently fails and
+    # Configure falls back to unexecutable ': use' scripts. Point xcat at store cat.
     sed -i "s|xcat=/bin/cat|xcat=$storecat|;s|xcat=/usr/bin/cat|xcat=$storecat|" Configure
 
-    # The Errno extension scans the C <errno.h> for E* definitions. On Linux+gcc
-    # it hardcodes "\$sysroot/usr/include" as the first place to look, finds the
-    # host /usr/include/errno.h (which exists but the sandbox denies reading) and
-    # dies. Point that probe at the store glibc headers instead, so it reads the
-    # real, allowed errno.h.
+    # The Errno extension scans <errno.h>, hardcoding "$sysroot/usr/include"
+    # first; it finds the host errno.h (unreadable in the sandbox) and dies.
+    # Point it at the store glibc headers.
     sed -i "s|\"\$sysroot/usr/include\"|\"$glibc/include\"|" ext/Errno/Errno_pm.PL
 
-    # Cwd.pm hunts for a pwd command among hardcoded host paths (/bin/pwd,
-    # /usr/bin/pwd) and shells out to it; the sandbox denies executing the host
-    # binary, so cwd() comes back empty and MakeMaker dies "Can't figure out
-    # your cwd!". Repoint the first candidate at the store pwd.
+    # Cwd.pm shells out to a hardcoded /bin/pwd (denied), so cwd() comes back
+    # empty and MakeMaker dies. Repoint the first candidate at the store pwd.
     sed -i "s|'/bin/pwd'|'$storepwd'|" dist/PathTools/Cwd.pm
 }
 
@@ -75,10 +64,9 @@ install() {
     glibc=$(prefix_of glibc)
     case "$ARCH" in amd64) m=x86_64 ;; aarch64) m=aarch64 ;; esac
 
-    # Configure -des = non-interactive defaults. There is no /usr/include or
-    # /usr/lib in the sandbox, so point Perl's system include/lib probes at the
-    # glibc store prefix; -Dosname=linux forces hints/linux.sh (otherwise the
-    # missing uname leaves osname empty and the wrong defaults load).
+    # -des = non-interactive defaults. No /usr/include or /usr/lib, so point the
+    # include/lib probes at the glibc store prefix; -Dosname=linux forces
+    # hints/linux.sh (the missing uname would otherwise leave osname empty).
     "$sh" ./Configure -des \
         -Dprefix="$PREFIX" \
         -Dcc="$gcc/bin/gcc" \

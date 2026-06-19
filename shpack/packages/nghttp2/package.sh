@@ -14,10 +14,9 @@ build_system autotools
 depends_on compiler-wrapper gmake
 
 configure_args() {
-    # Library only: no apps, so none of the optional deps below are needed. The
-    # full --with-*=no set is straight from Spack's nghttp2 recipe (keeps
-    # configure from picking up anything from the environment). Explicit glibc
-    # triple because the sandbox has no uname/config.guess.
+    # Library only: no apps, so none of the optional deps below are needed; the
+    # --with-*=no set keeps configure from picking anything up from the environment.
+    # Explicit glibc triple because the sandbox has no uname/config.guess.
     local t
     t=$(triple gnu)
     printf '%s\n' \

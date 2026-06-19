@@ -14,9 +14,8 @@ build_system autotools
 depends_on compiler-wrapper gmake
 
 configure_args() {
-    # Default 8-bit build (libpcre2-8); git links the shared lib (PIC already),
-    # so the 16/32-bit variants and the static-PIC knob Spack sets are skipped.
-    # Explicit glibc triple (no uname/config.guess in the sandbox).
+    # Default 8-bit build (libpcre2-8). Explicit glibc triple (no
+    # uname/config.guess in the sandbox).
     local t
     t=$(triple gnu)
     printf '%s\n' \

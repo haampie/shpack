@@ -15,8 +15,7 @@ build_system generic
 depends_on compiler-wrapper gmake
 
 edit() {
-    # Both Makefiles hardcode CC=gcc; repoint at the wrapper gcc (= gcc 16),
-    # exactly as Spack's bzip2 recipe filter_files them.
+    # Both Makefiles hardcode CC=gcc; repoint at the wrapper gcc (= gcc 16).
     local cc
     cc=$(prefix_of compiler-wrapper)/bin/gcc
     sed -i "s|^CC=gcc|CC=$cc|" Makefile Makefile-libbz2_so
@@ -29,8 +28,8 @@ install() {
     make "SHELL=$sh" $makejobs
     make "SHELL=$sh" PREFIX="$PREFIX" install
 
-    # Overlay the dynamic build the way Spack does: the shared bzip2 over the
-    # static one, the versioned .so, and the classic symlink chain.
+    # Overlay the dynamic build: the shared bzip2 over the static one, the
+    # versioned .so, and the classic symlink chain.
     command install -m 755 bzip2-shared "$PREFIX/bin/bzip2"
     command install -m 755 libbz2.so.1.0.8 "$PREFIX/lib/libbz2.so.1.0.8"
     ( cd "$PREFIX/lib" &&
