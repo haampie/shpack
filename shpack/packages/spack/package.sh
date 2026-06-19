@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 
-description "Spack v1.1.0 -- the package manager, installed into the store and" \
+description "Spack v1.2.0 (releases/v1.2 snapshot) -- the package manager," \
+            "installed into the store and" \
             "wired to run on the shpack-built CPython with the shpack-built" \
             "clingo as its concretizer, so it never bootstraps prebuilt clingo." \
             "The 'builtin' package repo is overridden to the vendored" \
@@ -8,8 +9,13 @@ description "Spack v1.1.0 -- the package manager, installed into the store and" 
 homepage "https://spack.io/"
 license "Apache-2.0 OR MIT"
 
-version 1.1.0 sha256=518474f546e87723c43b80143d83a51c065a8d54333c8140da6f48bc7d9e50c1 \
-    url=https://github.com/spack/spack/releases/download/v1.1.0/spack-1.1.0.tar.gz
+# releases/v1.2 head (commit 3d24b94, 2026-06-11); __version__ is 1.2.0.dev0.
+# GitHub commit archive -> stable checksum. v1.2 makes compiler-wrapper a real
+# package fetched from its own source, so it no longer ships a hash-checked
+# cc.sh inside the spack-packages repo (which our patch-shebangs pass mutated).
+version 1.2.0 sha256=3efca6d5892930ee998a81c5917747765f107ffb0f9de9a03209159726df3b8f \
+    url=https://github.com/spack/spack/archive/3d24b94ef3d15a4864794f98807a7fcc17b83f48.tar.gz \
+    fname=spack-1.2.0.tar.gz
 
 build_system generic
 
@@ -30,7 +36,7 @@ install() {
     gcc=$(prefix_of gcc)
     clingo_site=$(prefix_of clingo)/lib/python3.14/site-packages
     pkgrepo=$(prefix_of spack-packages)/repos/spack_repo/builtin
-    dest=$PREFIX/lib/spack-1.1.0
+    dest=$PREFIX/lib/spack-$version
 
     # Colon-terminated bin/ list of the gcc-16-built userland, for the launcher
     # PATH so Spack uses these and not whatever the host happens to have.
@@ -39,7 +45,7 @@ install() {
         tools=$tools$(prefix_of "$t")/bin:
     done
 
-    # Install the Spack tree (do_stage left us in spack-1.1.0/).
+    # Install the Spack tree (do_stage left us in the unpacked source dir).
     mkdir -p "$dest"
     cp -a . "$dest/"
 

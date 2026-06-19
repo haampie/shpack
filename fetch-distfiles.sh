@@ -71,8 +71,8 @@ b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e  openssl-3.6.1.
 7818eef2296c17ad38a57a77f7925c8df41744c4e736ab81042df95c1330f43b  clingo-2a025667.tar.gz           https://github.com/potassco/clingo/archive/2a025667090d71b2c9dce60fe924feb6bde8f667.tar.gz
 ab2ac6601292619f94831065ee5c009f3168e14be52a65df7b9abdc20a1fc33f  clasp-b089aa15.tar.gz            https://github.com/potassco/clasp/archive/b089aa1509511ab403c0b9abd0d13eb9e873af44.tar.gz
 41eb8b7d87ecea48392de4ada455cda179cbd62fd63496355dea87e1e44b599f  libpotassco-2f9fb7ca.tar.gz      https://github.com/potassco/libpotassco/archive/2f9fb7ca2c202f1b47643aa414054f2f4f9c1821.tar.gz
-aeda9424b679cbbbc338bc55fd93a95b9c2eb24a010d4ea701f0d60c416f4e28  spack-packages-119680ae.tar.gz   https://github.com/spack/spack-packages/archive/119680aeee8ea802c6111b7167583bddef97e82f.tar.gz
-518474f546e87723c43b80143d83a51c065a8d54333c8140da6f48bc7d9e50c1  spack-1.1.0.tar.gz               https://github.com/spack/spack/releases/download/v1.1.0/spack-1.1.0.tar.gz
+42bb4f044ea997b31cbb46d6b1f2101d296a28b82d4203444e9204530e555674  spack-packages-deb4f17.tar.gz    https://github.com/spack/spack-packages/archive/deb4f17d93dbe012403614245334f7c73fcc086f.tar.gz
+3efca6d5892930ee998a81c5917747765f107ffb0f9de9a03209159726df3b8f  spack-1.2.0.tar.gz               https://github.com/spack/spack/archive/3d24b94ef3d15a4864794f98807a7fcc17b83f48.tar.gz
 
 # spack gcc-16 userland (bzip2-1.0.8 + cacert pem above; sed-4.9 + tar-1.35 reuse
 # the musl-build distfiles already listed; -musl/glibc share one tarball)

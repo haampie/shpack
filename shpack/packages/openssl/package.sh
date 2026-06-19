@@ -13,8 +13,9 @@ build_system generic
 
 # perl drives Configure and the build generators; zlib-ng (drop-in zlib) for the
 # (dynamically loaded) compression support. compiler-wrapper supplies gcc + the
-# zlib -I/-L/-rpath.
-depends_on compiler-wrapper perl zlib-ng gmake
+# zlib -I/-L/-rpath. ca-certificates is the Mozilla bundle we drop into OPENSSLDIR
+# (see install) so the compiled-in default trust store works with no SSL_CERT_FILE.
+depends_on compiler-wrapper perl zlib-ng gmake ca-certificates
 
 install() {
     local m
@@ -38,4 +39,13 @@ install() {
     # install_sw: libraries + headers + the openssl tool, skipping the man pages
     # (which need pod2man and a doc toolchain we don't ship).
     make install_sw
+
+    # Drop the Mozilla bundle at OPENSSLDIR/cert.pem -- the path baked in as
+    # X509_get_default_cert_file(). install_sw creates ssl/ but no cert.pem, so
+    # without this every TLS client on this libcrypto (CPython's _ssl, the
+    # openssl tool) fails verification unless SSL_CERT_FILE is set. Copying it
+    # here makes the default trust store work with no env var. install_sw skips
+    # the ssl/ config dir (that is install_ssldirs), so create it first.
+    mkdir -p "$PREFIX/ssl"
+    cp "$(prefix_of ca-certificates)/etc/ssl/cert.pem" "$PREFIX/ssl/cert.pem"
 }

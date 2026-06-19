@@ -124,6 +124,14 @@ df74cac      binutils@2.46.0
 The `(external)` nodes are part of the initial bootstrapping phase. All installed
 packages are put into unique prefixes `/opt/<name>-<version>[-<hash>]`.
 
+### `shpack install spack`
+
+`shpack install spack` continues past the toolchain and builds [Spack][4] 1.1.0
+with its runtime: CPython 3.14 (including the `_ssl`, `_ctypes`, `zlib` and
+`_bz2`/`_lzma`/`_zstd` modules), the clingo solver, and supporting tools such as
+`git` and `curl`. It resolves and builds the same way as `gcc`, into its own
+store prefix.
+
 ## Scope and trust
 
 By design, `shpack` bootstraps *on top of a running Linux*: the build does syscalls (`execve` and friends), so it depends on the kernel's ABI, and getting it started leans on the ordinary userland (a shell, `sed`, coreutils) the launcher uses to stage and kick off the bootstrap. This is a deliberate scope, not full bare-metal trustlessness -- for that you would boot into the bootstrap and run it directly on hardware. What `shpack` aims for instead is reproducibility: the same seed and sources should yield the same toolchain across different Linux machines, so a [Thompson-style][6] compromise would have to be present on *every* host you compare to go unnoticed. `shpack` also trusts the generated files that upstream ships in release tarballs, including `configure` scripts and pre-generated source files. live-bootstrap takes the stricter path and rebuilds those artifacts too; `shpack` makes the other tradeoff deliberately, optimizing for a modern, real-world toolchain that bootstraps quickly and keeping the dependency set small -- regenerating those artifacts would otherwise pull flex, bison, autotools and texinfo into the chain.
