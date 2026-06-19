@@ -221,7 +221,12 @@ cmd_build_one() {
 
     bs=generic
     if [ -f "$VAR/recipe/$name/build_system" ]; then
-        bs=$(cat "$VAR/recipe/$name/build_system")
+        while read -r when val; do
+            if [ "$when" = - ] || [ "$when" = "$version" ]; then
+                bs=$val
+                break
+            fi
+        done < "$VAR/recipe/$name/build_system"
     fi
     [ -f "$SHPACK_LIB/build_systems/$bs.sh" ] \
         || die "$name: unknown build system '$bs'"

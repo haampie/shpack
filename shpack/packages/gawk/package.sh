@@ -23,9 +23,11 @@ version 5.3.2 sha256=f8c3486509de705192138b00ef2c00bbbdd0e84c30d5c07d23fc73a9dc4
     url=https://ftpmirror.gnu.org/gawk/gawk-5.3.2.tar.xz
 
 # 3.0.4 builds from a shipped Makefile (no configure); 5.3.1/5.3.2 are autotools.
-# The two build systems diverge, and `build_system` cannot vary per version, so
-# use `generic` and branch install() on $version.
-build_system generic
+# 3.0.4 needs no build/install hook (makefile defaults); the autotools versions
+# differ only in configure_args (below).
+build_system makefile  when=3.0.4
+build_system autotools when=5.3.1
+build_system autotools when=5.3.2
 
 # Shared: grep (both configure/build scripts use it); the tcc-built 2.4-musl is
 # fine as a build tool for every version.
@@ -40,64 +42,34 @@ depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed@4.9-musl tar@1.35-musl xz
 depends_on compiler-wrapper gmake sed@4.9 tar@1.35 xz@5.8.3 when=5.3.2
 
 edit() {
-    # gawk's system()/`| getline`/`print | "cmd"` execl a hardcoded "/bin/sh"
-    # (builtin.c, io.c), bypassing libc, so the musl patch can't reach it. The
-    # sandbox has no host /bin/sh -- repoint at the store shell. (glibc's
+    # 3.0.4 builds from the shipped files/Makefile (no configure); the autotools
+    # versions regenerate their own, so only copy it for the makefile build.
+    [ "$version" = 3.0.4 ] && cp "$package_dir/files/Makefile" ./Makefile
+    # All versions: gawk's system()/`| getline`/`print | "cmd"` execl a hardcoded
+    # "/bin/sh" (builtin.c, io.c), bypassing libc, so the musl patch can't reach
+    # it. The sandbox has no host /bin/sh -- repoint at the store shell. (glibc's
     # gen-sorted.awk does system("test -d ..."); without this the build descends
     # into no subdirs and links an empty libc.)
     replace_bin_sh builtin.c io.c
 }
 
-install() {
+# 5.3.1/5.3.2 only (3.0.4 is makefile and never calls this). Both disable the
+# loadable .so extensions (the interpreter doesn't need them; for 5.3.1 they also
+# can't link the non-PIC static musl 1.2.5 libc.a -- R_AARCH64 reloc errors) and
+# NLS/mpfr/libsigsegv. They differ only in the compiler and CFLAGS: 5.3.1 uses the
+# gcc-9.5 bridge and CFLAGS=-O2 to drop the autotools default -g (a never-debugged
+# build tool whose -g would leak the build cwd as comp_dir, see builder.sh);
+# 5.3.2 uses gcc 16 via the wrapper, where -g is reproducible at this layer.
+configure_args() {
     local triple
-    case "$version" in
-        3.0.4)
-            # Replicate the old `makefile` build system: a replacement Makefile
-            # (files/Makefile) drives the tcc build (PREFIX-parameterized).
-            cp "$package_dir/files/Makefile" ./Makefile
-            make -f Makefile $makejobs PREFIX="$PREFIX"
-            make -f Makefile PREFIX="$PREFIX" install
-            ;;
-        5.3.1)
-            triple=$(triple musl)
-            # --disable-extensions: gawk's loadable .so extensions can't link
-            # against the non-PIC static musl 1.2.5 libc.a (R_AARCH64 reloc
-            # errors); the interpreter doesn't need them and glibc just runs gawk.
-            # CFLAGS=-O2 drops the autotools default -g: a never-debugged build
-            # tool whose -g would leak the build cwd as comp_dir (see builder.sh).
-            "$sh" ./configure \
-                "CONFIG_SHELL=$sh" \
-                "CC=$(prefix_of gcc-boot)/bin/gcc" \
-                CFLAGS=-O2 \
-                MAKEINFO=true \
-                --build="$triple" \
-                --host="$triple" \
-                --prefix="$PREFIX" \
-                --disable-nls \
-                --disable-mpfr \
-                --disable-extensions \
-                --without-libsigsegv-prefix
-            make $makejobs
-            make install
-            ;;
-        5.3.2)
-            # gcc 16 via the wrapper. glibc could load .so extensions, but the
-            # interpreter doesn't need them here, so keep the build lean. -g is
-            # reproducible at this layer, so no CFLAGS=-O2.
-            triple=$(triple gnu)
-            "$sh" ./configure \
-                "CONFIG_SHELL=$sh" \
-                CC=gcc \
-                MAKEINFO=true \
-                --build="$triple" \
-                --host="$triple" \
-                --prefix="$PREFIX" \
-                --disable-nls \
-                --disable-mpfr \
-                --disable-extensions \
-                --without-libsigsegv-prefix
-            make $makejobs
-            make install
-            ;;
-    esac
+    if [ "$version" = 5.3.1 ]; then
+        triple=$(triple musl)
+        printf '%s\n' "CC=$(prefix_of gcc-boot)/bin/gcc" CFLAGS=-O2
+    else
+        triple=$(triple gnu)
+        printf '%s\n' CC=gcc
+    fi
+    printf '%s\n' MAKEINFO=true "--build=$triple" "--host=$triple" \
+        --disable-nls --disable-mpfr --disable-extensions \
+        --without-libsigsegv-prefix
 }

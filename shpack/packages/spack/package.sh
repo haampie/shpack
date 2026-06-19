@@ -59,14 +59,17 @@ repos:
 EOF
 
     # Launcher: our Python + clingo on PYTHONPATH so 'import clingo' succeeds and
-    # Spack skips bootstrapping. SPACK_DISABLE_LOCAL_CONFIG keeps ~/.spack and
-    # /etc/spack from interfering, so the run is hermetic against the store.
+    # Spack skips bootstrapping. We do NOT set SPACK_DISABLE_LOCAL_CONFIG: that one
+    # flag drops every local scope at once -- /etc/spack, ~/.spack, AND the user
+    # scope SPACK_USER_CONFIG_PATH points at -- so setting it would make
+    # SPACK_USER_CONFIG_PATH a no-op. Leaving it unset honors local config like a
+    # normal Spack; the tradeoff is the run is no longer hermetic against host
+    # Spack config, which is the price of letting the user override it.
     mkdir -p "$PREFIX/bin"
     cat > "$PREFIX/bin/spack" <<EOF
 #!$sh
 export PATH=$gcc/bin:$tools$py/bin:\$PATH
 export PYTHONPATH=$clingo_site\${PYTHONPATH:+:\$PYTHONPATH}
-export SPACK_DISABLE_LOCAL_CONFIG=true
 exec $py/bin/python3 $dest/bin/spack "\$@"
 EOF
     chmod 755 "$PREFIX/bin/spack"

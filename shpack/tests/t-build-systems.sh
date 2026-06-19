@@ -95,6 +95,63 @@ parallel false
 build_directory _build
 EOF
 
+# per-version build_system: one recipe, version 1.0 on makefile (ships
+# files/Makefile, no configure) and version 2.0 on autotools (configure in the
+# tarball). Proves `build_system NAME when=VER` selects per version.
+mkdir -p "$TESTDIR/src/bspkg-1.0"
+printf 'mk\n' > "$TESTDIR/src/bspkg-1.0/data.in"
+( cd "$TESTDIR/src" && tar -czf "$TESTDIR/distfiles/bspkg-1.0.tar.gz" bspkg-1.0 )
+sha10=$(sha256sum "$TESTDIR/distfiles/bspkg-1.0.tar.gz"); sha10=${sha10%% *}
+
+mkdir -p "$TESTDIR/src/bspkg-2.0"
+cat > "$TESTDIR/src/bspkg-2.0/configure" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$@" > config.args
+cat > Makefile <<'MK'
+all:
+	cp config.args out.txt
+install:
+	mkdir -p $(PREFIX)/share
+	cp out.txt $(PREFIX)/share/
+MK
+EOF
+chmod 755 "$TESTDIR/src/bspkg-2.0/configure"
+( cd "$TESTDIR/src" && tar -czf "$TESTDIR/distfiles/bspkg-2.0.tar.gz" bspkg-2.0 )
+sha20=$(sha256sum "$TESTDIR/distfiles/bspkg-2.0.tar.gz"); sha20=${sha20%% *}
+
+mkpkg bspkg <<EOF
+version 1.0 sha256=$sha10 url=http://example.invalid/bspkg-1.0.tar.gz
+version 2.0 sha256=$sha20 url=http://example.invalid/bspkg-2.0.tar.gz
+build_system makefile  when=1.0
+build_system autotools when=2.0
+parallel false
+EOF
+mkdir -p "$SHPACK_REPO/bspkg/files"
+cat > "$SHPACK_REPO/bspkg/files/Makefile" <<'EOF'
+all: data.out
+data.out: data.in
+	cp data.in data.out
+install: data.out
+	mkdir -p $(PREFIX)/share
+	cp data.out $(PREFIX)/share/data.out
+EOF
+
+# Install each version separately (same name -> distinct nodes) and confirm each
+# built through its own build system's default phases.
+shpack install bspkg@1.0 > "$TESTDIR/bs1.log" 2>&1 \
+    || { cat "$TESTDIR/bs1.log"; fail "bspkg@1.0 (makefile) install failed"; }
+bh1=$(index_field bspkg 3)
+assert_file "$TESTDIR/store/bspkg-1.0-$bh1/share/data.out"
+assert_eq "$(cat "$TESTDIR/store/bspkg-1.0-$bh1/share/data.out")" mk \
+    "makefile-built version selected files/Makefile"
+
+shpack install bspkg@2.0 > "$TESTDIR/bs2.log" 2>&1 \
+    || { cat "$TESTDIR/bs2.log"; fail "bspkg@2.0 (autotools) install failed"; }
+bh2=$(index_field bspkg 3)
+assert_file "$TESTDIR/store/bspkg-2.0-$bh2/share/out.txt"
+assert_contains "$TESTDIR/store/bspkg-2.0-$bh2/share/out.txt" \
+    "--prefix=$TESTDIR/store/bspkg-2.0-$bh2"
+
 shpack install mkpkg atpkg ootpkg > "$TESTDIR/install.log" 2>&1 \
     || { cat "$TESTDIR/install.log"; fail "install failed"; }
 

@@ -22,7 +22,19 @@ SHPACK_DIRECTIVES="description homepage license version resource depends_on patc
 description()  { printf '%s\n' "$*" > "$RECIPE_STATE/description"; }
 homepage()     { printf '%s\n' "$*" > "$RECIPE_STATE/homepage"; }
 license()      { printf '%s\n' "$*" > "$RECIPE_STATE/license"; }
-build_system() { printf '%s\n' "$1" > "$RECIPE_STATE/build_system"; }
+# build_system NAME [when=VER]
+# The build system (generic|makefile|autotools). Repeatable with when=VER to
+# vary by version (same convention as depends_on); '-' (no when=) matches all
+# versions. Stored one line per call as: WHEN NAME. builder.sh takes the first
+# matching line.
+build_system() {
+    local kv when
+    when=-
+    for kv in "$@"; do
+        case $kv in when=*) when=${kv#*=} ;; esac
+    done
+    printf '%s %s\n' "$when" "$1" >> "$RECIPE_STATE/build_system"
+}
 
 # parallel false -- this package's make must not run with -j.
 parallel()     { printf '%s\n' "$1" > "$RECIPE_STATE/parallel"; }
