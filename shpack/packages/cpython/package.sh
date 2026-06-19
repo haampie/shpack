@@ -15,7 +15,12 @@ build_system autotools
 # _ctypes (Spack's archspec imports ctypes at startup); openssl for _ssl (Spack
 # imports ssl unconditionally via spack.util.web). hashlib works via the builtin
 # _sha* modules; clingo uses the C-API, not cffi.
-depends_on compiler-wrapper zlib-ng libffi openssl gmake
+# bzip2/xz/zstd back the _bz2, _lzma and _zstd (3.14's compression.zstd) stdlib
+# modules -- configure auto-detects each from the headers/libs the wrapper puts
+# on the search path, so these need only be direct deps. bzip2 is pinned @1.0.8
+# to get the gcc-16 recipe (with libbz2/headers); the bare name ties the bin-only
+# kaem seed bzip2@1.0.8-musl, which wins (see etc/externals.in).
+depends_on compiler-wrapper zlib-ng libffi openssl bzip2@1.0.8 xz zstd gmake
 
 setup_build_environment() {
     export CC=$(prefix_of compiler-wrapper)/bin/gcc

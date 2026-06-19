@@ -16,7 +16,11 @@ build_system autotools
 # expat = dumb-HTTP/WebDAV push; pcre2 = `git grep -P`; zlib-ng = pack codec;
 # perl drives build-time script generation (and runtime git-svn/add--interactive,
 # largely C now). compiler-wrapper injects -I/-L/-rpath for all of these.
-depends_on compiler-wrapper curl openssl zlib-ng expat pcre2 perl gmake
+# coreutils: templates/Makefile ends its boilerplate rule with `date >$@`, and
+# that exit-127 (no date on the base PATH) fails the rule. The timestamp only
+# lands in the `boilerplates.made` make stamp -- never installed -- so a real
+# date here is inert w.r.t. the reproducible output.
+depends_on compiler-wrapper curl openssl zlib-ng expat pcre2 perl gmake coreutils
 
 edit() {
     # glibc 2.43 (>= 2.36) provides arc4random, so use it as git's CSPRNG, per
