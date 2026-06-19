@@ -12,6 +12,11 @@ patch@2.5.9     @STORE@/patch-2.5.9
 gzip@1.2.4      @STORE@/gzip-1.2.4
 tar@1.12        @STORE@/tar-1.12
 sed@4.0.9       @STORE@/sed-4.0.9
-bzip2@1.0.8     @STORE@/bzip2-1.0.8
+# The kaem seed bzip2 is 1.0.8, which is also the latest release, so it would
+# tie the gcc-16 `bzip2` recipe and (externals win ties) hand consumers the seed
+# binary. Suffix it -musl, like binutils/tar's bootstrap builds, so the recipe's
+# clean 1.0.8 wins; consumers wanting the gcc-16 bzip2 pin @1.0.8. (patch/gzip/
+# tar/sed/coreutils seeds are older than their recipes, so they need no suffix.)
+bzip2@1.0.8-musl @STORE@/bzip2-1.0.8
 coreutils@5.0   @STORE@/coreutils-5.0
 dash@0.5.12     @STORE@/dash-0.5.12

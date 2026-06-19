@@ -13,7 +13,7 @@ build_system generic
 # Built by the chain's real GCC 4.7 (HOSTCC compiles scripts/basic/fixdep and
 # scripts/unifdef). The only consumers -- musl@1.2.5 and glibc -- come later, so
 # no cycle. make = gmake (musl-linked, drives the jobserver).
-depends_on gcc-boot@4.7-2013.11 gmake sed xz
+depends_on gcc-boot@4.7-2013.11 gmake sed@4.9-musl xz@5.2.5-musl
 
 install() {
     local karch

@@ -15,16 +15,29 @@ build_system generic
 
 # cpython runs it; clingo (on PYTHONPATH) is the concretizer so no bootstrap;
 # spack-packages provides the 'builtin' recipe repo; gcc is the compiler Spack
-# auto-detects from PATH so concretization has something to build against.
+# auto-detects from PATH so concretization has something to build against. The
+# rest are the gcc-16/glibc userland Spack otherwise assumes from the host
+# (coreutils/grep/sed/gawk + the archiver/VCS tools); they go on the launcher
+# PATH so Spack fetches, unpacks and runs build scripts with this toolchain. The
+# glibc builds of tar/xz/grep/sed/gawk are pinned (the -musl ones are bootstrap).
 depends_on cpython clingo spack-packages gcc
+depends_on coreutils grep@3.11 sed@4.9 gawk@5.3.2
+depends_on tar@1.35 xz@5.8.3 bzip2@1.0.8 gzip patch unzip zstd git
 
 install() {
-    local py clingo_site pkgrepo dest gcc
+    local py clingo_site pkgrepo dest gcc tools t
     py=$(prefix_of cpython)
     gcc=$(prefix_of gcc)
     clingo_site=$(prefix_of clingo)/lib/python3.14/site-packages
     pkgrepo=$(prefix_of spack-packages)/repos/spack_repo/builtin
     dest=$PREFIX/lib/spack-1.1.0
+
+    # Colon-terminated bin/ list of the gcc-16-built userland, for the launcher
+    # PATH so Spack uses these and not whatever the host happens to have.
+    tools=
+    for t in coreutils grep sed gawk tar xz bzip2 gzip patch unzip zstd git; do
+        tools=$tools$(prefix_of "$t")/bin:
+    done
 
     # Install the Spack tree (do_stage left us in spack-1.1.0/).
     mkdir -p "$dest"
@@ -45,7 +58,7 @@ EOF
     mkdir -p "$PREFIX/bin"
     cat > "$PREFIX/bin/spack" <<EOF
 #!$sh
-export PATH=$gcc/bin:$py/bin:\$PATH
+export PATH=$gcc/bin:$tools$py/bin:\$PATH
 export PYTHONPATH=$clingo_site\${PYTHONPATH:+:\$PYTHONPATH}
 export SPACK_DISABLE_LOCAL_CONFIG=true
 exec $py/bin/python3 $dest/bin/spack "\$@"

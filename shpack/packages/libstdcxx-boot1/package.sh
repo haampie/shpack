@@ -17,8 +17,8 @@ build_system generic
 # libsupc++/c++NN convenience archives into libstdc++.a by extracting them and
 # enumerating objects with find -- without findutils, libstdc++.a ships only
 # the compatibility*.o and every downstream C++ link breaks.
-depends_on gcc-boot-wrapper glibc linux-headers gmake sed grep gawk diffutils \
-    findutils tar xz
+depends_on gcc-boot-wrapper glibc linux-headers gmake sed@4.9-musl grep@2.4-musl gawk@5.3.1 diffutils \
+    findutils tar@1.35-musl xz@5.2.5-musl
 
 setup_build_environment() {
     # libstdc++ #include_next <stdlib.h> etc. must reach glibc's headers.

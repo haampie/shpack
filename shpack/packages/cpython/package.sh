@@ -11,11 +11,11 @@ version 3.14.5 sha256=7e32597b99e5d9a39abed35de4693fa169df3e5850d4c334337ffd6a19
 
 build_system autotools
 
-# zlib for the zlib/gzip/zipfile stdlib modules; libffi for _ctypes (Spack's
-# archspec imports ctypes at startup); openssl for _ssl (Spack imports ssl
-# unconditionally via spack.util.web). hashlib works via the builtin _sha*
-# modules; clingo uses the C-API, not cffi.
-depends_on compiler-wrapper zlib libffi openssl gmake
+# zlib-ng (drop-in zlib) for the zlib/gzip/zipfile stdlib modules; libffi for
+# _ctypes (Spack's archspec imports ctypes at startup); openssl for _ssl (Spack
+# imports ssl unconditionally via spack.util.web). hashlib works via the builtin
+# _sha* modules; clingo uses the C-API, not cffi.
+depends_on compiler-wrapper zlib-ng libffi openssl gmake
 
 setup_build_environment() {
     export CC=$(prefix_of compiler-wrapper)/bin/gcc

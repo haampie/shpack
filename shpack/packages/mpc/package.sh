@@ -9,7 +9,7 @@ version 1.0.3 sha256=617decc6ea09889fb08ede330917a00b16809b8db88c29c31bfbb49cbf8
 
 build_system autotools
 
-depends_on tcc musl@1.1.24 gmake binutils@2.30-musl gmp mpfr grep gawk@3.0.4
+depends_on tcc musl@1.1.24 gmake binutils@2.30-musl gmp mpfr grep@2.4-musl gawk@3.0.4
 
 configure_args() {
     local triple

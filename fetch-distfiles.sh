@@ -60,7 +60,7 @@ c6c37e888b136ccefab903c51149f4b7bd659d69d4aea21245f61053a57aa60a  tar-1.12.tar.g
 de23af78fca90ce32dff2dd45b3432b2334740bb9bb7b05bf60fdbfc396ceb9c  tcc-0.9.27.tar.bz2                https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27.tar.bz2
 
 # spack bootstrap (cpython + clingo + spack)
-9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23  zlib-1.3.1.tar.gz                https://zlib.net/fossils/zlib-1.3.1.tar.gz
+f9c65aa9c852eb8255b636fd9f07ce1c406f061ec19a2e7d508b318ca0c907d1  zlib-ng-2.3.3.tar.gz             https://github.com/zlib-ng/zlib-ng/archive/2.3.3.tar.gz
 b3babbbb1461e13fe22c630a40c43885efcfbbbb585830c6f4c0d791cf82ba0b  re2c-3.0.tar.xz                  https://github.com/skvadrik/re2c/releases/download/3.0/re2c-3.0.tar.xz
 c0a3b3f2912b2166f522d5010ffb6029d8454ee635f5ad7a3247e0be7f9a15c9  cmake-3.31.11.tar.gz             https://github.com/Kitware/CMake/releases/download/v3.31.11/cmake-3.31.11.tar.gz
 b0dea9df23c863a7a50e825440f3ebffabd65df1497108e5d437747843895a4e  libffi-3.4.6.tar.gz              https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz
@@ -73,6 +73,22 @@ ab2ac6601292619f94831065ee5c009f3168e14be52a65df7b9abdc20a1fc33f  clasp-b089aa15
 41eb8b7d87ecea48392de4ada455cda179cbd62fd63496355dea87e1e44b599f  libpotassco-2f9fb7ca.tar.gz      https://github.com/potassco/libpotassco/archive/2f9fb7ca2c202f1b47643aa414054f2f4f9c1821.tar.gz
 aeda9424b679cbbbc338bc55fd93a95b9c2eb24a010d4ea701f0d60c416f4e28  spack-packages-119680ae.tar.gz   https://github.com/spack/spack-packages/archive/119680aeee8ea802c6111b7167583bddef97e82f.tar.gz
 518474f546e87723c43b80143d83a51c065a8d54333c8140da6f48bc7d9e50c1  spack-1.1.0.tar.gz               https://github.com/spack/spack/releases/download/v1.1.0/spack-1.1.0.tar.gz
+
+# spack gcc-16 userland (bzip2-1.0.8 + cacert pem above; sed-4.9 + tar-1.35 reuse
+# the musl-build distfiles already listed; -musl/glibc share one tarball)
+e8bb26ad0293f9b5a1fc43fb42ba970e312c66ce92c1b0b16713d7500db251bf  coreutils-9.7.tar.xz             https://ftpmirror.gnu.org/coreutils/coreutils-9.7.tar.xz
+1f31014953e71c3cddcedb97692ad7620cb9d6d04fbdc19e0d8dd836f87622bb  grep-3.11.tar.gz                 https://ftpmirror.gnu.org/grep/grep-3.11.tar.gz
+f8c3486509de705192138b00ef2c00bbbdd0e84c30d5c07d23fc73a9dc4cc9cc  gawk-5.3.2.tar.xz                https://ftpmirror.gnu.org/gawk/gawk-5.3.2.tar.xz
+33bf69c0d6c698e83a68f77e6c1f465778e418ca0b3d59860d3ab446f4ac99a6  xz-5.8.3.tar.bz2                 https://github.com/tukaani-project/xz/releases/download/v5.8.3/xz-5.8.3.tar.bz2
+613d6ea44f1248d7370c7ccdeee0dd0017a09e6c39de894b3c6f03f981191c6b  gzip-1.14.tar.gz                 https://ftpmirror.gnu.org/gzip/gzip-1.14.tar.gz
+f87cee69eec2b4fcbf60a396b030ad6aa3415f192aa5f7ee84cad5e11f7f5ae3  patch-2.8.tar.xz                 https://ftpmirror.gnu.org/patch/patch-2.8.tar.xz
+036d96991646d0449ed0aa952e4fbe21b476ce994abc276e49d30e686708bd37  unzip60.tar.gz                   https://downloads.sourceforge.net/infozip/unzip60.tar.gz
+37d7284556b20954e56e1ca85b80226768902e2edabd3b649e9e72c0c9012ee3  zstd-1.5.7.tar.gz                https://github.com/facebook/zstd/archive/v1.5.7.tar.gz
+429dc0f5fe5f14109930cdbbb588c5d6ef5b8528910f0d738040744bebdc6275  git-2.53.0.tar.gz                https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.53.0.tar.gz
+da8d640f55036b1f5c9cd950083248ec956256959dc74584e12c43550d6ec0ef  nghttp2-1.67.1.tar.gz            https://github.com/nghttp2/nghttp2/releases/download/v1.67.1/nghttp2-1.67.1.tar.gz
+f5833dd2e1cd7739ec9182804a1a29c4f0cc7c2f26b633d3a2188b7766a88ecb  expat-2.8.1.tar.bz2              https://github.com/libexpat/libexpat/releases/download/R_2_8_1/expat-2.8.1.tar.bz2
+d34f02e113cf7193a1ebf2770d3ac527088d485d4e047ed10e5d217c6ef5de96  pcre2-10.44.tar.bz2              https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.bz2
+4be48e69cf467246cb97d369b85d78a08528f2b37cffef2418ee16e6a4eb596e  curl-8.20.0.tar.bz2              https://curl.se/download/curl-8.20.0.tar.bz2
 EOF
 )
 

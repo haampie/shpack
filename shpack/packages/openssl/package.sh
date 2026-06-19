@@ -11,9 +11,10 @@ version 3.6.1 sha256=b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f51
 
 build_system generic
 
-# perl drives Configure and the build generators; zlib for the (dynamically
-# loaded) compression support. compiler-wrapper supplies gcc + zlib -I/-L/-rpath.
-depends_on compiler-wrapper perl zlib gmake
+# perl drives Configure and the build generators; zlib-ng (drop-in zlib) for the
+# (dynamically loaded) compression support. compiler-wrapper supplies gcc + the
+# zlib -I/-L/-rpath.
+depends_on compiler-wrapper perl zlib-ng gmake
 
 install() {
     local m

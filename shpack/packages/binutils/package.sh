@@ -31,17 +31,17 @@ version 2.30-musl sha256=8c3850195d1c093d290a716e20ebcaa72eda32abf5e3d8611154b39
 build_system autotools
 
 # 2.30-musl: tcc + kaem-external musl 1.1.24 + m4; seed make/sed/tar suffice.
-depends_on tcc musl@1.1.24 gmake grep gawk@3.0.4 diffutils m4 when=2.30-musl
+depends_on tcc musl@1.1.24 gmake grep@2.4-musl gawk@3.0.4 diffutils m4 when=2.30-musl
 # 2.46.0-musl: gcc 9.5, with 2.30-musl supplying the plain as/ld/ar it
 # assembles/links with (on PATH via topo order). Modern sed/tar: 2.46's
 # configure needs sed -E and its tarball is pax (seed sed/tar are too old).
-depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake grep gawk@3.0.4 diffutils sed tar \
+depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake grep@2.4-musl gawk@3.0.4 diffutils sed@4.9-musl tar@1.35-musl \
     when=2.46.0-musl
 # 2.46.0 (glibc): built by gcc-boot-wrapper against glibc 2.43. linux-headers:
 # autoconf CPP sanity check. libstdcxx-boot1: gprofng is C++ and links the
 # static libstdc++.a. binutils@2.46.0-musl supplies plain as/ld/ar on PATH.
 depends_on gcc-boot-wrapper glibc linux-headers libstdcxx-boot1 binutils@2.46.0-musl \
-    bison gmake sed grep gawk@3.0.4 diffutils tar when=2.46.0
+    bison gmake sed@4.9-musl grep@2.4-musl gawk@3.0.4 diffutils tar@1.35-musl when=2.46.0
 
 # 2.30 only: the HOWTO table in bfd/elfnn-aarch64.c has #if/#else inside macro
 # arguments, which tcc 0.9.26's preprocessor lineage cannot handle.

@@ -19,7 +19,7 @@ build_system autotools
 # linux-headers: autoconf CPP sanity check (kernel headers are symlinked into
 # glibc's include, so --with-native-system-header-dir=glibc covers both).
 depends_on gcc-boot-wrapper glibc binutils@2.46.0 libstdcxx-boot1 linux-headers \
-    gmake sed grep gawk@3.0.4 diffutils findutils tar xz
+    gmake sed@4.9-musl grep@2.4-musl gawk@3.0.4 diffutils findutils tar@1.35-musl xz@5.2.5-musl
 
 # Same in-tree gmp/mpfr/mpc as gcc-boot@16.1.0 (GCC 16's prerequisite set).
 resource when=16.1.0 \

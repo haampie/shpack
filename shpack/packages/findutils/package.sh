@@ -10,7 +10,7 @@ version 4.2.33 sha256=813cd9405aceec5cfecbe96400d01e90ddad7b512d3034487176ce5258
 
 build_system autotools
 
-depends_on tcc musl@1.1.24 grep
+depends_on tcc musl@1.1.24 grep@2.4-musl
 
 # The release tarball ships a working pregenerated ./configure, so unlike
 # live-bootstrap no autoreconf chain is needed; we just run it.

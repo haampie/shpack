@@ -18,7 +18,7 @@ build_system generic
 # Needs python (gen-as-const), bison+m4 (intl/plural.c), make >= 4. gawk@5.3.1 (not
 # the seed gawk 3.0.4): glibc 2.43's configure rejects gawk < 3.1.2 as too old.
 depends_on gcc-boot@16.1.0 binutils@2.46.0-musl linux-headers gmake python bison m4 \
-    sed gawk@5.3.1 grep diffutils tar xz
+    sed@4.9-musl gawk@5.3.1 grep@2.4-musl diffutils tar@1.35-musl xz@5.2.5-musl
 
 install() {
     local triple cc headers python n b

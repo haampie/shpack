@@ -13,7 +13,7 @@ build_system generic
 
 # Configure leans on awk and grep, neither of which is in the bootstrap base
 # PATH (only sed/coreutils/make are). gawk/grep supply them.
-depends_on compiler-wrapper gawk grep gmake
+depends_on compiler-wrapper gawk@5.3.1 grep@2.4-musl gmake
 
 edit() {
     local storecat storepwd glibc
