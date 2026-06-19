@@ -22,9 +22,12 @@ configure_args() {
     # LD=tcc skips configure's fatal AC_PROG_LD probe (no binutils ld yet);
     # tcc links internally so no real ld is ever invoked.
     triple=$(triple gnu unknown)
+    # CFLAGS=-O2 drops the autotools default -g: tcc has no -f*-prefix-map, so -g
+    # would leak the build cwd as the stabs comp_dir (see builder.sh). Never debugged.
     printf '%s\n' \
         CC=tcc \
         LD=tcc \
+        CFLAGS=-O2 \
         CPPFLAGS=-D__UCLIBC__ \
         --build="$triple" \
         --host="$triple" \

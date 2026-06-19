@@ -127,7 +127,6 @@ fi
 # the strtod statically linked into this binary is float-correct) + the 0.9.26
 # libtcc1.a (overwritten with 0.9.27's own runtime right below).
 tcc \
-    -g \
     -static \
     -o tcc-0.9.27 \
     -I . \

@@ -47,6 +47,22 @@ depends_on gcc-boot-wrapper glibc linux-headers libstdcxx-boot1 binutils@2.46.0-
 # arguments, which tcc 0.9.26's preprocessor lineage cannot handle.
 patch arm64-elfnn-howto.patch arch=aarch64 when=2.30-musl
 
+edit() {
+    case "$version" in
+        2.46.0)
+            # gprofng tars its example sources into
+            # share/doc/gprofng/examples.tar.gz via an unconditional
+            # install-data-local hook (no configure flag disables just this). The
+            # tarball is a non-reproducible doc artifact (member mtimes/order) and
+            # not needed for the profiler, so neutralize the install hook: drop the
+            # examples.tar.gz prerequisite and the INSTALL_DATA line so it is
+            # neither built nor installed.
+            sed -i 's|^install-data-local:.*|install-data-local:|; /INSTALL_DATA. examples\.tar\.gz/d' \
+                gprofng/doc/Makefile.in
+            ;;
+    esac
+}
+
 setup_build_environment() {
     local glibc triple libstdcxx
     # All: binutils ships generated parsers and no flex exists, so the only
@@ -103,7 +119,7 @@ configure_args() {
                 LD=tcc \
                 'AR=tcc -ar' \
                 RANLIB=true \
-                CFLAGS=-g \
+                CFLAGS=-O2 \
                 --with-sysroot="$(prefix_of musl)" \
                 --disable-dependency-tracking \
                 --disable-plugins \
@@ -116,6 +132,8 @@ configure_args() {
             printf '%s\n' \
                 "CC=$(prefix_of gcc-boot)/bin/gcc" \
                 "CXX=$(prefix_of gcc-boot)/bin/g++" \
+                "CFLAGS=-g -O2 $file_prefix_map" \
+                "CXXFLAGS=-g -O2 $file_prefix_map" \
                 AR=ar AS=as NM=nm RANLIB=ranlib \
                 OBJCOPY=objcopy OBJDUMP=objdump READELF=readelf STRIP=strip \
                 --with-sysroot=/ \
@@ -131,6 +149,8 @@ configure_args() {
             printf '%s\n' \
                 "CC=$gcc/bin/gcc" \
                 "CXX=$gcc/bin/g++" \
+                "CFLAGS=-g -O2 $file_prefix_map" \
+                "CXXFLAGS=-g -O2 $file_prefix_map" \
                 "LDFLAGS=-L$libstdcxx/lib64 -L$libstdcxx/lib" \
                 AR=ar AS=as NM=nm RANLIB=ranlib \
                 OBJCOPY=objcopy OBJDUMP=objdump READELF=readelf STRIP=strip \

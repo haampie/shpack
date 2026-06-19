@@ -218,7 +218,6 @@ cd ${BLD}/${TCC_PKG}
 
 # boot0: tcc compiled by tcc_s, linking the subset libc.
 tcc_s \
-    -g \
     -v \
     -static \
     -o tcc-boot0 \
@@ -269,7 +268,6 @@ cd ${BLD}/${TCC_PKG}
 
 # boot1: tcc compiled by boot0 against the float-correct libc.
 tcc-boot0 \
-    -g \
     -v \
     -static \
     -o tcc-boot1 \
@@ -303,7 +301,6 @@ tcc-boot1 -version
 
 # boot2: tcc compiled by boot1.
 tcc-boot1 \
-    -g \
     -v \
     -static \
     -o tcc-boot2 \
@@ -344,7 +341,6 @@ tcc-boot2 -version
 # re-verify: sha256sum -c exits nonzero (aborting kaem) if the fixed point fails.
 sha256sum -o ${TMPDIR}/tcc-fixedpoint.checksums tcc-boot2
 tcc-boot2 \
-    -g \
     -static \
     -o tcc-boot2 \
     -D BOOTSTRAP=1 \

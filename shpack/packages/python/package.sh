@@ -72,10 +72,18 @@ _sha256 sha256module.c
 _sha512 sha512module.c
 EOF
 
+    # OPT drops the -g that 3.5's configure forces on every object regardless of
+    # CFLAGS (default "-DNDEBUG -g -fwrapv -O3 ..."); -g would leak stage_dir as the
+    # DWARF comp_dir (see builder.sh). file_prefix_map in CFLAGS won't do: configure
+    # records CFLAGS verbatim, and the path *length* shifts a pprint line-wrap in
+    # _sysconfigdata.py the path-scrub can't undo. OPT is recorded as-is, so
+    # "-DNDEBUG -fwrapv" stays constant.
     "$sh" ./configure \
         "CONFIG_SHELL=$sh" \
         "SHELL=$sh" \
         "CC=$(prefix_of gcc-boot)/bin/gcc" \
+        CFLAGS=-O2 \
+        'OPT=-DNDEBUG -fwrapv' \
         --build="$triple" \
         --host="$triple" \
         --prefix="$PREFIX" \
@@ -95,7 +103,40 @@ EOF
 
     make install
 
-    # Drop the large test suite and add the conventional python3 symlink.
+    # Drop the large test suite (before recompiling: less to byte-compile).
     rm -rf "$PREFIX/lib/python3.5/test"
+
+    # configure records the absolute build dir verbatim in a couple of installed
+    # text files (_sysconfigdata.py's abs_srcdir/abs_builddir/COVERAGE_*, and the
+    # config Makefile's srcdir/abs_*). Nothing at runtime consults these paths, so
+    # neutralize the scratch path to a constant; do it before recompiling so
+    # _sysconfigdata's .pyc reflects the scrubbed source. (python3.5m-config needs
+    # no scrub: its only build-path leak was the file_prefix_map CFLAGS value,
+    # eliminated by dropping that flag above.)
+    sed -i "s|$stage_dir|/build|g" \
+        "$PREFIX/lib/python3.5/_sysconfigdata.py" \
+        "$PREFIX/lib/python3.5/config-3.5m/Makefile"
+
+    # Reproducible .pyc: `make install` stamps each copied .py with a fresh
+    # install-time mtime, and 3.5's timestamp-only .pyc bakes that into its header
+    # (3.5 predates PEP 552, so SOURCE_DATE_EPOCH is ignored). Pin every .py to a
+    # constant mtime and force-recompile: the header is then constant and import
+    # still validates (on-disk mtime == embedded). Recompile all three opt levels --
+    # PEP 488 writes plain + .opt-1/.opt-2, each with its own header (3.5's
+    # compile_dir takes one int; the list form is 3.7+). PYTHONHASHSEED=0 pins the
+    # hash order in which set/frozenset literals (difflib, pydoc, ...) marshal,
+    # else it is per-process random and the .pyc diverge.
+    PYTHONHASHSEED=0 "$PREFIX/bin/python3.5" - "$PREFIX/lib/python3.5" "${SOURCE_DATE_EPOCH:-0}" <<'PY'
+import os, sys, compileall
+root, epoch = sys.argv[1], int(sys.argv[2])
+for d, _, files in os.walk(root):
+    for f in files:
+        if f.endswith('.py'):
+            os.utime(os.path.join(d, f), (epoch, epoch))
+for opt in (0, 1, 2):
+    compileall.compile_dir(root, force=True, quiet=1, optimize=opt)
+PY
+
+    # The conventional python3 symlink.
     [ -e "$PREFIX/bin/python3" ] || ln -s python3.5 "$PREFIX/bin/python3"
 }

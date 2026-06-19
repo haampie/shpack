@@ -24,8 +24,11 @@ setup_build_environment() {
 configure_args() {
     local triple
     triple=$(triple musl)
+    # CFLAGS=-O2 drops the autotools default -g: a never-debugged build tool whose
+    # -g would otherwise leak the build cwd as the DWARF comp_dir (see builder.sh).
     printf '%s\n' \
         "CC=$(prefix_of gcc-boot)/bin/gcc" \
+        CFLAGS=-O2 \
         --build="$triple" \
         --host="$triple" \
         --disable-nls \

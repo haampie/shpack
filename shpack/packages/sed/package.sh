@@ -21,8 +21,11 @@ configure_args() {
     # config.guess cannot probe this environment (uname "unknown", no
     # /usr/bin/file), so pass an explicit triple, like the other tools.
     triple=$(triple musl unknown)
+    # CFLAGS=-O2 drops the autotools default -g: gcc-4.7 builds this and has no
+    # -ffile-prefix-map, so -g would leak the build cwd as comp_dir (see builder.sh).
     printf '%s\n' \
         CC=gcc \
+        CFLAGS=-O2 \
         --build="$triple" \
         --host="$triple" \
         --disable-nls

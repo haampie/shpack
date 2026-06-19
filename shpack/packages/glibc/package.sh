@@ -34,6 +34,7 @@ install() {
         "CONFIG_SHELL=$sh" \
         "SHELL=$sh" \
         CC="$cc" \
+        "CFLAGS=-g -O2 $file_prefix_map $debug_prefix_map" \
         "BASH_SHELL=$sh" \
         "PYTHON=$python/bin/python3" \
         --build="$triple" \

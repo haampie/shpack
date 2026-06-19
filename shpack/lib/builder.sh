@@ -13,9 +13,9 @@
 #   finalize write $PREFIX/.shpack metadata: spec, deps, manifest, recipe
 #
 # Globals exposed to recipe hooks: name, version, id, stage_dir, package_dir,
-# source_dir, sh, makejobs (lowercase: shpack-internal recipe metadata) and the
-# UPPER env-var/config constants tools consume (PREFIX, ARCH, JOBS); plus the
-# helpers prefix_of, triple and replace_bin_sh.
+# source_dir, sh, makejobs, file_prefix_map (lowercase: shpack-internal recipe
+# metadata) and the UPPER env-var/config constants tools consume (PREFIX, ARCH,
+# JOBS); plus the helpers prefix_of, triple and replace_bin_sh.
 
 # is_function NAME -> true if NAME is a shell function (dash: "NAME is a
 # shell function"; bash: "NAME is a function").
@@ -190,6 +190,11 @@ do_finalize() {
     done
     cp "$SPEC/manifest" "$PREFIX/.shpack/manifest"
     cp "$package_dir/package.sh" "$PREFIX/.shpack/package.sh"
+    # Drop libtool .la archives (as Spack does): nothing in this store-prefix
+    # world links via libtool, and they bake build-time paths / dependency
+    # orderings that differ across builds. A glob, not find -- shpack core has no
+    # find; these always land directly in lib/ (and lib64/).
+    rm -f "$PREFIX"/lib/*.la "$PREFIX"/lib64/*.la
     cd /
     rm -rf "$stage_dir"
 }
@@ -271,6 +276,22 @@ cmd_build_one() {
     stage_dir=$VAR/stage/$id
     rm -rf "$stage_dir"
     mkdir -p "$stage_dir"
+
+    # Reproducibility: GCC (>=8) records the absolute build cwd as the DWARF
+    # comp_dir and in __FILE__, so a debug build leaks the (scratch-dependent)
+    # stage path into shipped libs. Recipes built by such a compiler append
+    # $file_prefix_map to their CFLAGS/CXXFLAGS (and *_FOR_TARGET) to remap the
+    # stage dir to a relative ".", making the bytes independent of build location
+    # while keeping -g. tcc-built stages can't use it (no -ffile-prefix-map) and
+    # instead drop -g. Inert when paths already match.
+    #
+    # $debug_prefix_map is the older -fdebug-prefix-map (DWARF only, no macro
+    # __FILE__). It exists because glibc derives its assembler flags by filtering
+    # CFLAGS for `-g% -fdebug-prefix-map=% -m%` (Makeconfig) -- it recognizes
+    # -fdebug-prefix-map but NOT -ffile-prefix-map, so glibc's .S files (csu
+    # crt*.o) need the debug-map form to keep their build path out of .debug_str.
+    file_prefix_map="-ffile-prefix-map=$stage_dir=."
+    debug_prefix_map="-fdebug-prefix-map=$stage_dir=."
     spec_sources "$name" "$version" > "$SPEC/sources"
 
     echo "==> $id: fetch"

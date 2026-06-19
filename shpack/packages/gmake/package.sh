@@ -20,9 +20,13 @@ configure_args() {
     # tools we do not have (guile, nls, dynamic load objects).
     local triple
     triple=$(triple musl unknown)
+    # CFLAGS=-O2 drops the autotools default -g: tcc has no -f*-prefix-map, so -g
+    # would leak the build cwd as the stabs comp_dir (see builder.sh). Never
+    # debugged; build.sh below picks CFLAGS up from build.cfg.
     printf '%s\n' \
         CC=tcc \
         LD=tcc \
+        CFLAGS=-O2 \
         'AR=tcc -ar' \
         ARFLAGS=cr \
         --build="$triple" \

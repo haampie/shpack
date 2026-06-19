@@ -118,17 +118,44 @@ setup_build_environment() {
             ;;
     esac
     case "$version" in
+        4.7-2013.11)
+            # Target libgcc forces -g internally regardless of CFLAGS_FOR_TARGET,
+            # so its comp_dir leaks the scratch path. xgcc here is gcc 4.7 (only
+            # -fdebug-prefix-map, no -ffile-prefix-map). Env-pass (not a configure
+            # arg) so the $stage_dir value stays out of gcc 4.7's own configargs.
+            export CFLAGS_FOR_TARGET="-O2 $debug_prefix_map"
+            export CXXFLAGS_FOR_TARGET="-O2 $debug_prefix_map"
+            ;;
         9.5.0)
             # In-tree mpfr.h (mpfr/src) must be found while GCC compiles, before
             # the in-tree mpfr is installed into the build tree; plus the kernel
             # uapi. $PWD is the gcc source dir here (before the out-of-tree cd).
             export C_INCLUDE_PATH="$PWD/mpfr/src:$(prefix_of linux-headers)/include"
+            # As 4.7, but xgcc is gcc 9.5 -- use the full -ffile-prefix-map for .c.
+            # libgcc's .S stubs (avx_*, morestack, ...) leak their comp_dir via the
+            # ASSEMBLER, though: gcc 9.5's driver does not translate -ffile-prefix-map
+            # into the as --debug-prefix-map (gcc 16's does -- its libgcc is clean),
+            # so add the older -fdebug-prefix-map, which it does forward (same root
+            # cause as glibc's .S csu objects). Env-passed to keep $stage_dir out of
+            # gcc 9.5's configargs.
+            export CFLAGS_FOR_TARGET="-O2 $file_prefix_map $debug_prefix_map"
+            export CXXFLAGS_FOR_TARGET="-O2 $file_prefix_map $debug_prefix_map"
             ;;
         16.1.0)
             # Force inhibit_libc (GCC honors a pre-set value). A native
             # --without-headers build would otherwise try to use a target libc;
             # true makes libgcc build the minimal no-libc set (mirrors cross).
             export inhibit_libc=true
+            # Env-set so the $stage_dir inside $file_prefix_map stays out of
+            # TOPLEVEL_CONFIGURE_ARGUMENTS. file_prefix_map in CPPFLAGS rather than
+            # CFLAGS/CXXFLAGS: genchecksum hashes ALL_LINKERFLAGS (= ALL_CXXFLAGS,
+            # which includes CXXFLAGS) into cc1's executable_checksum; ALL_CPPFLAGS
+            # is excluded from that chain, so the scratch path never enters the hash.
+            export CFLAGS="-O2"
+            export CXXFLAGS="-O2"
+            export CPPFLAGS="$file_prefix_map"
+            export CFLAGS_FOR_TARGET="-O2 $file_prefix_map"
+            export CXXFLAGS_FOR_TARGET="-O2 $file_prefix_map"
             ;;
     esac
 }
@@ -208,8 +235,6 @@ configure_args() {
                 CXX_FOR_BUILD="$gxx" \
                 CFLAGS=-O2 \
                 CXXFLAGS=-O2 \
-                CFLAGS_FOR_TARGET=-O2 \
-                CXXFLAGS_FOR_TARGET=-O2 \
                 --with-sysroot="$(prefix_of musl)" \
                 --with-native-system-header-dir=/include \
                 --without-isl \
@@ -227,13 +252,11 @@ configure_args() {
             # no shared libstdc++.so. Just enough cc1/libgcc to compile glibc.
             gcc=$(prefix_of gcc-boot)/bin/gcc
             gxx=$(prefix_of gcc-boot)/bin/g++
+            # CFLAGS*/CXXFLAGS* are exported in setup_build_environment (env, not
+            # argv) to keep file_prefix_map's $stage_dir out of the configargs string.
             printf '%s\n' \
                 CC="$gcc" \
                 CXX="$gxx" \
-                CFLAGS=-O2 \
-                CXXFLAGS=-O2 \
-                CFLAGS_FOR_TARGET=-O2 \
-                CXXFLAGS_FOR_TARGET=-O2 \
                 --without-headers \
                 --disable-fixincludes \
                 --with-native-system-header-dir=/nonexistent \

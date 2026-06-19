@@ -122,22 +122,29 @@ EOF
     # Instead pass the loader/libdir as $tflags to the target compiler only: the
     # absolute libc.so paths resolve normally and conftests get the right interp.
     # The installed driver's runtime paths are pinned by the specs file (install).
-    # CFLAGS/CXXFLAGS=-O2 (not configure's default -g -O2) drops DWARF from the
-    # HOST objects only (cc1/cc1plus/gcc/g++); *_FOR_TARGET below keep -g so the
-    # shipped libs stay debuggable. This is the bootstrap's longest stage.
+    # CFLAGS/CXXFLAGS=-O2 drops DWARF from HOST objects (cc1/cc1plus/gcc/g++);
+    # *_FOR_TARGET keep -g so the shipped libs stay debuggable.
+    # Env-set so the $stage_dir inside $file_prefix_map stays out of GCC's baked
+    # TOPLEVEL_CONFIGURE_ARGUMENTS (`gcc -v`). file_prefix_map goes in CPPFLAGS
+    # rather than CFLAGS/CXXFLAGS: genchecksum (gcc/c/Make-lang.in) hashes
+    # ALL_LINKERFLAGS into cc1's executable_checksum; ALL_LINKERFLAGS = ALL_CXXFLAGS
+    # (includes CXXFLAGS) but NOT ALL_CPPFLAGS, so CPPFLAGS is absent from the
+    # hash while still reaching every compile.
+    export CC="$stage_dir/cc-relaxed.sh"
+    export CFLAGS="-O2"
+    export CXXFLAGS="-O2"
+    export CPPFLAGS="$file_prefix_map"
+    export LDFLAGS="-L$libstdcxx/lib64 -L$libstdcxx/lib"
+    export CFLAGS_FOR_TARGET="-g -O2 $tflags $file_prefix_map"
+    export CXXFLAGS_FOR_TARGET="-g -O2 $tflags $file_prefix_map"
+    export LDFLAGS_FOR_TARGET="$tflags"
+
     mkdir -p build
     cd build
     "$sh" ../configure \
         "CONFIG_SHELL=$sh" \
-        "CC=$stage_dir/cc-relaxed.sh" \
         "CXX=$gcc/bin/g++" \
         MAKEINFO=true \
-        CFLAGS=-O2 \
-        CXXFLAGS=-O2 \
-        "LDFLAGS=-L$libstdcxx/lib64 -L$libstdcxx/lib" \
-        "CFLAGS_FOR_TARGET=-g -O2 $tflags" \
-        "CXXFLAGS_FOR_TARGET=-g -O2 $tflags" \
-        "LDFLAGS_FOR_TARGET=$tflags" \
         --prefix="$PREFIX" \
         --build="$triple" \
         --host="$triple" \

@@ -26,7 +26,11 @@ cd ${pkg}
 
 patch -Np1 -i ${PKG}/patches/coreutils.patch
 
-make CC=tcc AR="tcc -ar" LDFLAGS="-static" bzip2
+# Drop the upstream Makefile's -g (its CFLAGS line): under -g tcc bakes the
+# absolute build cwd into .stab/.stabstr, leaking the scratch path into the
+# binary (non-reproducible across build locations). bzip2 is never debugged here.
+make CC=tcc AR="tcc -ar" LDFLAGS="-static" \
+    CFLAGS="-Wall -Winline -O2 -D_FILE_OFFSET_BITS=64" bzip2
 
 cp bzip2 ${BINDIR}/bzip2
 cp bzip2 ${BINDIR}/bunzip2

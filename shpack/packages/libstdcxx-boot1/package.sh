@@ -62,6 +62,8 @@ install() {
         "CONFIG_SHELL=$sh" \
         "CC=$gcc/bin/gcc" \
         "CXX=$gcc/bin/g++" \
+        "CFLAGS=-g -O2 $file_prefix_map" \
+        "CXXFLAGS=-g -O2 $file_prefix_map" \
         MAKEINFO=true \
         LIBS=-lm \
         --build="$triple" \

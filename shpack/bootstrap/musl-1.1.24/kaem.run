@@ -102,7 +102,12 @@ fi
 # libcrypt into libc.a, but tcc and ld still need the named archives to satisfy
 # -lm/-lpthread/etc. (gcc's build-time generators link -lm). Create stub archives
 # next to libc.a; the real symbols resolve from libc.a, these only need to exist.
-tcc -c ${MSRC}/libstub.c -o ${TMPDIR}/libstub.o
+# Copy libstub.c into the build cwd and compile it by RELATIVE name: tcc records
+# the source path as given into the object's STT_FILE symbol, so an absolute
+# ${MSRC}/libstub.c would bake the (scratch-dependent) shpack path into every
+# stub archive. A bare "libstub.c" keeps it reproducible across build locations.
+cp ${MSRC}/libstub.c libstub.c
+tcc -c libstub.c -o ${TMPDIR}/libstub.o
 tcc -ar rc ${LIBDIR}/libm.a ${TMPDIR}/libstub.o
 tcc -ar rc ${LIBDIR}/libpthread.a ${TMPDIR}/libstub.o
 tcc -ar rc ${LIBDIR}/librt.a ${TMPDIR}/libstub.o

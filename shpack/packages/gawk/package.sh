@@ -54,9 +54,12 @@ install() {
             # --disable-extensions: gawk's loadable .so extensions can't link
             # against the non-PIC static musl 1.2.5 libc.a (R_AARCH64 reloc
             # errors); the interpreter doesn't need them and glibc just runs gawk.
+            # CFLAGS=-O2 drops the autotools default -g: a never-debugged build
+            # tool whose -g would leak the build cwd as comp_dir (see builder.sh).
             "$sh" ./configure \
                 "CONFIG_SHELL=$sh" \
                 "CC=$(prefix_of gcc-boot)/bin/gcc" \
+                CFLAGS=-O2 \
                 MAKEINFO=true \
                 --build="$triple" \
                 --host="$triple" \

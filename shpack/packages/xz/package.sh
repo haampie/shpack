@@ -29,8 +29,11 @@ configure_args() {
     triple=$(triple musl unknown)
     # Static-only liblzma (no rpath, matches the tool layer); we only need the
     # xz/unxz CLI. Drop NLS (no gettext) and the shell wrappers/docs we never use.
+    # CFLAGS=-O2 drops the autotools default -g: gcc-4.7 builds this and has no
+    # -ffile-prefix-map, so -g would leak the build cwd as comp_dir (see builder.sh).
     printf '%s\n' \
         CC=gcc \
+        CFLAGS=-O2 \
         --build="$triple" \
         --host="$triple" \
         --disable-shared \

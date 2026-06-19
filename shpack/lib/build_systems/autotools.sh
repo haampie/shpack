@@ -18,12 +18,20 @@ default_configure() {
     # build_directory DIR: configure out-of-tree (gcc/glibc forbid in-tree).
     # mkdir + cd into DIR and run the source tree's configure from there; the
     # cd persists into the build/install phases (they share this shell).
-    local cfg
+    local cfg bd rel
     cfg=./configure
     if [ -f "$VAR/recipe/$name/build_directory" ]; then
-        mkdir -p "$(cat "$VAR/recipe/$name/build_directory")"
-        cd "$(cat "$VAR/recipe/$name/build_directory")"
-        cfg=$source_dir/configure
+        bd=$(cat "$VAR/recipe/$name/build_directory")
+        mkdir -p "$bd"
+        cd "$bd"
+        # Run configure by a RELATIVE path back to the source tree, not an
+        # absolute one. GCC bakes its invocation ($0) into the compiler as
+        # TOPLEVEL_CONFIGURE_ARGUMENTS (`gcc -v`), and sets srcdir from it, so an
+        # absolute scratch path would leak into configargs AND every __FILE__.
+        # `..` per path component of the (source-relative) build dir: `_build`
+        # -> `../configure`; `a/b` -> `../../configure`.
+        rel=$(echo "$bd" | sed 's#[^/][^/]*#..#g')
+        cfg=$rel/configure
     fi
     # Invoke configure through CONFIG_SHELL explicitly rather than relying on
     # its #!/bin/sh shebang (there is no writable /bin/sh on the host). Passing
