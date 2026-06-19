@@ -17,6 +17,14 @@ build_system autotools
 # name resolves to the bin-only kaem seed; see etc/externals.in).
 depends_on compiler-wrapper zlib-ng libffi openssl bzip2@1.0.8 xz zstd gmake
 
+edit() {
+    # Suspected fix for an intermittent "build-details.json: Bus error" under the
+    # jobserver: the rule runs the interpreter (imports json -> _json.so) but only
+    # depends on pybuilddir.txt, so it may race sharedmods writing that .so. Order
+    # it after sharedmods. Unconfirmed; cf. cpython#102007.
+    sed -i 's/^build-details.json: pybuilddir.txt$/build-details.json: pybuilddir.txt sharedmods/' Makefile.pre.in
+}
+
 setup_build_environment() {
     export CC=$(prefix_of compiler-wrapper)/bin/gcc
     export CXX=$(prefix_of compiler-wrapper)/bin/g++
