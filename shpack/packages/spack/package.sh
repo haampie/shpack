@@ -23,7 +23,7 @@ build_system generic
 # PATH. The glibc tar/xz/grep/sed/gawk are pinned (the -musl ones are bootstrap).
 depends_on cpython clingo spack-packages gcc
 depends_on coreutils grep@3.11 sed@4.9 gawk@5.3.2
-depends_on tar@1.35 xz@5.8.3 bzip2@1.0.8 gzip patch unzip zstd git
+depends_on tar@1.35 xz@5.8.3 bzip2@1.0.8 gzip patch unzip zstd@1.5.7 git
 
 install() {
     local py clingo_site pkgrepo dest gcc tools t

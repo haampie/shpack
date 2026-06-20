@@ -34,6 +34,7 @@ depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake grep@2.4-musl gawk@3.0.4 diff
 # 2.46.0 (glibc): built by gcc-boot-wrapper against glibc 2.43. linux-headers:
 # autoconf CPP sanity check. libstdcxx-boot1: gprofng is C++ and links libstdc++.a.
 depends_on gcc-boot-wrapper glibc linux-headers libstdcxx-boot1 binutils@2.46.0-musl \
+    zlib-ng@2.3.3-boot zstd@1.5.7-boot \
     bison gmake sed@4.9-musl grep@2.4-musl gawk@3.0.4 diffutils tar@1.35-musl when=2.46.0
 
 # 2.30 only: the HOWTO table in bfd/elfnn-aarch64.c has #if/#else inside macro
@@ -71,9 +72,12 @@ setup_build_environment() {
             glibc=$(prefix_of glibc)
             triple=$(triple gnu)
             libstdcxx=$(prefix_of libstdcxx-boot1)
-            export C_INCLUDE_PATH="$glibc/include"
-            export CPLUS_INCLUDE_PATH="$libstdcxx/include:$libstdcxx/include/$triple:$glibc/include"
-            export LIBRARY_PATH="$glibc/lib"
+            local zlib zstd
+            zlib=$(prefix_of zlib-ng)
+            zstd=$(prefix_of zstd)
+            export C_INCLUDE_PATH="$glibc/include:$zlib/include:$zstd/include"
+            export CPLUS_INCLUDE_PATH="$libstdcxx/include:$libstdcxx/include/$triple:$glibc/include:$zlib/include:$zstd/include"
+            export LIBRARY_PATH="$glibc/lib:$zlib/lib:$zstd/lib"
             ;;
     esac
 }
@@ -129,8 +133,12 @@ configure_args() {
             ;;
         2.46.0)
             # gcc-boot-wrapper against glibc; gprofng links static libstdcxx-boot1.
+            # Link the static, glibc-linked zlib-ng/zstd (no .so in those prefixes
+            # -> static link) and default to compressing debug sections with zlib.
+            local zstd
             gcc=$(prefix_of gcc-boot-wrapper)
             libstdcxx=$(prefix_of libstdcxx-boot1)
+            zstd=$(prefix_of zstd)
             printf '%s\n' \
                 "CC=$gcc/bin/gcc" \
                 "CXX=$gcc/bin/g++" \
@@ -139,7 +147,12 @@ configure_args() {
                 "LDFLAGS=-L$libstdcxx/lib64 -L$libstdcxx/lib" \
                 AR=ar AS=as NM=nm RANLIB=ranlib \
                 OBJCOPY=objcopy OBJDUMP=objdump READELF=readelf STRIP=strip \
-                --disable-multilib
+                --disable-multilib \
+                --with-system-zlib \
+                --with-zstd-include="$zstd/include" \
+                --with-zstd-lib="$zstd/lib" \
+                --enable-compressed-debug-sections=all \
+                --enable-default-compressed-debug-sections-algorithm=zlib
             ;;
     esac
 }

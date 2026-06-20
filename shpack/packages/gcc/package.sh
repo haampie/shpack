@@ -17,6 +17,7 @@ build_system autotools
 # libstdcxx-boot1 (static libstdc++.a for the build tools). linux-headers:
 # autoconf CPP sanity check (also symlinked into glibc's include).
 depends_on gcc-boot-wrapper glibc binutils@2.46.0 libstdcxx-boot1 linux-headers \
+    zlib-ng@2.3.3-boot zstd@1.5.7-boot \
     gmake sed@4.9-musl grep@2.4-musl gawk@3.0.4 diffutils findutils tar@1.35-musl xz@5.2.5-musl
 
 # Same in-tree gmp/mpfr/mpc as gcc-boot@16.1.0 (GCC 16's prerequisite set).
@@ -39,13 +40,16 @@ setup_build_environment() {
     # --without-headers), so host-side compiles (conftest, gengenrtl, ...) need
     # these on the include/library path. The in-tree libstdc++ compiles strip
     # libstdcxx-boot1 back out via the Makefile.in reset (below).
-    local glibc triple libstdcxx
+    local glibc triple libstdcxx zlib zstd
     glibc=$(prefix_of glibc)
     triple=$(triple gnu)
     libstdcxx=$(prefix_of libstdcxx-boot1)
-    export C_INCLUDE_PATH="$glibc/include"
-    export CPLUS_INCLUDE_PATH="$libstdcxx/include:$libstdcxx/include/$triple:$glibc/include"
-    export LIBRARY_PATH="$libstdcxx/lib64:$libstdcxx/lib:$glibc/lib"
+    zlib=$(prefix_of zlib-ng)
+    zstd=$(prefix_of zstd)
+    # Static, glibc-linked zlib-ng/zstd (no .so -> static link into the compiler).
+    export C_INCLUDE_PATH="$glibc/include:$zlib/include:$zstd/include"
+    export CPLUS_INCLUDE_PATH="$libstdcxx/include:$libstdcxx/include/$triple:$glibc/include:$zlib/include:$zstd/include"
+    export LIBRARY_PATH="$libstdcxx/lib64:$libstdcxx/lib:$glibc/lib:$zlib/lib:$zstd/lib"
 }
 
 ld_so_of() {
@@ -69,12 +73,13 @@ edit() {
 }
 
 configure() {
-    local triple gcc glibc libstdcxx binutils real_cc ld_so tflags
+    local triple gcc glibc libstdcxx binutils zstd real_cc ld_so tflags
     triple=$(triple gnu)
     gcc=$(prefix_of gcc-boot-wrapper)
     glibc=$(prefix_of glibc)
     libstdcxx=$(prefix_of libstdcxx-boot1)
     binutils=$(prefix_of binutils)
+    zstd=$(prefix_of zstd)
     ld_so=$(ld_so_of)
     # Flags for the freshly-built xgcc when it builds the target libs: point it
     # at glibc's loader + libs so its conftests link and run (see configure).
@@ -144,7 +149,9 @@ EOF
         --disable-werror \
         --disable-nls \
         --without-isl \
-        --without-zstd \
+        --with-system-zlib \
+        --with-zstd-include="$zstd/include" \
+        --with-zstd-lib="$zstd/lib" \
         --disable-plugin
 }
 
