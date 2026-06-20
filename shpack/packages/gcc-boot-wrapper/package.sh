@@ -11,7 +11,7 @@ version 16.1.0
 
 build_system generic
 
-depends_on gcc-boot@16.1.0 glibc binutils@2.46.0-musl
+depends_on gcc-boot glibc binutils@2.46.0-musl
 
 install() {
     local gcc glibc binutils ld_so prog real tool

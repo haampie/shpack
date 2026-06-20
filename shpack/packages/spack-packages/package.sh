@@ -19,7 +19,7 @@ build_system generic
 
 # Modern tar: the GitHub tarball carries a pax_global_header the seed tar 1.12
 # can't parse.
-depends_on tar@1.35
+depends_on tar
 
 install() {
     # Spack registers repos/spack_repo/builtin (contains repo.yaml); copy the

@@ -16,7 +16,7 @@ build_system autotools
 # pcre2 = `git grep -P`; zlib-ng = pack codec; perl drives script generation.
 # coreutils: templates/Makefile's boilerplate rule ends with `date >$@`, which
 # would exit-127 without date; the timestamp only lands in a make stamp.
-depends_on compiler-wrapper curl openssl zlib-ng@2.3.3 expat pcre2 perl gmake coreutils
+depends_on compiler-wrapper curl openssl zlib-ng expat pcre2 perl gmake coreutils
 
 edit() {
     # glibc 2.43 provides arc4random, so use it as git's CSPRNG. config.mak is

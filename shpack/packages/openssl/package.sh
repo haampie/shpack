@@ -14,7 +14,7 @@ build_system generic
 # perl drives Configure and the build generators; zlib-ng for compression.
 # ca-certificates is the Mozilla bundle dropped into OPENSSLDIR (see install) so
 # the default trust store works with no SSL_CERT_FILE.
-depends_on compiler-wrapper perl zlib-ng@2.3.3 gmake ca-certificates
+depends_on compiler-wrapper perl zlib-ng gmake ca-certificates
 
 install() {
     local m

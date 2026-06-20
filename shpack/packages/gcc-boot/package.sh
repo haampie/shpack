@@ -7,19 +7,22 @@ description "GCC bootstrap compilers (throwaway). 4.7 (Linaro, grown by tcc on" 
 homepage "https://gcc.gnu.org/"
 license "GPL-3.0-or-later"
 
-# 4.7-2013.11: Linaro snapshot (FSF 4.7 lacks native aarch64), grown by tcc.
-version 4.7-2013.11 sha256=d0ea2c72ceb66d3851986840dd8962941824a2980a8aca2a800abb5b489acedf \
-    url=https://launchpadlibrarian.net/156843777/gcc-linaro-4.7-2013.11.tar.bz2
+# Newest first (the first-declared version is the default for a bare name);
+# every consumer pins the stage it wants, so order is for convention only.
+
+# 16.1.0 'crippled' (--without-headers): no target libc, just enough cc1/libgcc
+# to compile glibc 2.43.
+version 16.1.0 sha256=50efb4d94c3397aff3b0d61a5abd748b4dd31d9d3f2ab7be05b171d36a510f79 \
+    url=https://ftp.gnu.org/gnu/gcc/gcc-16.1.0/gcc-16.1.0.tar.xz
 
 # 9.5.0: mature C++17, builds cleanly on musl; the bridge to modern GCC, built
 # by the chain's own 4.7 g++.
 version 9.5.0 sha256=27769f64ef1d4cd5e2be8682c0c93f9887983e6cfd1a927ce5a0a2915a95cf8f \
     url=https://ftpmirror.gnu.org/gcc/gcc-9.5.0/gcc-9.5.0.tar.xz
 
-# 16.1.0 'crippled' (--without-headers): no target libc, just enough cc1/libgcc
-# to compile glibc 2.43.
-version 16.1.0 sha256=50efb4d94c3397aff3b0d61a5abd748b4dd31d9d3f2ab7be05b171d36a510f79 \
-    url=https://ftp.gnu.org/gnu/gcc/gcc-16.1.0/gcc-16.1.0.tar.xz
+# 4.7-2013.11: Linaro snapshot (FSF 4.7 lacks native aarch64), grown by tcc.
+version 4.7-2013.11 sha256=d0ea2c72ceb66d3851986840dd8962941824a2980a8aca2a800abb5b489acedf \
+    url=https://launchpadlibrarian.net/156843777/gcc-linaro-4.7-2013.11.tar.bz2
 
 build_system autotools
 
@@ -30,9 +33,9 @@ build_directory _build
 depends_on gmake grep@2.4-musl gawk@3.0.4 diffutils findutils
 
 # 4.7-2013.11: grown by tcc against musl 1.1.24, external gmp/mpfr/mpc, binutils
-# 2.30. Versions pinned so siblings added for later stages don't perturb it.
-depends_on tcc musl@1.1.24 binutils@2.30-musl gmp@4.3.2 mpfr@2.4.2 mpc@1.0.3 \
-    m4@1.4.7 when=4.7-2013.11
+# 2.30.
+depends_on tcc musl@1.1.24 binutils@2.30-musl gmp mpfr mpc \
+    m4 when=4.7-2013.11
 
 # 9.5.0: built by the chain's own 4.7 g++; musl 1.2.5 sysroot, kernel headers,
 # binutils 2.30. gmp/mpfr/mpc are in-tree resources (4.3.2/2.4.2 are too old).

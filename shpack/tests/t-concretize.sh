@@ -12,8 +12,8 @@ EOF
 
 mkpkg libb <<'EOF'
 description "toy mid-layer, two versions"
-version 2.0
 version 2.1
+version 2.0
 build_system generic
 depends_on liba
 install() { :; }
@@ -31,7 +31,7 @@ echo "ext@3.0 /fake/ext-3.0" > "$SHPACK_EXTERNALS"
 
 shpack concretize tool > /dev/null
 
-# Resolution: bare libb -> newest (2.1); ext -> external with its prefix.
+# Resolution: bare libb -> first declared (2.1); ext -> external with its prefix.
 assert_eq "$(index_field libb 2)" 2.1 "libb version"
 assert_eq "$(index_field ext 4)" external "ext kind"
 assert_eq "$(index_field ext 5)" /fake/ext-3.0 "ext prefix"

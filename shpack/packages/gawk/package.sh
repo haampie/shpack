@@ -7,19 +7,22 @@ description "GNU awk. 3.0.4 is the tiny tcc-built awk that scripts the early" \
 homepage "https://www.gnu.org/software/gawk/"
 license "GPL-2.0-or-later"
 
-# 3.0.4: grown by tcc against musl 1.1.24, driven by a replacement files/Makefile
-# (its own configure needs tools we lack this early).
-version 3.0.4 sha256=5cc35def1ff4375a8b9a98c2ff79e95e80987d24f0d42fdbb7b7039b3ddb3fb0 \
-    url=https://mirrors.kernel.org/gnu/gawk/gawk-3.0.4.tar.gz
+# Newest first: a bare gawk resolves to the first declared version (5.3.2, the
+# user-facing awk). The earlier stages all pin the version they need.
+
+# 5.3.2: built with the final gcc 16 against glibc -- the user-facing awk.
+version 5.3.2 sha256=f8c3486509de705192138b00ef2c00bbbdd0e84c30d5c07d23fc73a9dc4cc9cc \
+    url=https://ftpmirror.gnu.org/gawk/gawk-5.3.2.tar.xz
 
 # 5.3.1: built by the gcc-9.5 bridge against static musl 1.2.5; the modern awk
 # the glibc cap needs (glibc 2.43's configure rejects 3.0.4 as too old).
 version 5.3.1 sha256=694db764812a6236423d4ff40ceb7b6c4c441301b72ad502bb5c27e00cd56f78 \
     url=https://ftp.gnu.org/gnu/gawk/gawk-5.3.1.tar.xz
 
-# 5.3.2: built with the final gcc 16 against glibc -- the user-facing awk.
-version 5.3.2 sha256=f8c3486509de705192138b00ef2c00bbbdd0e84c30d5c07d23fc73a9dc4cc9cc \
-    url=https://ftpmirror.gnu.org/gawk/gawk-5.3.2.tar.xz
+# 3.0.4: grown by tcc against musl 1.1.24, driven by a replacement files/Makefile
+# (its own configure needs tools we lack this early).
+version 3.0.4 sha256=5cc35def1ff4375a8b9a98c2ff79e95e80987d24f0d42fdbb7b7039b3ddb3fb0 \
+    url=https://mirrors.kernel.org/gnu/gawk/gawk-3.0.4.tar.gz
 
 # 3.0.4 builds from a shipped Makefile; 5.3.1/5.3.2 are autotools and differ only
 # in configure_args (below).
@@ -36,7 +39,7 @@ depends_on tcc musl@1.1.24 when=3.0.4
 depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed@4.9-musl tar@1.35-musl xz@5.2.5-musl \
     when=5.3.1
 # 5.3.2: gcc 16 via compiler-wrapper, with the glibc sed/tar/xz build tools.
-depends_on compiler-wrapper gmake sed@4.9 tar@1.35 xz@5.8.3 when=5.3.2
+depends_on compiler-wrapper gmake sed tar xz when=5.3.2
 
 edit() {
     # 3.0.4 builds from the shipped files/Makefile; only copy it for that build.

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 #
-# spec.sh -- spec naming, version comparison, and content hashing.
+# spec.sh -- spec naming and content hashing.
 #
 # A spec names a package at a concrete version. On the command line and in
 # depends_on it is written "name" or "name@version"; once resolved it becomes
@@ -27,48 +27,6 @@ sha256_file() {
 # truncate7 STRING -> first 7 characters.
 truncate7() {
     printf '%.7s\n' "$1"
-}
-
-# is_int STRING -> true if a non-empty string of digits.
-is_int() {
-    case $1 in
-        ''|*[!0-9]*) return 1 ;;
-    esac
-    return 0
-}
-
-# str_gt A B -> true if A sorts strictly after B (lexically, via sort(1)).
-str_gt() {
-    if [ "$1" = "$2" ]; then
-        return 1
-    fi
-    [ "$(printf '%s\n%s\n' "$1" "$2" | sort | tail -n 1)" = "$1" ]
-}
-
-# vercmp_gt A B -> true if version A is strictly newer than B.
-# Versions are split on '.' and '-'; numeric segments compare numerically,
-# mixed/alpha segments lexically; missing segments count as 0, so
-# 4.4.1 > 4.4 and 0.9.27 > 0.9.26.
-vercmp_gt() {
-    local a b s1 s2
-    a=$(printf '%s' "$1" | tr -- '-' '.')
-    b=$(printf '%s' "$2" | tr -- '-' '.')
-    while [ -n "$a" ] || [ -n "$b" ]; do
-        s1=${a%%.*}
-        if [ "$s1" = "$a" ]; then a=; else a=${a#*.}; fi
-        s2=${b%%.*}
-        if [ "$s2" = "$b" ]; then b=; else b=${b#*.}; fi
-        if [ -z "$s1" ]; then s1=0; fi
-        if [ -z "$s2" ]; then s2=0; fi
-        if is_int "$s1" && is_int "$s2"; then
-            if [ "$s1" -gt "$s2" ]; then return 0; fi
-            if [ "$s1" -lt "$s2" ]; then return 1; fi
-        else
-            if str_gt "$s1" "$s2"; then return 0; fi
-            if str_gt "$s2" "$s1"; then return 1; fi
-        fi
-    done
-    return 1
 }
 
 # walk_files DIR [REL] -> print the relative paths of all regular files under

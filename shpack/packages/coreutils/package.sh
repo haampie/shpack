@@ -13,7 +13,7 @@ build_system autotools
 
 # compiler-wrapper supplies gcc 16 + glibc; xz unpacks the .tar.xz source. grep/
 # sed/awk for configure come in transitively through the gcc-16 closure.
-depends_on compiler-wrapper gmake xz@5.8.3
+depends_on compiler-wrapper gmake xz
 
 configure_args() {
     # Explicit glibc triple (no uname/config.guess in the sandbox). --disable-nls

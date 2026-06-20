@@ -1,22 +1,24 @@
 # SPDX-License-Identifier: MIT
 #
 # Packages the kaem phase already installed, registered Spack-externals
-# style: "name@version prefix". depends_on resolves against these before
-# considering recipes; on a version tie the external wins.
+# style: "name@version prefix". depends_on consults these only as a fallback:
+# a recipe version always wins for a bare name, so externals matter for names
+# with no recipe (tcc, dash) and for explicit @version pins onto these seeds.
+# Within this table the first matching line wins, so list preferred first.
 
-tcc@0.9.26      @STORE@/tcc-0.9.26
 tcc@0.9.27      @STORE@/tcc-0.9.27
+tcc@0.9.26      @STORE@/tcc-0.9.26
 musl@1.1.24     @STORE@/musl-1.1.24
 gmake@3.82      @STORE@/make-3.82
 patch@2.5.9     @STORE@/patch-2.5.9
 gzip@1.2.4      @STORE@/gzip-1.2.4
 tar@1.12        @STORE@/tar-1.12
 sed@4.0.9       @STORE@/sed-4.0.9
-# Kaem seed bzip2 is also 1.0.8, so bare it would tie the gcc-16 recipe and win
-# (externals win ties). A suffix can't flip that -- "-musl" sorts newer, not
-# older (cf. the 4.7-2013.11 > 4.7 rule in vercmp_gt). It just makes the seed a
-# distinct version, so consumers pin bzip2@1.0.8 to select the recipe (spack and
-# cpython do). The other seeds are older than their recipes, so they need none.
+# Kaem seed bzip2 is also 1.0.8, same version string as the gcc-16 recipe. The
+# "-musl" suffix keeps the seed a distinct node id from the recipe's bzip2-1.0.8
+# (same string, different content would collide). It is not a sorting dodge:
+# recipe-priority means a bare bzip2 already resolves to the recipe, so no pin
+# is needed. The seed is reachable only via an explicit bzip2@1.0.8-musl.
 bzip2@1.0.8-musl @STORE@/bzip2-1.0.8
 coreutils@5.0   @STORE@/coreutils-5.0
 dash@0.5.12     @STORE@/dash-0.5.12

@@ -13,9 +13,8 @@ build_system autotools
 
 # Backs stdlib modules: zlib-ng -> zlib/gzip/zipfile, libffi -> _ctypes, openssl
 # -> _ssl, bzip2/xz/zstd -> _bz2/_lzma/_zstd. configure auto-detects each from
-# the wrapper's search path. bzip2 pinned @1.0.8 for the gcc-16 recipe (the bare
-# name resolves to the bin-only kaem seed; see etc/externals.in).
-depends_on compiler-wrapper zlib-ng@2.3.3 libffi openssl bzip2@1.0.8 xz zstd@1.5.7 gmake
+# the wrapper's search path.
+depends_on compiler-wrapper zlib-ng libffi openssl bzip2 xz zstd gmake
 
 edit() {
     # Suspected fix for an intermittent "build-details.json: Bus error" under the

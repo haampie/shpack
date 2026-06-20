@@ -16,7 +16,7 @@ build_system autotools
 # Built by gcc-boot-wrapper against glibc 2.43, binutils (as/ld baked in),
 # libstdcxx-boot1 (static libstdc++.a for the build tools). linux-headers:
 # autoconf CPP sanity check (also symlinked into glibc's include).
-depends_on gcc-boot-wrapper glibc binutils@2.46.0 libstdcxx-boot1 linux-headers \
+depends_on gcc-boot-wrapper glibc binutils libstdcxx-boot1 linux-headers \
     zlib-ng@2.3.3-boot zstd@1.5.7-boot \
     gmake sed@4.9-musl grep@2.4-musl gawk@3.0.4 diffutils findutils tar@1.35-musl xz@5.2.5-musl
 

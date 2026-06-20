@@ -20,10 +20,10 @@ build_system generic
 # cpython runs it; clingo (on PYTHONPATH) is the concretizer; spack-packages is
 # the 'builtin' repo; gcc is the compiler Spack auto-detects. The rest are the
 # gcc-16/glibc userland (Spack otherwise assumes the host's), put on the launcher
-# PATH. The glibc tar/xz/grep/sed/gawk are pinned (the -musl ones are bootstrap).
+# PATH -- bare names, so each resolves to its user-facing (glibc) version.
 depends_on cpython clingo spack-packages gcc
-depends_on coreutils grep@3.11 sed@4.9 gawk@5.3.2
-depends_on tar@1.35 xz@5.8.3 bzip2@1.0.8 gzip patch unzip zstd@1.5.7 git
+depends_on coreutils grep sed gawk
+depends_on tar xz bzip2 gzip patch unzip zstd git
 
 install() {
     local py clingo_site pkgrepo dest gcc tools t

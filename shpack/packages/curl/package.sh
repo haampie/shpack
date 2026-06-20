@@ -14,7 +14,7 @@ build_system autotools
 # openssl = TLS backend; zlib-ng = transfer-encoding inflate; nghttp2 = HTTP/2;
 # ca-certificates = the on-disk trust store baked in as the default CA bundle.
 # compiler-wrapper injects -I/-L/-rpath for the three libraries.
-depends_on compiler-wrapper openssl zlib-ng@2.3.3 nghttp2 ca-certificates gmake
+depends_on compiler-wrapper openssl zlib-ng nghttp2 ca-certificates gmake
 
 configure_args() {
     # Explicit glibc triple (no uname/config.guess in the sandbox). Dep prefixes

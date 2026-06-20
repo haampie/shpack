@@ -47,8 +47,9 @@ build_directory() { printf '%s\n' "$1" > "$RECIPE_STATE/build_directory"; }
 
 # version VER [sha256=HEX] [url=URL] [fname=NAME]
 # Declares a buildable version and its source tarball. Repeatable; a bare
-# dependency on the package resolves to the newest declared version. A
-# version without sha256 has no sources (nothing fetched, empty stage).
+# dependency on the package resolves to the first declared version (so list
+# the newest / user-facing one first). A version without sha256 has no
+# sources (nothing fetched, empty stage).
 # Stored as one line: VER SHA FNAME URL ('-' for absent fields).
 version() {
     local ver kv sha url fname

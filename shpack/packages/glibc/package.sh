@@ -15,7 +15,7 @@ build_system generic
 # binutils@2.46.0-musl as/ld; kernel headers via --with-headers. Needs python
 # (gen-as-const), bison+m4 (intl/plural.c), make >= 4, gawk@5.3.1 (configure
 # rejects gawk < 3.1.2).
-depends_on gcc-boot@16.1.0 binutils@2.46.0-musl linux-headers gmake python bison m4 \
+depends_on gcc-boot binutils@2.46.0-musl linux-headers gmake python bison m4 \
     sed@4.9-musl gawk@5.3.1 grep@2.4-musl diffutils tar@1.35-musl xz@5.2.5-musl
 
 install() {

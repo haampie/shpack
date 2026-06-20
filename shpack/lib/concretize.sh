@@ -15,11 +15,14 @@
 #   dag.mk            stamp-per-node makefile, scheduled by make
 
 # resolve SPECSTR -- pick the node for "name" or "name@version".
-# Candidates come from the externals table (etc/externals: "name@version
-# prefix" lines, the packages the kaem phase already installed) and from the
-# recipe's declared versions. An explicit @version must match exactly; a bare
-# name takes the newest candidate. On a version tie an external wins -- never
-# rebuild what the bootstrap already provides.
+# Candidates come from the recipe's declared versions and from the externals
+# table (etc/externals: "name@version prefix" lines, the packages the kaem
+# phase already installed). Selection is first-match-wins: the newest version
+# is simply the one declared first. Recipe versions have priority -- a recipe
+# is the real definition, so for a bare name it always beats an external; the
+# externals table is the fallback for names with no recipe (tcc, dash) and for
+# explicit @version pins onto kaem seeds (musl@1.1.24, coreutils@5.0). An
+# explicit @version must match the candidate string exactly.
 # Sets: RES_ID RES_NAME RES_VERSION RES_KIND RES_PREFIX
 resolve() {
     local name want best bestkind bestprefix ename eprefix v rest
@@ -29,7 +32,16 @@ resolve() {
         *@*) want=${1#*@} ;;
     esac
     best= bestkind= bestprefix=
-    if [ -f "$EXTERNALS" ]; then
+    # Recipe first: first declared version (matching $want, if pinned) wins.
+    if recipe_meta "$name" && [ -f "$VAR/recipe/$name/versions" ]; then
+        while read -r v rest; do
+            if [ -n "$want" ] && [ "$v" != "$want" ]; then continue; fi
+            best=$v bestkind=built bestprefix=
+            break
+        done < "$VAR/recipe/$name/versions"
+    fi
+    # External fallback: only when no recipe version matched.
+    if [ -z "$best" ] && [ -f "$EXTERNALS" ]; then
         while read -r ename eprefix; do
             case $ename in
                 ''|'#'*) continue ;;
@@ -37,21 +49,12 @@ resolve() {
             if [ "${ename%%@*}" != "$name" ]; then continue; fi
             v=${ename#*@}
             if [ -n "$want" ] && [ "$v" != "$want" ]; then continue; fi
-            if [ -z "$best" ] || vercmp_gt "$v" "$best"; then
-                best=$v bestkind=external bestprefix=$eprefix
-            fi
+            best=$v bestkind=external bestprefix=$eprefix
+            break
         done < "$EXTERNALS"
     fi
-    if recipe_meta "$name" && [ -f "$VAR/recipe/$name/versions" ]; then
-        while read -r v rest; do
-            if [ -n "$want" ] && [ "$v" != "$want" ]; then continue; fi
-            if [ -z "$best" ] || vercmp_gt "$v" "$best"; then
-                best=$v bestkind=built bestprefix=
-            fi
-        done < "$VAR/recipe/$name/versions"
-    fi
     if [ -z "$best" ]; then
-        die "cannot resolve '$1': no external or recipe version matches"
+        die "cannot resolve '$1': no recipe or external version matches"
     fi
     RES_NAME=$name
     RES_VERSION=$best
