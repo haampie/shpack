@@ -39,7 +39,7 @@ install() {
         --host="$triple" \
         --prefix="$PREFIX" \
         --with-headers="$headers/include" \
-        --enable-kernel=3.2.0 \
+        --enable-kernel=4.18.0 \
         --disable-nls \
         --disable-werror \
         --disable-profile \
