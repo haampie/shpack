@@ -50,7 +50,9 @@ if [ "\$mode" = ccld ]; then
     for d in \$SHPACK_RPATH_DIRS; do [ -n "\$d" ] && lnk="\$lnk -Wl,-rpath,\$d"; done
 fi
 unset IFS
-exec "\$real" \$inc \$lnk "\$@"
+# Remap the build dir to "." (-ffile-prefix-map) so __FILE__/DWARF paths don't
+# leak the stage location. Skipped for bare version probes (early exec above).
+exec "\$real" \$inc \$lnk \$SHPACK_FILE_PREFIX_MAP "\$@"
 EOF
         chmod 755 "$PREFIX/bin/$2"
     }

@@ -317,6 +317,10 @@ cmd_build_one() {
     # crt*.o) need the debug-map form to keep their build path out of .debug_str.
     file_prefix_map="-ffile-prefix-map=$stage_dir=."
     debug_prefix_map="-fdebug-prefix-map=$stage_dir=."
+    # The compiler-wrapper shims inject this into every real gcc/g++ call, so the
+    # flag's stage-dependent value stays out of the build system (configure logs,
+    # gcc -v) and app recipes need not append it by hand.
+    export SHPACK_FILE_PREFIX_MAP="$file_prefix_map"
     spec_sources "$name" "$version" > "$SPEC/sources"
 
     echo "==> $id: fetch"
