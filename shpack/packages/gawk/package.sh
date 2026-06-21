@@ -40,6 +40,11 @@ depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed@4.9-musl tar@1.35-musl xz
     when=5.3.1
 # 5.3.2: gcc 16 via compiler-wrapper, with the glibc sed/tar/xz build tools.
 depends_on compiler-wrapper gmake sed tar xz when=5.3.2
+# replace_bin_sh (below) compiles the shell path into the gawk binary, a runtime
+# dep: 5.3.2 (glibc) ships the clean dash, the earlier awks the bootstrap one.
+depends_on dash        when=5.3.2
+depends_on dash@0.5.12 when=5.3.1
+depends_on dash@0.5.12 when=3.0.4
 
 edit() {
     # 3.0.4 builds from the shipped files/Makefile; only copy it for that build.

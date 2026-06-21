@@ -14,6 +14,7 @@ build_system generic
 depends_on compiler-wrapper gmake openssl curl \
            zlib-ng expat bzip2 xz zstd nghttp2 \
            libarchive libuv librhash jsoncpp
+depends_on dash
 
 edit() {
     # cmake hardcodes /bin/sh (the SHELL of generated makefiles, and its

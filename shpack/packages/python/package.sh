@@ -12,6 +12,7 @@ version 3.8.20 sha256=6fb89a7124201c61125c0ab4cf7f6894df339a40c02833bfd28ab4d769
 build_system generic
 
 depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed@4.9-musl tar@1.35-musl xz@5.2.5-musl
+depends_on dash@0.5.12
 
 edit() {
     # subprocess(shell=True) hardcodes ["/bin/sh", "-c"] in pure Python, which

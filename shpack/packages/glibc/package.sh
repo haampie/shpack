@@ -2,11 +2,17 @@
 
 description "glibc 2.43 -- the production aarch64 libc, built by the crippled" \
             "gcc-16-boot0. Second half of the musl->glibc transition; every" \
-            "later cap stage links against this."
+            "later cap stage links against this. Two builds from one recipe:" \
+            "2.43-boot is a throwaway built with the bootstrap shell; 2.43 is" \
+            "the final libc, identical except its ldd/mtrace/sotruss/tzselect/" \
+            "xtrace scripts point at a clean, glibc-linked dash instead of the" \
+            "tcc/musl bootstrap one."
 homepage "https://www.gnu.org/software/libc/"
 license "LGPL-2.1-or-later"
 
 version 2.43 sha256=d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831 \
+    url=https://ftp.gnu.org/gnu/glibc/glibc-2.43.tar.xz
+version 2.43-boot sha256=d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831 \
     url=https://ftp.gnu.org/gnu/glibc/glibc-2.43.tar.xz
 
 build_system generic
@@ -17,13 +23,28 @@ build_system generic
 # rejects gawk < 3.1.2).
 depends_on gcc-boot binutils@2.46.0-musl linux-headers gmake python bison m4 \
     sed@4.9-musl gawk@5.3.1 grep@2.4-musl diffutils tar@1.35-musl xz@5.2.5-musl
+# glibc bakes a dash into its shipped scripts (ldd, mtrace, ...). 2.43 ships the
+# clean dash; 2.43-boot breaks the dash->glibc cycle, so it uses the bootstrap
+# dash@0.5.12 external (a leaf, hence no cycle). $sh follows whichever is declared.
+depends_on dash        when=2.43
+depends_on dash@0.5.12 when=2.43-boot
 
 install() {
-    local triple cc headers python n b
+    local triple cc headers python n b stripped bp
+
     triple=$(triple gnu)
     cc=$(prefix_of gcc-boot)/bin/gcc
     headers=$(prefix_of linux-headers)
     python=$(prefix_of python)
+
+
+    # reduce build time of the "boot" version
+    stripped=
+    bp=
+    if [ "$version" = 2.43-boot ]; then
+        stripped="--disable-default-pie --disable-timezone-tools"
+        bp="build-programs=no"
+    fi
 
     # glibc requires an out-of-tree build.
     mkdir -p build
@@ -43,10 +64,11 @@ install() {
         --disable-nls \
         --disable-werror \
         --disable-profile \
-        --with-default-link=no
+        --with-default-link=no \
+        $stripped
 
-    make $makejobs
-    make install
+    make $bp $makejobs
+    make $bp install
 
     # Make <prefix>/include complete: symlink the kernel headers beside glibc's
     # so one --with-native-system-header-dir covers both for the shipped gcc.

@@ -60,6 +60,19 @@ prefix_of() {
     die "prefix_of: '$1' is not in the dependency closure of $id"
 }
 
+# direct_dep NAME -> true if NAME is a *direct* dependency of this recipe.
+# Deliberately deps-only, not the full closure (unlike prefix_of): it decides
+# $sh, which must reflect what the recipe itself declared. glibc depends on the
+# clean dash and almost everything sits on glibc, so a closure check would be
+# true nearly everywhere and pick a dash the recipe never asked for.
+direct_dep() {
+    local d
+    for d in $(cat "$SPEC/deps"); do
+        if [ "$(cat "$VAR/spec/$d/name")" = "$1" ]; then return 0; fi
+    done
+    return 1
+}
+
 # triple [LIBC] [VENDOR] -> the target triple for $ARCH, e.g. x86_64-linux-gnu.
 # LIBC is gnu (default) or musl; VENDOR is omitted by default, pass `unknown`
 # for the -unknown- form the older config.sub vintages in the early chain
@@ -80,7 +93,7 @@ triple() {
 }
 
 # replace_bin_sh FILE... -- repoint the literal /bin/sh some sources execv/
-# system/popen (musl, tar, gawk, python) at the store shell $sh. Unlike
+# system/popen (musl, tar, gawk, python) at the build shell $sh. Unlike
 # patch-shebangs (which only rewrites #! interpreter lines), these are string
 # literals in the program text, so they need a source edit. The bare /bin/sh
 # pattern covers every form ("/bin/sh", ["/bin/sh", "-c"], ...). For use from a
@@ -242,12 +255,15 @@ cmd_build_one() {
     fi
     # HOME under the build's own scratch ($VAR, itself under $TMPDIR on the
     # host): some configure/test steps write dotfiles, and a build must not
-    # depend on or pollute a real home. CONFIG_SHELL/SHELL: the explicit build
-    # shell (etc/config), so nothing relies on a /bin/sh shebang. $sh is the
-    # short recipe-facing alias for it.
+    # depend on or pollute a real home.
     BUILD_HOME=$VAR/home
     mkdir -p "$BUILD_HOME"
+    # $sh, the build shell (configure/patch-shebangs/replace_bin_sh/SHELL=), is
+    # the dash the recipe declares (dash@0.5.12 bootstrap external, or the clean
+    # glibc dash), else the ambient $CONFIG_SHELL. So a recipe that bakes a shell
+    # into its artifact keeps that path inside its own recorded closure.
     sh=$CONFIG_SHELL
+    if direct_dep dash; then sh=$(prefix_of dash)/bin/sh; fi
     # SHELL via MAKEFLAGS so it reaches recursive sub-makes and overrides even a
     # baked-in `SHELL = /bin/sh` (kernel headers, musl, gawk@3.0.4); otherwise a
     # sub-make falls back to host /bin/sh, which the sandbox denies. Append to

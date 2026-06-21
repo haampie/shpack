@@ -13,6 +13,7 @@ version 1.2.5 sha256=a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7
 build_system generic
 
 depends_on gcc-boot@4.7-2013.11 binutils@2.30-musl gmake linux-headers
+depends_on dash@0.5.12
 
 setup_build_environment() {
     # musl builds -nostdinc but still needs the kernel uapi (asm/ syscall and

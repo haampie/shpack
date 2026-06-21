@@ -18,12 +18,13 @@ DISTFILES=@DISTFILES@
 # (newest first) and the stage0 seed dirs.
 BASEPATH=@BASEPATH@
 
-# The shell every build system invokes explicitly, rather than trusting a
-# #!/bin/sh shebang to find one. Passed to ./configure (run as `$CONFIG_SHELL
-# configure`, plus CONFIG_SHELL=/SHELL= so sub-configures inherit it) and to
-# make (SHELL=). On the host there is no writable /bin/sh, so this absolute path
-# into the dash store prefix is what makes the autotools phase work unsandboxed;
-# under chroot it equals /opt/dash-0.5.12/bin/sh == /bin/sh.
+# The tcc/musl bootstrap dash: the dag.mk driver shell and the default build
+# shell (configure/SHELL=). It exists from the first kaem package on, so it can
+# drive every build. A recipe whose artifact embeds a shell instead declares a
+# dash dep (builder's $sh follows it): `depends_on dash` for the clean glibc
+# dash, `depends_on dash@0.5.12` for this bootstrap one (the external below).
+# On the host there is no writable /bin/sh, so this absolute store path is what
+# makes the autotools phase work unsandboxed; under chroot it == /bin/sh.
 CONFIG_SHELL=@STORE@/dash-0.5.12/bin/sh
 
 # When this spec occurs in a DAG, shpack builds it first, serially, under the

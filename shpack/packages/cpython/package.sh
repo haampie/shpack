@@ -15,8 +15,12 @@ build_system autotools
 # -> _ssl, bzip2/xz/zstd -> _bz2/_lzma/_zstd. configure auto-detects each from
 # the wrapper's search path.
 depends_on compiler-wrapper zlib-ng libffi openssl bzip2 xz zstd gmake
+depends_on dash
 
 edit() {
+    # subprocess(shell=True) hardcodes ["/bin/sh", "-c"]; repoint at the store dash.
+    replace_bin_sh Lib/subprocess.py
+
     # Suspected fix for an intermittent "build-details.json: Bus error" under the
     # jobserver: the rule runs the interpreter (imports json -> _json.so) but only
     # depends on pybuilddir.txt, so it may race sharedmods writing that .so. Order

@@ -15,6 +15,8 @@ build_system generic
 # The final, shared, glibc-linked gcc. depends_on gcc puts this wrapper ahead of
 # gcc on the composed PATH (reverse topo order), so its cc/gcc shadow the real ones.
 depends_on gcc
+# The cc/gcc/... shims are #!$sh scripts, so the clean glibc dash is a runtime dep.
+depends_on dash
 
 install() {
     local gcc real prog triple

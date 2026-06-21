@@ -12,6 +12,8 @@ version 16.1.0
 build_system generic
 
 depends_on gcc-boot glibc binutils@2.46.0-musl
+# The gcc/g++ shims are #!$sh scripts, so the clean glibc dash is a runtime dep.
+depends_on dash
 
 install() {
     local gcc glibc binutils ld_so prog real tool

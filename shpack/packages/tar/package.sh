@@ -22,6 +22,10 @@ build_system autotools
 # built with the final gcc 16 via compiler-wrapper.
 depends_on gcc-boot@4.7-2013.11 binutils@2.30-musl gmake when=1.35-musl
 depends_on compiler-wrapper gmake when=1.35
+# replace_bin_sh (below) compiles the shell path into the tar binary, a runtime
+# dep: 1.35 (glibc) ships the clean dash, 1.35-musl the tcc-built bootstrap one.
+depends_on dash        when=1.35
+depends_on dash@0.5.12 when=1.35-musl
 
 setup_build_environment() {
     # tar's configure refuses to run as root unless told the rmt setup is

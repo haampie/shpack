@@ -24,6 +24,8 @@ build_system generic
 depends_on cpython clingo spack-packages gcc
 depends_on coreutils grep sed gawk
 depends_on tar xz bzip2 gzip patch unzip zstd git
+# The launcher is a #!$sh script, so the clean glibc dash is a runtime dep.
+depends_on dash
 
 install() {
     local py clingo_site pkgrepo dest gcc tools t
