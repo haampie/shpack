@@ -36,14 +36,23 @@ ROOT=$(cd "$(dirname "$0")" && pwd)
 cd "$ROOT"
 
 die() { echo "run-rootfs.sh: $*" >&2; exit 1; }
+abspath() { case "$1" in /*) printf '%s\n' "$1";; *) printf '%s/%s\n' "$PWD" "$1";; esac; }
 
-usage="usage: $0 [--arch amd64|aarch64] [--clean] [--base-only] [cmd...]"
+usage="usage: $0 [--arch amd64|aarch64] [--clean] [--base-only] [--store DIR] [--build DIR] [cmd...]"
 ARCH=""
+# Virtual in-namespace paths for the store and build/tmp dir. Defaults keep the
+# live-bootstrap layout (store at /opt, kaem TMPDIR + scratch at /tmp); override
+# --store to match a host build's install prefix (e.g. $PWD/store) for an
+# apples-to-apples reproducibility diff, and --build to vary the build dir.
+STORE=/opt
+BUILDDIR=/tmp
 CLEAN=0
 BASE_ONLY=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --arch)      [ "$#" -ge 2 ] || die "$usage"; ARCH=$2; shift 2 ;;
+        --store)     [ "$#" -ge 2 ] || die "$usage"; STORE=$(abspath "$2"); shift 2 ;;
+        --build)     [ "$#" -ge 2 ] || die "$usage"; BUILDDIR=$(abspath "$2"); shift 2 ;;
         --clean)     CLEAN=1; shift ;;
         --base-only) BASE_ONLY=1; shift ;;
         --)          shift; break ;;
@@ -80,37 +89,43 @@ in_rootfs() {
     rootfs=$1
     shift
     bwrap --unshare-all --bind "$rootfs" / --dev /dev --proc /proc \
-        --tmpfs /tmp/shpack/stage "$@"
+        --tmpfs "$T_BUILDDIR/shpack/stage" "$@"
 }
 
-# Token roots baked into the staged kaem scripts. The rootfs keeps live-bootstrap's
-# layout: store at /opt, distfiles at /external/distfiles, seed tree at /tmp/seed,
-# kaem TMPDIR at /tmp, shpack at /shpack -- all virtual paths inside the bound
-# rootfs. (run-local.sh substitutes real host paths instead.)
-T_STORE=/opt
+# Token roots baked into the staged kaem scripts -- virtual paths inside the
+# bound rootfs. The store (--store, default /opt) and build/tmp dir (--build,
+# default /tmp) are configurable; distfiles, the seed tree (under the build dir)
+# and shpack keep the live-bootstrap layout. (run-local.sh substitutes real host
+# paths instead.) Inside the namespace / is the rootfs, so virtual $T_STORE lives
+# on disk at rootfs$T_STORE -- RSTORE is that on-disk path.
+T_STORE="$STORE"
 T_DISTFILES=/external/distfiles
-T_SEEDDIR=/tmp/seed
-T_BUILDDIR=/tmp
+T_SEEDDIR="$BUILDDIR/seed"
+T_BUILDDIR="$BUILDDIR"
 T_SHPACK=/shpack
 derive_paths "$T_STORE"
+RSTORE="$ROOT/rootfs$T_STORE"
 
 [ -d "$ROOT/distfiles" ] || die "no distfiles at $ROOT/distfiles -- run ./fetch-distfiles.sh first"
 
 # --- Provision (idempotent) ---------------------------------------------------
 # The provision stamp records arch + config + seed fingerprint (stage.sh). When
 # it still matches we reuse the rootfs as-is; otherwise rebuild it from scratch.
-STAMP=rootfs/opt/.provisioned
+STAMP="$RSTORE/.provisioned"
 want=$(provision_stamp)
 if [ "$CLEAN" = 1 ] || [ ! -f "$STAMP" ] || [ "$(cat "$STAMP")" != "$want" ]; then
     echo "run-rootfs.sh: provisioning rootfs/ for $ARCH ..."
     rm -rf rootfs
-    mkdir -p rootfs/usr/bin rootfs/tmp rootfs/external/distfiles
+    # Scaffolding for the (configurable) store and build-dir trees: their parent
+    # chains must exist before kaem writes into the bound rootfs.
+    mkdir -p rootfs/usr/bin rootfs/external/distfiles \
+        "$RSTORE" "rootfs$T_BUILDDIR"
 
     # The stage0 bring-up scripts are CWD-relative and the seed interpreters have
-    # no `cd`, so the seed tree must sit at the launch CWD. We stage it at
-    # /tmp/seed (launched with --chdir below) to keep the rootfs root clean: only
-    # the persistent store (/opt), shpack and distfiles live at root.
-    stage_seed_tree rootfs/tmp/seed
+    # no `cd`, so the seed tree must sit at the launch CWD. We stage it under the
+    # build dir ($T_SEEDDIR, launched with --chdir below) to keep the rootfs root
+    # clean: only the persistent store, shpack and distfiles live at root.
+    stage_seed_tree "rootfs$T_SEEDDIR"
 
     # Bake only the kaem-phase base: bootstrap/ (the static kaem chain) plus the
     # substituted config/externals. shpack/{bin,lib,packages} are deliberately
@@ -124,28 +139,28 @@ if [ "$CLEAN" = 1 ] || [ ! -f "$STAMP" ] || [ "$(cat "$STAMP")" != "$want" ]; th
     # scripts read their tarballs from /external/distfiles). aarch64 on an x86_64
     # host relies on the qemu-aarch64 binfmt handler (user-mode emulation) firing
     # inside the namespace.
-    SEED=/tmp/seed/bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed
+    SEED="$T_SEEDDIR/bootstrap-seeds/POSIX/${SEEDARCH}/kaem-optional-seed"
     in_rootfs "$ROOT/rootfs" \
         --ro-bind "$ROOT/distfiles" /external/distfiles \
-        --chdir /tmp/seed \
+        --chdir "$T_SEEDDIR" \
         "$SEED" kaem.${ARCH}
 
     # stage0 doesn't propagate a nested kaem failure as its own exit status, so
     # assert the deliverable (dash) rather than trusting $?.
-    [ -x rootfs/opt/dash-0.5.12/bin/sh ] \
-        || die "kaem base failed: no rootfs/opt/dash-0.5.12/bin/sh (see output above)"
+    [ -x "$RSTORE/dash-0.5.12/bin/sh" ] \
+        || die "kaem base failed: no $RSTORE/dash-0.5.12/bin/sh (see output above)"
     printf '%s\n' "$want" > "$STAMP"
 else
     echo "run-rootfs.sh: base present ($ARCH) -- skipping provision (--clean to rebuild)"
 fi
 
-# The `shpack` launcher wrapper, written into the rootfs store (virtual /opt) so
-# it is on BASEPATH (shpack-driver/bin). Its store-dash shebang + body exec the
+# The `shpack` launcher wrapper, written into the rootfs store (virtual $T_STORE)
+# so it is on BASEPATH (shpack-driver/bin). Its store-dash shebang + body exec the
 # bind-mounted live driver at /shpack/bin, so nothing relies on a #!/bin/sh
 # shebang -- the reason the rootfs no longer carries a /bin/sh. The on-disk path
-# is rootfs/opt/..., but its contents reference the virtual /opt and /shpack.
-stage_driver_wrapper "$ROOT/rootfs/opt/shpack-driver/bin" \
-    "/opt/dash-0.5.12/bin/sh" "/shpack/bin"
+# is rootfs$T_STORE/..., but its contents reference the virtual store and /shpack.
+stage_driver_wrapper "$RSTORE/shpack-driver/bin" \
+    "$T_STORE/dash-0.5.12/bin/sh" "/shpack/bin"
 
 [ "$BASE_ONLY" = 1 ] && exit 0
 
@@ -160,12 +175,12 @@ BP=$(sed -n 's/^BASEPATH=//p' rootfs/shpack/etc/config | head -1)
 # Bind the package manager + distfiles read-only from the host checkout. Only
 # /shpack/{bin,lib,packages} are mounted; /shpack/{etc,bootstrap} come from the
 # baked base, so the substituted etc/config is preserved. shpack writes only
-# under /tmp/shpack and the /opt store. --clearenv so the host environment never
-# reaches a build.
+# under $T_BUILDDIR/shpack and the store. --clearenv so the host environment
+# never reaches a build.
 in_rootfs "$ROOT/rootfs" \
     --clearenv \
     --setenv PATH "$BP" \
-    --setenv HOME /tmp \
+    --setenv HOME "$T_BUILDDIR" \
     --setenv TERM "${TERM:-dumb}" \
     --ro-bind "$ROOT/shpack/bin"      /shpack/bin \
     --ro-bind "$ROOT/shpack/lib"      /shpack/lib \
