@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 
-description "CMake 3.31.11 -- build-system generator. Build dependency of" \
-            "clingo. Bootstrapped from source with its bundled libraries" \
-            "(curl/zlib/expat/...), no system OpenSSL or ncurses dialog."
+description "CMake 3.31.11 -- build-system generator. Bootstrapped from source" \
+            "against store libraries (curl/openssl/libarchive/...); only the" \
+            "bundled cppdap (cmake-only build) stays vendored. No ncurses dialog."
 homepage "https://cmake.org/"
 license "BSD-3-Clause"
 
@@ -11,34 +11,45 @@ version 3.31.11 sha256=c0a3b3f2912b2166f522d5010ffb6029d8454ee635f5ad7a3247e0be7
 
 build_system generic
 
-depends_on compiler-wrapper gmake
+depends_on compiler-wrapper gmake openssl curl \
+           zlib-ng expat bzip2 xz zstd nghttp2 \
+           libarchive libuv librhash jsoncpp
 
 edit() {
-    # cmake bakes `SHELL = /bin/sh` into generated Makefiles and unsets MAKEFLAGS
-    # for try_compile probes, so SHELL=$sh can't reach them; the sandbox has no
-    # /bin/sh. Patch the baked shell at the source so installed cmake inherits it.
-    sed -i "s|\"SHELL = /bin/sh|\"SHELL = $sh|" Source/cmLocalUnixMakefileGenerator3.cxx
-    sed -i "s|\"/bin/sh\"|\"$sh\"|" Source/cmExecProgramCommand.cxx
+    # cmake hardcodes /bin/sh (the SHELL of generated makefiles, and its
+    # cmExecProgramCommand); the sandbox has none.
+    replace_bin_sh Source/cmLocalUnixMakefileGenerator3.cxx Source/cmExecProgramCommand.cxx
 }
 
 install() {
     export CC=$(prefix_of compiler-wrapper)/bin/gcc
     export CXX=$(prefix_of compiler-wrapper)/bin/g++
-    # Bundled cmlibuv calls glibc GNU extensions (accept4, dup3, pipe2, CPU_*)
-    # exposed only under _GNU_SOURCE; the bootstrap doesn't set it and GCC 16
-    # makes the resulting implicit declarations a hard error.
+    # Vendored cppdap needs _GNU_SOURCE under GCC 16.
     export CFLAGS="-D_GNU_SOURCE"
     export CXXFLAGS="-D_GNU_SOURCE"
+    # find_package() searches CMAKE_PREFIX_PATH, not the wrapper's -I/-L.
+    export CMAKE_PREFIX_PATH="$(prefix_of openssl):$(prefix_of curl):$(prefix_of zlib-ng):$(prefix_of expat):$(prefix_of bzip2):$(prefix_of xz):$(prefix_of zstd):$(prefix_of nghttp2):$(prefix_of libarchive):$(prefix_of libuv):$(prefix_of librhash):$(prefix_of jsoncpp)"
 
-    # Self-contained via bundled libs; OpenSSL and the curses dialog turned off.
-    # No --parallel: the inner make inherits the dag.mk jobserver via MAKEFLAGS,
-    # so it shares the global -jN instead of spawning its own -j$JOBS on top.
+    # Private deps of static libarchive.a; FindLibArchive links only the .a.
+    local archive_private="-lcrypto -llzma -lzstd -lbz2 -lz"
+    # --bootstrap-system-*: else the wrapper's -I leaks system headers into the
+    #   bundled libs the mini-cmake compiles.
+    # RPATH_USE_LINK_PATH: survive CMake's install-time RPATH rewrite.
     "$sh" ./bootstrap \
         --prefix="$PREFIX" \
         --no-qt-gui \
+        --system-libs \
+        --system-curl \
+        --no-system-cppdap \
+        --bootstrap-system-libuv \
+        --bootstrap-system-jsoncpp \
+        --bootstrap-system-librhash \
         -- \
-        -DCMAKE_USE_OPENSSL=OFF \
-        -DBUILD_CursesDialog=OFF
+        -DCMAKE_USE_OPENSSL=ON \
+        -DBUILD_CursesDialog=OFF \
+        -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
+        -DCMAKE_C_STANDARD_LIBRARIES="$archive_private" \
+        -DCMAKE_CXX_STANDARD_LIBRARIES="$archive_private"
     make $makejobs
     make install
 }

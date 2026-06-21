@@ -89,6 +89,10 @@ da8d640f55036b1f5c9cd950083248ec956256959dc74584e12c43550d6ec0ef  nghttp2-1.67.1
 f5833dd2e1cd7739ec9182804a1a29c4f0cc7c2f26b633d3a2188b7766a88ecb  expat-2.8.1.tar.bz2              https://github.com/libexpat/libexpat/releases/download/R_2_8_1/expat-2.8.1.tar.bz2
 d34f02e113cf7193a1ebf2770d3ac527088d485d4e047ed10e5d217c6ef5de96  pcre2-10.44.tar.bz2              https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.bz2
 4be48e69cf467246cb97d369b85d78a08528f2b37cffef2418ee16e6a4eb596e  curl-8.20.0.tar.bz2              https://curl.se/download/curl-8.20.0.tar.bz2
+4b787cca6697a95c7725e45293c973c208cbdc71ae2279f30ef09f52472b9166  libarchive-3.8.7.tar.gz          https://github.com/libarchive/libarchive/releases/download/v3.8.7/libarchive-3.8.7.tar.gz
+a34f3eaabff4cb9e08b17a25b459f8330e6536d256a3180e249e8cb2bb49ccd6  libuv-v1.52.0-dist.tar.gz        https://dist.libuv.org/dist/v1.52.0/libuv-v1.52.0-dist.tar.gz
+830bf352d822d8558e9d0eb19d640d2e38536b4b6699c30a4488da09d5b1df18  jsoncpp-1.9.7.tar.gz             https://github.com/open-source-parsers/jsoncpp/archive/1.9.7.tar.gz
+9f6019cfeeae8ace7067ad22da4e4f857bb2cfa6c2deaa2258f55b2227ec937a  rhash-1.4.6.tar.gz               https://github.com/rhash/RHash/archive/v1.4.6.tar.gz
 EOF
 )
 
