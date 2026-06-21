@@ -12,6 +12,7 @@ version 3.4.6 sha256=b0dea9df23c863a7a50e825440f3ebffabd65df1497108e5d4377478438
 build_system autotools
 
 depends_on compiler-wrapper gmake
+depends_on dash
 
 configure_args() {
     # Explicit triple (no date/uname for config.guess). --disable-multi-os-directory

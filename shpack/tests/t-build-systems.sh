@@ -14,6 +14,7 @@ sha=${sha%% *}
 mkpkg mkpkg <<EOF
 version 1.0 sha256=$sha url=http://example.invalid/mkpkg-1.0.tar.gz
 build_system makefile
+depends_on dash
 patch fix-data.patch
 EOF
 
@@ -56,6 +57,7 @@ sha=${sha%% *}
 mkpkg atpkg <<EOF
 version 2.0 sha256=$sha url=http://example.invalid/atpkg-2.0.tar.gz
 build_system autotools
+depends_on dash
 parallel false
 configure_args() {
     # One argument per line; arguments may contain spaces.
@@ -91,6 +93,7 @@ sha=${sha%% *}
 mkpkg ootpkg <<EOF
 version 1.0 sha256=$sha url=http://example.invalid/ootpkg-1.0.tar.gz
 build_system autotools
+depends_on dash
 parallel false
 build_directory _build
 EOF
@@ -124,6 +127,7 @@ version 1.0 sha256=$sha10 url=http://example.invalid/bspkg-1.0.tar.gz
 version 2.0 sha256=$sha20 url=http://example.invalid/bspkg-2.0.tar.gz
 build_system makefile  when=1.0
 build_system autotools when=2.0
+depends_on dash
 parallel false
 EOF
 mkdir -p "$SHPACK_REPO/bspkg/files"

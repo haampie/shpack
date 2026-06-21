@@ -19,6 +19,7 @@ build_system autotools
 depends_on gcc-boot-wrapper glibc binutils libstdcxx-boot1 linux-headers \
     zlib-ng@2.3.3-boot zstd@1.5.7-boot \
     gmake sed@4.9-musl grep@2.4-musl gawk@3.0.4 diffutils findutils tar@1.35-musl xz@5.2.5-musl
+depends_on dash
 
 # Same in-tree gmp/mpfr/mpc as gcc-boot@16.1.0 (GCC 16's prerequisite set).
 resource when=16.1.0 \

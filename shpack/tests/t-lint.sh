@@ -19,5 +19,14 @@ for f in bin/shpack lib/*.sh lib/build_systems/*.sh; do
     fi
 done
 
+# Every built recipe must declare a shell dep: builder.sh requires it (the build
+# always runs make/patch-shebangs) and there is no ambient-shell fallback.
+for f in packages/*/package.sh; do
+    if ! grep -qE '^depends_on .*\bdash\b' "$f"; then
+        echo "no dash dependency in $f" >&2
+        bad=1
+    fi
+done
+
 [ "$bad" = 0 ] || exit 1
 echo OK

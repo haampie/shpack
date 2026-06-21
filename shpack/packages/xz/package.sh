@@ -22,6 +22,8 @@ build_system autotools
 # with the final gcc 16 via compiler-wrapper.
 depends_on gcc-boot@4.7-2013.11 binutils@2.30-musl gmake when=5.2.5-musl
 depends_on compiler-wrapper gmake when=5.8.3
+depends_on dash@0.5.12 when=5.2.5-musl
+depends_on dash        when=5.8.3
 
 configure_args() {
     local triple

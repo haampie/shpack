@@ -21,6 +21,8 @@ build_system autotools when=3.11
 
 depends_on tcc musl@1.1.24 when=2.4-musl
 depends_on compiler-wrapper gmake when=3.11
+depends_on dash@0.5.12 when=2.4-musl
+depends_on dash        when=3.11
 
 configure_args() {
     # 3.11 only. gcc 16 via the wrapper, explicit glibc triple (no uname). Drop

@@ -65,8 +65,9 @@ mkdir -p "$VAR"
 export SHPACK_VAR="$VAR" SHPACK_REPO="$REPO" SHPACK_EXTERNALS="$EXTERNALS" \
        SHPACK_CONFIG="$CONFIG"
 
-# The explicit build shell (see etc/config). SHELL mirrors it so any make that
-# honours the environment SHELL also avoids a /bin/sh shebang lookup.
+# The dag.mk driver-make shell (see etc/config). SHELL mirrors it so the top
+# make avoids a /bin/sh shebang lookup; per-node builds override SHELL with their
+# own declared dash (builder.sh).
 export CONFIG_SHELL
 SHELL=$CONFIG_SHELL
 export SHELL

@@ -12,6 +12,7 @@ version 1.9.7 sha256=830bf352d822d8558e9d0eb19d640d2e38536b4b6699c30a4488da09d5b
 build_system generic
 
 depends_on compiler-wrapper gmake
+depends_on dash
 
 install() {
     # -std=c++17 so the std::string_view Value overloads land in the archive;

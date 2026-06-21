@@ -13,6 +13,7 @@ build_system autotools
 # Built by gcc 9.5 in the musl world (binutils@2.30-musl as/ld). m4 is a RUN dep:
 # bison shells out to it to expand skeletons; seed m4@1.4.7 meets `m4 >= 1.4.6`.
 depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake sed@4.9-musl tar@1.35-musl m4 xz@5.2.5-musl
+depends_on dash@0.5.12
 
 setup_build_environment() {
     # No host flex; bison ships its generated scanners, so the only obstacle is

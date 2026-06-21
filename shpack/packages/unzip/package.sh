@@ -15,6 +15,7 @@ build_system generic
 # compiler-wrapper supplies gcc 16 + glibc. Builds from unix/Makefile via the
 # `generic` target, which runs Info-ZIP's unix/configure feature probe first.
 depends_on compiler-wrapper gmake
+depends_on dash
 
 # Upstream/distros carry many CVE/hardening patches for unzip 6.0; not
 # build-blocking, deferred here. Revisit before feeding untrusted input.

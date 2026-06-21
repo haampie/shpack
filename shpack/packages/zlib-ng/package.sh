@@ -25,6 +25,7 @@ build_system generic
 # 2.3.3-boot: toolchain-layer static build by gcc-boot-wrapper.
 depends_on compiler-wrapper gmake when=2.3.3
 depends_on gcc-boot-wrapper glibc gmake when=2.3.3-boot
+depends_on dash
 
 install() {
     # zlib-ng ships its own configure (not autotools); it honours $CC.

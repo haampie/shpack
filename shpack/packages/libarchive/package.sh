@@ -11,6 +11,7 @@ version 3.8.7 sha256=4b787cca6697a95c7725e45293c973c208cbdc71ae2279f30ef09f52472
 build_system autotools
 
 depends_on compiler-wrapper gmake zlib-ng bzip2 xz zstd openssl
+depends_on dash
 
 configure_args() {
     # zlib/bzip2/lzma/zstd/openssl filters on, everything else off, no tools.

@@ -12,6 +12,7 @@ version 2.8.1 sha256=f5833dd2e1cd7739ec9182804a1a29c4f0cc7c2f26b633d3a2188b7766a
 build_system autotools
 
 depends_on compiler-wrapper gmake
+depends_on dash
 
 configure_args() {
     # --without-docbook (no doc toolchain) + --enable-static. No libbsd: glibc

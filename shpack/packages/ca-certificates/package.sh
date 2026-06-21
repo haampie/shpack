@@ -13,6 +13,9 @@ version 2025-08-12 sha256=64dfd5b1026700e0a0a324964749da9adc69ae5e51e899bf16ff47
 
 build_system generic
 
+# No build step needs it, but every node declares its build shell (builder.sh).
+depends_on dash
+
 install() {
     mkdir -p "$PREFIX/etc/ssl"
     cp cacert-*.pem "$PREFIX/etc/ssl/cert.pem"

@@ -16,6 +16,7 @@ build_system autotools
 # glibc here is the throwaway 2.43-boot (the final 2.43 depends on this dash, so
 # linking it against 2.43 would be a cycle). binutils provides as/ld.
 depends_on gcc-boot glibc@2.43-boot binutils@2.46.0-musl gmake
+depends_on dash@0.5.12
 
 configure_args() {
     local t cc gl

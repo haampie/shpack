@@ -18,6 +18,7 @@ build_system generic
 # without it the archive ships only compatibility*.o and C++ links break.
 depends_on gcc-boot-wrapper glibc linux-headers gmake sed@4.9-musl grep@2.4-musl gawk@5.3.1 diffutils \
     findutils tar@1.35-musl xz@5.2.5-musl
+depends_on dash
 
 setup_build_environment() {
     # libstdc++ #include_next <stdlib.h> etc. must reach glibc's headers.

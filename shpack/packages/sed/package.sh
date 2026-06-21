@@ -19,6 +19,8 @@ build_system autotools
 # the final gcc 16 via compiler-wrapper. Each pulls the matching xz for its source.
 depends_on gcc-boot@4.7-2013.11 binutils@2.30-musl gmake xz@5.2.5-musl when=4.9-musl
 depends_on compiler-wrapper gmake xz when=4.9
+depends_on dash@0.5.12 when=4.9-musl
+depends_on dash        when=4.9
 
 configure_args() {
     local triple

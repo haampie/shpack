@@ -13,6 +13,7 @@ build_system generic
 # Built by the chain's GCC 4.7 (HOSTCC compiles scripts/basic/fixdep and
 # scripts/unifdef). make = gmake (musl-linked, drives the jobserver).
 depends_on gcc-boot@4.7-2013.11 gmake sed@4.9-musl xz@5.2.5-musl
+depends_on dash@0.5.12
 
 install() {
     local karch

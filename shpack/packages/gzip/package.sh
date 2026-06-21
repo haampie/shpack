@@ -14,6 +14,7 @@ build_system autotools
 # compiler-wrapper supplies gcc 16 + glibc; grep comes in transitively through
 # its closure (configure needs it).
 depends_on compiler-wrapper gmake
+depends_on dash
 
 # gzip makes a recursive symlink if built in-source, so configure out-of-tree.
 build_directory spack-build

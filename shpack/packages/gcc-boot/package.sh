@@ -45,6 +45,7 @@ depends_on gcc-boot@4.7-2013.11 musl@1.2.5 linux-headers binutils@2.30-musl m4@1
 # 16.1.0: built by the chain's own 9.5 g++; binutils 2.46 supplies the as/ld it
 # assembles with and bakes into its specs. sed/tar for 16's pax tarball.
 depends_on gcc-boot@9.5.0 binutils@2.46.0-musl sed@4.9-musl tar@1.35-musl xz@5.2.5-musl when=16.1.0
+depends_on dash@0.5.12
 
 # GCC 9.5's download_prerequisites set, in-tree as gmp/ mpfr/ mpc/ for
 # auto-detection. ISL omitted (Graphite only; --without-isl).

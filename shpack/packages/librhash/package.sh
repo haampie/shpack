@@ -12,6 +12,7 @@ version 1.4.6 sha256=9f6019cfeeae8ace7067ad22da4e4f857bb2cfa6c2deaa2258f55b2227e
 build_system generic
 
 depends_on compiler-wrapper gmake
+depends_on dash
 
 install() {
     # Hand-written configure (not autotools); honours $CC.

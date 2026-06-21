@@ -14,6 +14,7 @@ version 3.0 sha256=b3babbbb1461e13fe22c630a40c43885efcfbbbb585830c6f4c0d791cf82b
 build_system autotools
 
 depends_on compiler-wrapper gmake
+depends_on dash
 
 configure_args() {
     # gcc/g++ resolve to the wrapper via the composed PATH. Explicit triple:

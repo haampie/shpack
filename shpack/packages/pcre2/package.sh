@@ -12,6 +12,7 @@ version 10.44 sha256=d34f02e113cf7193a1ebf2770d3ac527088d485d4e047ed10e5d217c6ef
 build_system autotools
 
 depends_on compiler-wrapper gmake
+depends_on dash
 
 configure_args() {
     # Default 8-bit build (libpcre2-8). Explicit glibc triple (no

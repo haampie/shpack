@@ -23,6 +23,7 @@ build_system generic
 # 1.5.7-boot: toolchain-layer static build by gcc-boot-wrapper.
 depends_on compiler-wrapper gmake when=1.5.7
 depends_on gcc-boot-wrapper glibc gmake when=1.5.7-boot
+depends_on dash
 
 setup_build_environment() {
     # zstd's Makefiles do `$(shell uname)` to pick the shared-lib soname/flags;

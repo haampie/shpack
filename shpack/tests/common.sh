@@ -18,6 +18,14 @@ export SHPACK_CONFIG="$TESTDIR/config"
 mkdir -p "$TESTDIR/store" "$TESTDIR/distfiles" "$SHPACK_REPO"
 : > "$SHPACK_EXTERNALS"
 
+# builder.sh requires every built node to declare a shell dep. Provide a 'dash'
+# external whose bin/sh is the host shell so fixtures can `depends_on dash`;
+# TEST_DASH_SH is the path a build sees as $sh.
+mkdir -p "$TESTDIR/store/dash/bin"
+ln -sf "$(command -v sh)" "$TESTDIR/store/dash/bin/sh"
+printf 'dash@host %s\n' "$TESTDIR/store/dash" >> "$SHPACK_EXTERNALS"
+export TEST_DASH_SH="$TESTDIR/store/dash/bin/sh"
+
 cat > "$SHPACK_CONFIG" <<EOF
 ARCH=testarch
 JOBS=2

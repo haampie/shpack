@@ -15,6 +15,7 @@ build_system autotools
 # ca-certificates = the on-disk trust store baked in as the default CA bundle.
 # compiler-wrapper injects -I/-L/-rpath for the three libraries.
 depends_on compiler-wrapper openssl zlib-ng nghttp2 ca-certificates gmake
+depends_on dash
 
 configure_args() {
     # Explicit glibc triple (no uname/config.guess in the sandbox). Dep prefixes

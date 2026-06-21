@@ -15,6 +15,7 @@ build_system generic
 # ca-certificates is the Mozilla bundle dropped into OPENSSLDIR (see install) so
 # the default trust store works with no SSL_CERT_FILE.
 depends_on compiler-wrapper perl zlib-ng gmake ca-certificates
+depends_on dash
 
 install() {
     local m

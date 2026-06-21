@@ -37,6 +37,11 @@ depends_on gcc-boot-wrapper glibc linux-headers libstdcxx-boot1 binutils@2.46.0-
     zlib-ng@2.3.3-boot zstd@1.5.7-boot \
     bison gmake sed@4.9-musl grep@2.4-musl gawk@3.0.4 diffutils tar@1.35-musl when=2.46.0
 
+# Build shell: the bootstrap dash for the musl versions, the clean dash for 2.46.0.
+depends_on dash@0.5.12 when=2.30-musl
+depends_on dash@0.5.12 when=2.46.0-musl
+depends_on dash        when=2.46.0
+
 # 2.30 only: the HOWTO table in bfd/elfnn-aarch64.c has #if/#else inside macro
 # arguments, which tcc 0.9.26's preprocessor lineage cannot handle.
 patch arm64-elfnn-howto.patch arch=aarch64 when=2.30-musl

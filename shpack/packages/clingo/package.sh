@@ -25,6 +25,7 @@ build_system generic
 # bison/re2c generate the gringo parser/lexer; cmake drives the build; cpython
 # provides headers + libpython for the bindings.
 depends_on compiler-wrapper cpython re2c cmake bison
+depends_on dash
 
 edit() {
     local src

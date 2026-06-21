@@ -13,6 +13,7 @@ build_system generic
 # compiler-wrapper pulls in gcc 16 + glibc loader/rpath. Pure-make build (two
 # hand-written Makefiles), no configure, no /bin/sh hardcoding.
 depends_on compiler-wrapper gmake
+depends_on dash
 
 edit() {
     # Both Makefiles hardcode CC=gcc; repoint at the wrapper gcc (= gcc 16).

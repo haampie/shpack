@@ -12,6 +12,7 @@ version 1.52.0 sha256=a34f3eaabff4cb9e08b17a25b459f8330e6536d256a3180e249e8cb2bb
 build_system autotools
 
 depends_on compiler-wrapper gmake
+depends_on dash
 
 configure_args() {
     local t

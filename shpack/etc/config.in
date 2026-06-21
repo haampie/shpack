@@ -18,13 +18,13 @@ DISTFILES=@DISTFILES@
 # (newest first) and the stage0 seed dirs.
 BASEPATH=@BASEPATH@
 
-# The tcc/musl bootstrap dash: the dag.mk driver shell and the default build
-# shell (configure/SHELL=). It exists from the first kaem package on, so it can
-# drive every build. A recipe whose artifact embeds a shell instead declares a
-# dash dep (builder's $sh follows it): `depends_on dash` for the clean glibc
-# dash, `depends_on dash@0.5.12` for this bootstrap one (the external below).
-# On the host there is no writable /bin/sh, so this absolute store path is what
-# makes the autotools phase work unsandboxed; under chroot it == /bin/sh.
+# The tcc/musl bootstrap dash, used ONLY as the dag.mk driver-make shell (the
+# top make that runs `shpack build-one` per node). It exists from the first kaem
+# package on. Per-build shells are not taken from here: every built recipe
+# declares its own dash dep and the builder's $sh follows it -- `depends_on dash`
+# for the clean glibc dash, `depends_on dash@0.5.12` for this bootstrap one (the
+# external below). On the host there is no writable /bin/sh, so this absolute
+# store path is what drives builds unsandboxed; under chroot it == /bin/sh.
 CONFIG_SHELL=@STORE@/dash-0.5.12/bin/sh
 
 # When this spec occurs in a DAG, shpack builds it first, serially, under the
@@ -39,7 +39,8 @@ SHPACK_BOOTSTRAP_MAKE=gmake@4.4.1
 # unsandboxed (the test fixture does not set it).
 SANDBOX=@STORE@/sandbox-1.0/bin/sandbox
 
-# Rewrites `#!/bin/sh` shebangs in each unpacked source to $CONFIG_SHELL before
-# building, since the sandbox has no host /bin/sh for install-sh/config.guess
-# and friends. Leave empty to skip (the test fixture does not set it).
+# Rewrites `#!/bin/sh` shebangs in each unpacked source to the recipe's build
+# shell ($sh, its declared dash) before building, since the sandbox has no host
+# /bin/sh for install-sh/config.guess and friends. Leave empty to skip (the test
+# fixture does not set it).
 PATCH_SHEBANGS=@STORE@/patch-shebangs-1.0/bin/patch-shebangs

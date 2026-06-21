@@ -13,6 +13,7 @@ version 4.4.1 sha256=dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb786
 build_system autotools
 
 depends_on tcc musl@1.1.24 grep@2.4-musl gawk@3.0.4
+depends_on dash@0.5.12
 
 configure_args() {
     # No binutils ar yet and config.guess cannot probe this environment: pin the

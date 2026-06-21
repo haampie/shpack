@@ -12,6 +12,7 @@ version 2.8 sha256=f87cee69eec2b4fcbf60a396b030ad6aa3415f192aa5f7ee84cad5e11f7f5
 build_system autotools
 
 depends_on compiler-wrapper gmake
+depends_on dash
 
 # Build out of source so a re-configure stays clean.
 build_directory spack-build

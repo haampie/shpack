@@ -12,6 +12,7 @@ version 1.67.1 sha256=da8d640f55036b1f5c9cd950083248ec956256959dc74584e12c43550d
 build_system autotools
 
 depends_on compiler-wrapper gmake
+depends_on dash
 
 configure_args() {
     # Library only: no apps, so none of the optional deps below are needed; the

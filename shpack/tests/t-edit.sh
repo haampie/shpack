@@ -6,11 +6,8 @@
 
 . "$(dirname "$0")/common.sh"
 
-# Point CONFIG_SHELL at a distinct symlink (not /bin/sh) so the rewrite is
-# observable even where `command -v sh` is itself /bin/sh.
-realsh=$(command -v sh)
-ln -s "$realsh" "$TESTDIR/storesh"
-sed -i "s|^CONFIG_SHELL=.*|CONFIG_SHELL=$TESTDIR/storesh|" "$SHPACK_CONFIG"
+# replace_bin_sh repoints /bin/sh at the build shell $sh, which is the declared
+# dash dep's bin/sh (TEST_DASH_SH here), not CONFIG_SHELL.
 
 # Toy source with /bin/sh hardcoded two ways (a quoted C string literal and
 # Python's ["/bin/sh", "-c"] list) plus a marker the edit() hook will stamp,
@@ -28,6 +25,7 @@ sha=${sha%% *}
 mkpkg edpkg <<'EOF'
 version 1.0 sha256=SHA url=http://example.invalid/edpkg-1.0.tar.gz
 build_system generic
+depends_on dash
 edit() {
     replace_bin_sh hard.txt
     sed -i 's/MARKER/edited/' hard.txt
@@ -47,12 +45,10 @@ out=$TESTDIR/store/edpkg-1.0-$h/share/hard.txt
 assert_file "$out"
 # edit() ran (custom sed after replace_bin_sh) ...
 assert_contains "$out" "edited"
-# ... and both /bin/sh forms got repointed at the store shell ...
-assert_contains "$out" "\"$TESTDIR/storesh\""
-assert_contains "$out" "[\"$TESTDIR/storesh\", \"-c\"]"
-# ... with no bare /bin/sh left.
-case $(cat "$out") in
-    *"/bin/sh"*) fail "expected no bare /bin/sh in $out" ;;
-esac
+# ... and both /bin/sh forms got repointed at the build shell ($sh = the dash
+# dep's bin/sh). $sh itself ends in /bin/sh, so assert the full transformed
+# forms rather than the mere absence of the substring.
+assert_contains "$out" "execl(\"$TEST_DASH_SH\", \"sh\", \"-c\", cmd);"
+assert_contains "$out" "[\"$TEST_DASH_SH\", \"-c\"]"
 
 echo OK

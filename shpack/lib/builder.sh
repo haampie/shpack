@@ -259,18 +259,22 @@ cmd_build_one() {
     BUILD_HOME=$VAR/home
     mkdir -p "$BUILD_HOME"
     # $sh, the build shell (configure/patch-shebangs/replace_bin_sh/SHELL=), is
-    # the dash the recipe declares (dash@0.5.12 bootstrap external, or the clean
-    # glibc dash), else the ambient $CONFIG_SHELL. So a recipe that bakes a shell
-    # into its artifact keeps that path inside its own recorded closure.
-    sh=$CONFIG_SHELL
-    if direct_dep dash; then sh=$(prefix_of dash)/bin/sh; fi
+    # the dash the recipe declares -- dash@0.5.12 (bootstrap external) below the
+    # glibc dash, the clean dash above it. Every built recipe must declare one:
+    # the build always runs make/patch-shebangs, so there is no shell-free build,
+    # and an explicit dep keeps the shell inside the node's recorded closure.
+    if ! direct_dep dash; then
+        die "$name declares no shell dependency (add 'depends_on dash' or 'dash@0.5.12')"
+    fi
+    sh=$(prefix_of dash)/bin/sh
+    SHELL=$sh
     # SHELL via MAKEFLAGS so it reaches recursive sub-makes and overrides even a
     # baked-in `SHELL = /bin/sh` (kernel headers, musl, gawk@3.0.4); otherwise a
     # sub-make falls back to host /bin/sh, which the sandbox denies. Append to
     # preserve the dag.mk jobserver flags already here.
     MAKEFLAGS="${MAKEFLAGS:-} SHELL=$sh"
     export PREFIX ARCH JOBS makejobs MAKEFLAGS SOURCE_DATE_EPOCH=0 \
-        HOME="$BUILD_HOME" CONFIG_SHELL SHELL sh PATH
+        HOME="$BUILD_HOME" SHELL sh PATH
 
     # Dirs the compiler-wrapper package injects as -I / -L / -Wl,-rpath, plus
     # PKG_CONFIG_PATH for configure. Direct deps only: each shared lib records

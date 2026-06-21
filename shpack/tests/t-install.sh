@@ -14,6 +14,7 @@ sha=${sha%% *}
 mkpkg liba <<'EOF'
 version 1.0
 build_system generic
+depends_on dash
 install() {
     mkdir -p "$PREFIX/bin"
     printf '#!/bin/sh\necho liba-says-hi\n' > "$PREFIX/bin/liba-cmd"
@@ -25,14 +26,14 @@ EOF
 mkpkg gmake <<'EOF'
 version 4.4.1
 build_system generic
-depends_on liba
+depends_on liba dash
 install() { mkdir -p "$PREFIX/bin"; }
 EOF
 
 mkpkg tarpkg <<EOF
 version 1.0 sha256=$sha url=http://example.invalid/tarpkg-1.0.tar.gz
 build_system generic
-depends_on liba gmake@4.4.1
+depends_on liba gmake@4.4.1 dash
 install() {
     # Runs inside the unpacked source dir; the dep's bin must be on PATH.
     [ -f hello.txt ] || die "not in the source dir"
@@ -83,6 +84,7 @@ assert_contains "$SHPACK_VAR/logs/tarpkg-1.0.log" "already installed"
 mkpkg badpkg <<EOF
 version 1.0 sha256=0000000000000000000000000000000000000000000000000000000000000000 fname=tarpkg-1.0.tar.gz url=-
 build_system generic
+depends_on dash
 install() { :; }
 EOF
 if shpack install badpkg > /dev/null 2>&1; then
