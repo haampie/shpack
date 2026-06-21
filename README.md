@@ -4,7 +4,7 @@
 
 The build itself trusts only a single binary seed. Everything else is compiled from checksummed sources. It bootstraps a basic shell first, then increasingly capable C compilers and libraries, and finally the complete toolchain using a new bootstrapping path where the TinyCC C compiler with musl libc is built straight out of stage0-posix via [MES replacement][1]. It targets `x86_64` and `AArch64` natively from the start, which matters on modern systems where 32-bit support (x86, arm32) may be disabled in the kernel or missing from the CPU (e.g. Apple Silicon).
 
-`shpack` borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes and Merkle-hashed dependency graphs. It is no coincidence that the [`package.sh` recipes][5] resemble Spack's: one motivation for the project is to bootstrap the Spack package manager itself. Thanks to Guix and [live-bootstrap][2] for showing that a full bootstrap is possible, and to [MES replacement][1] for making it fast.
+`shpack` borrows ideas from [Spack][4], Nix, and Guix, such as immutable store prefixes and Merkle-hashed dependency graphs. It is no coincidence that the [`package.sh` recipes][5] resemble Spack's: one motivation for the project is to [bootstrap the Spack package manager itself](#shpack-install-spack). Thanks to Guix and [live-bootstrap][2] for showing that a full bootstrap is possible, and to [MES replacement][1] for making it fast.
 
 ## Quick start
 
@@ -34,13 +34,13 @@ work almost everywhere as it doesn't require user namespaces. It install into a 
 ```console
 $ ./run-local.sh shpack install gcc
 ...
-[+] dc9a082 gcc@16.1.0 /home/you/shpack/store/gcc-16.1.0-dc9a082
+[+] a062f54 gcc@16.1.0 /home/you/shpack/store/gcc-16.1.0-a062f54
 ```
 
 and the installed compiler can be used directly without chroot:
 
 ```console
-$ /home/you/shpack/store/gcc-16.1.0-dc9a082/bin/g++ hello.cc -o hello
+$ /home/you/shpack/store/gcc-16.1.0-a062f54/bin/g++ hello.cc -o hello
 $ ./hello
 hello world
 ```
@@ -60,7 +60,7 @@ to `/opt` inside the rootfs:
 ```console
 $ ./run-rootfs.sh shpack install gcc
 ...
-[+] dc9a082 gcc@16.1.0 /opt/gcc-16.1.0-dc9a082
+[+] a062f54 gcc@16.1.0 /opt/gcc-16.1.0-a062f54
 ```
 
 User namespaces are enabled by default on most distributions, but Debian and
@@ -90,35 +90,40 @@ $ shpack install xz  # shpack is in PATH
 ```
 ...
 ==> shpack install gcc
-dc9a082    gcc@16.1.0
-e71e7f1      gcc-boot-wrapper@16.1.0
-8a8e2e0        gcc-boot@16.1.0
-202a56d          gmake@4.4.1
-1040673            tcc@0.9.27 (external)
-694c904            musl@1.1.24 (external)
-7c75644            grep@2.4
-94f28c9            gawk@3.0.4
-91673cc          diffutils@2.7
-9f213b5          findutils@4.2.33
-adbb728          gcc-boot@9.5.0
-3c33c33            gcc-boot@4.7-2013.11
-fdacfc7              binutils@2.30-musl
-903463f                m4@1.4.7
-665c835              gmp@4.3.2
-c7eb8d3              mpfr@2.4.2
-beede4f              mpc@1.0.3
-1c37955            musl@1.2.5
-9fc6fea              linux-headers@6.9.1
-7ec5e07                sed@4.9
-33a495a                  xz@5.2.5
-e74b1e3            tar@1.35
-5fc3c72          binutils@2.46.0-musl
-1dd3fe1        glibc@2.43
-92e2484          python@3.5.9
-3b062e1          bison@3.8.2
-062a430          gawk@5.3.1
-df74cac      binutils@2.46.0
-0ee9ae9        libstdcxx-boot1@16.1.0
+a062f54    gcc@16.1.0
+b66470f      gcc-boot-wrapper@16.1.0
+7218c8a        gcc-boot@16.1.0
+43d2deb          gmake@4.4.1
+055307c            tcc@0.9.27 (external)
+9d99eb9            musl@1.1.24 (external)
+91ab285            grep@2.4-musl
+219a904              dash@0.5.12 (external)
+646eea2            gawk@3.0.4
+7ebe88e          diffutils@2.7
+18a175e          findutils@4.2.33
+d3b0c23          gcc-boot@9.5.0
+2badc02            gcc-boot@4.7-2013.11
+12ec57a              binutils@2.30-musl
+81a84cb                m4@1.4.7
+c61dffd              gmp@4.3.2
+54f8c21              mpfr@2.4.2
+57e6257              mpc@1.0.3
+87b37c9            musl@1.2.5
+07ee55e              linux-headers@6.9.1
+5c56299                sed@4.9-musl
+909212f                  xz@5.2.5-musl
+1aeee0b            tar@1.35-musl
+682b995          binutils@2.46.0-musl
+eb38678        glibc@2.43
+2881b9b          python@3.8.20
+ccd90d5          bison@3.8.2
+75c303a          gawk@5.3.1
+f1e744e          dash@0.5.13.4
+7ec050b            glibc@2.43-boot
+cfe2ea5      binutils@2.46.0
+287cc6b        libstdcxx-boot1@16.1.0
+7c51198        zlib-ng@2.3.3-boot
+d18a43d        zstd@1.5.7-boot
 ```
 
 The `(external)` nodes are part of the initial bootstrapping phase. All installed
@@ -126,7 +131,7 @@ packages are put into unique prefixes `/opt/<name>-<version>[-<hash>]`.
 
 ### `shpack install spack`
 
-`shpack install spack` continues past the toolchain and builds [Spack][4] 1.1.0
+`shpack install spack` continues past the toolchain and builds [Spack][4] 1.2.0
 with its runtime: CPython 3.14 (including the `_ssl`, `_ctypes`, `zlib` and
 `_bz2`/`_lzma`/`_zstd` modules), the clingo solver, and supporting tools such as
 `git` and `curl`. It resolves and builds the same way as `gcc`, into its own
