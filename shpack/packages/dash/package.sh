@@ -27,6 +27,7 @@ configure_args() {
     # frills -- this is a build-time /bin/sh, not a user shell.
     printf '%s\n' \
         "CC=$cc -B$gl/lib -I$gl/include -static" \
+        "CFLAGS=-g -O2 $file_prefix_map" \
         "--build=$t" "--host=$t" \
         --enable-static
 }

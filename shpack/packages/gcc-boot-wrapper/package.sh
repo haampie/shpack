@@ -30,12 +30,13 @@ install() {
 
     # gcc/g++ wrappers: -B finds crt1.o/crti.o/crtn.o from the new libc;
     # -dynamic-linker points executables at glibc's loader; -rpath finds
-    # libc.so.6 at run time.
+    # libc.so.6 at run time. SHPACK_FILE_PREFIX_MAP (set per-build) strips the
+    # build dir from __FILE__ for reproducibility.
     for prog in gcc g++; do
         real="$gcc/bin/$prog"
         {
             printf '#!%s\n' "$sh"
-            printf 'exec %s -B%s/lib -Wl,-dynamic-linker -Wl,%s -Wl,-rpath -Wl,%s/lib "$@"\n' \
+            printf 'exec %s -B%s/lib -Wl,-dynamic-linker -Wl,%s -Wl,-rpath -Wl,%s/lib $SHPACK_FILE_PREFIX_MAP "$@"\n' \
                 "$real" "$glibc" "$ld_so" "$glibc"
         } > "$PREFIX/bin/$prog"
         chmod 755 "$PREFIX/bin/$prog"
