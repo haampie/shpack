@@ -31,6 +31,8 @@ edit() {
 setup_build_environment() {
     export CC=$(prefix_of compiler-wrapper)/bin/gcc
     export CXX=$(prefix_of compiler-wrapper)/bin/g++
+    # PYTHONHASHSEED=0 pins marshal order of set/frozenset literals in .pyc.
+    export PYTHONHASHSEED=0
 
     # No uname: configure leaves ac_sys_system empty and LDSHARED falls back to
     # bare `ld`, which chokes on the `-Wl,` flags. Forcing cross to dodge uname
@@ -81,8 +83,25 @@ configure_args() {
         "LDFLAGS=-Wl,-rpath,$PREFIX/lib"
 }
 
+build() {
+    # Drop -E so the install's compileall honors PYTHONHASHSEED (env is already
+    # clean under env -i); pins set/frozenset marshal order in the .pyc.
+    sed -i '/^PYTHON_FOR_BUILD/s/ -E//' Makefile
+    default_build
+}
+
 install() {
+    # COVERAGE_INFO/RUNSHARED/TESTRUNNER bake the abs build dir into these
+    # dev/test-only vars (no configure lever). Scrub before install so compileall
+    # bakes the scrubbed bytes into the .pyc.
+    find . \( -name '_sysconfigdata_*.py' -o -name '_sysconfig_vars_*.json' \) \
+        -exec sed -i "s|$stage_dir|/build|g" {} +
+
     make install
     [ -e "$PREFIX/bin/python3" ] || ln -s python3.14 "$PREFIX/bin/python3"
     rm -rf "$PREFIX/lib/python3.14/test"
+
+    # config Makefile has no .pyc; scrub it after install.
+    sed -i "s|$stage_dir|/build|g" \
+        "$PREFIX/lib/python3.14/config-3.14"*"-linux-"*/Makefile
 }
