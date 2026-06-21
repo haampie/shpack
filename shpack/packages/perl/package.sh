@@ -11,8 +11,9 @@ version 5.40.2 sha256=10d4647cfbb543a7f9ae3e5f6851ec49305232ea7621aed24c7cfbb0be
 
 build_system generic
 
-# Configure leans on awk and grep, neither in the bootstrap base PATH.
-depends_on compiler-wrapper gawk@5.3.1 grep@2.4-musl gmake
+# Configure leans on awk and grep, neither in the bootstrap base PATH, and probes
+# for `comm` (kit-completeness check) -- coreutils supplies it.
+depends_on compiler-wrapper coreutils gawk@5.3.1 grep@2.4-musl gmake
 depends_on dash
 
 edit() {
