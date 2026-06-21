@@ -150,6 +150,7 @@ EOF
         --disable-werror \
         --disable-nls \
         --without-isl \
+        --disable-canonical-system-headers \
         --with-system-zlib \
         --with-zstd-include="$zstd/include" \
         --with-zstd-lib="$zstd/lib" \
