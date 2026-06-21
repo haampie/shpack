@@ -41,6 +41,17 @@ edit() {
     # Cwd.pm shells out to a hardcoded /bin/pwd (denied), so cwd() comes back
     # empty and MakeMaker dies. Repoint the first candidate at the store pwd.
     sed -i "s|'/bin/pwd'|'$storepwd'|" dist/PathTools/Cwd.pm
+
+    # config.over: Configure's sanctioned override, sourced after probing. Pin the
+    # wall-clock stamp and blank the host-fs probes (cf. /etc/group, /etc/hosts,
+    # gcc's /usr/local/include) so the host build converges on the chroot's values.
+    cat > config.over <<'EOF'
+cf_time='Thu Jan  1 00:00:00 UTC 1970'
+groupcat=''
+hostcat=''
+incpth=`echo " $incpth " | sed 's| /usr/local/include||g'`
+ccincpth=`echo " $ccincpth " | sed 's| /usr/local/include||g'`
+EOF
 }
 
 setup_build_environment() {

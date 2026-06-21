@@ -79,6 +79,10 @@ EOF
         --disable-ipv6 \
         --disable-shared
 
+    # Drop -E so the install's compileall honors PYTHONHASHSEED (env is already
+    # clean under env -i); pins set/frozenset marshal order in the .pyc.
+    sed -i '/^PYTHON_FOR_BUILD/s/ -E//' Makefile
+
     make $makejobs
 
     # Scrub build path before install so make install's compileall bakes the
