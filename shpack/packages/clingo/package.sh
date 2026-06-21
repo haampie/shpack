@@ -64,8 +64,12 @@ install() {
     mkdir -p build
     cd build
     # PY_SHARED=OFF: a self-contained _clingo*.so in clingo's own site-packages.
+    # Pin libdir: GNUInstallDirs picks lib vs lib64 from EXISTS /etc/debian_version,
+    # which leaks the host fs (present on Ubuntu, absent in the chroot rootfs) and
+    # made libclingo.so + its rpath differ between build environments.
     cmake .. \
         -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
         -DCMAKE_BUILD_TYPE=Release \
         -DCLINGO_BUILD_WITH_PYTHON=ON \
         -DCLINGO_REQUIRE_PYTHON=ON \
