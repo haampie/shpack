@@ -46,18 +46,6 @@ depends_on dash        when=2.46.0
 # arguments, which tcc 0.9.26's preprocessor lineage cannot handle.
 patch arm64-elfnn-howto.patch arch=aarch64 when=2.30-musl
 
-edit() {
-    case "$version" in
-        2.46.0)
-            # gprofng's install-data-local hook builds a non-reproducible
-            # examples.tar.gz (member mtimes/order); no configure flag disables
-            # just it. Drop the prerequisite and INSTALL_DATA line.
-            sed -i 's|^install-data-local:.*|install-data-local:|; /INSTALL_DATA. examples\.tar\.gz/d' \
-                gprofng/doc/Makefile.in
-            ;;
-    esac
-}
-
 setup_build_environment() {
     local glibc triple libstdcxx
     # Generated parsers ship and no flex exists; preseed to short-circuit
@@ -152,6 +140,7 @@ configure_args() {
                 "LDFLAGS=-L$libstdcxx/lib64 -L$libstdcxx/lib" \
                 AR=ar AS=as NM=nm RANLIB=ranlib \
                 OBJCOPY=objcopy OBJDUMP=objdump READELF=readelf STRIP=strip \
+                --disable-gprofng \
                 --disable-multilib \
                 --with-system-zlib \
                 --with-zstd-include="$zstd/include" \
