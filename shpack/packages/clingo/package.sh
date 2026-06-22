@@ -67,13 +67,14 @@ install() {
     # Pin libdir: GNUInstallDirs picks lib vs lib64 from EXISTS /etc/debian_version,
     # which leaks the host fs (present on Ubuntu, absent in the chroot rootfs) and
     # made libclingo.so + its rpath differ between build environments.
-    # Link with the install rpath directly: CMake otherwise links with the build
-    # rpath then rewrites in place, zero-padding the leftover by a build-dir-
-    # dependent amount -> non-reproducible .dynstr.
+    # The wrapper injects deps' rpaths CMake doesn't track, so its install-time
+    # rpath edit still fires; NO_BUILTIN_CHRPATH makes it a clean relink instead of
+    # an in-place zero-fill that pads .dynstr by a build-dir-dependent amount.
     cmake .. \
         -DCMAKE_INSTALL_PREFIX="$PREFIX" \
         -DCMAKE_INSTALL_LIBDIR=lib \
         -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+        -DCMAKE_NO_BUILTIN_CHRPATH=ON \
         -DCMAKE_BUILD_TYPE=Release \
         -DCLINGO_BUILD_WITH_PYTHON=ON \
         -DCLINGO_REQUIRE_PYTHON=ON \

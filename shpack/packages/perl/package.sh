@@ -17,10 +17,11 @@ depends_on compiler-wrapper coreutils gawk@5.3.1 grep@2.4-musl gmake
 depends_on dash
 
 edit() {
-    local storecat storepwd glibc
+    local storecat storepwd glibc m
     storecat=$(command -v cat)
     storepwd=${storecat%/cat}/pwd
     glibc=$(prefix_of glibc)
+    case "$ARCH" in amd64) m=x86_64 ;; aarch64) m=aarch64 ;; esac
 
     # Configure's basic-shell search takes the host /bin/sh whenever the file is
     # present, which the sandbox denies executing. Point it at the store shell;
@@ -42,15 +43,25 @@ edit() {
     # empty and MakeMaker dies. Repoint the first candidate at the store pwd.
     sed -i "s|'/bin/pwd'|'$storepwd'|" dist/PathTools/Cwd.pm
 
-    # config.over: Configure's sanctioned override, sourced after probing. Pin the
-    # wall-clock stamp and blank the host-fs probes (cf. /etc/group, /etc/hosts,
-    # gcc's /usr/local/include) so the host build converges on the chroot's values.
-    cat > config.over <<'EOF'
+    # config.over wins over probing (sourced last): pin the wall-clock stamp and
+    # the host-FS probes that diverge between host and hermetic chroot. Lib paths
+    # -> store glibc; pager -> in-closure cat (no pager packaged; never invoked).
+    cat > config.over <<EOF
 cf_time='Thu Jan  1 00:00:00 UTC 1970'
 groupcat=''
 hostcat=''
-incpth=`echo " $incpth " | sed 's| /usr/local/include||g'`
-ccincpth=`echo " $ccincpth " | sed 's| /usr/local/include||g'`
+passcat=''
+installusrbinperl='undef'
+pager='$storecat'
+sysman=''
+myarchname='$m-linux'
+glibpth='$glibc/lib'
+plibpth=''
+libpth='$glibc/lib'
+libspath=' $glibc/lib'
+libc='$glibc/lib/libc.so.6'
+incpth=\`echo " \$incpth " | sed 's| /usr/local/include||g'\`
+ccincpth=\`echo " \$ccincpth " | sed 's| /usr/local/include||g'\`
 EOF
 }
 

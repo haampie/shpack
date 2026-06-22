@@ -158,7 +158,10 @@ tcc \
 mkdir -p ${LIBDIR}/tcc
 if match ${ARCH} aarch64; then
     ./tcc-0.9.27 -c -D TCC_TARGET_ARM64=1 -I include -o ${TMPDIR}/lib-arm64.o lib/lib-arm64.c
-    ./tcc-0.9.27 -c -D TCC_TARGET_ARM64=1 -o ${TMPDIR}/alloca-aarch64.o ${SEEDDIR}/src/alloca-aarch64.S
+    # tcc bakes the source path verbatim into the object's STT_FILE symbol, so an
+    # absolute ${SEEDDIR} path would leak the build dir; pass a bare basename.
+    cp ${SEEDDIR}/src/alloca-aarch64.S alloca-aarch64.S
+    ./tcc-0.9.27 -c -D TCC_TARGET_ARM64=1 -o ${TMPDIR}/alloca-aarch64.o alloca-aarch64.S
     ./tcc-0.9.27 -ar cr ${LIBDIR}/tcc/libtcc1.a ${TMPDIR}/lib-arm64.o ${TMPDIR}/alloca-aarch64.o
 fi
 if match ${ARCH} amd64; then

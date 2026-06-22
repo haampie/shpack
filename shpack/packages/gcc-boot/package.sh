@@ -87,6 +87,13 @@ patch 0004-libstdcxx-generic-ctype.patch when=4.7-2013.11
 edit() {
     local p
     case "$version" in
+        4.7-2013.11)
+            # Blank libgcc's hardcoded -g: 4.7's -fdebug-prefix-map misses the
+            # include-fixed path it leaks into .debug_*, and a make-var override
+            # can't reach the libgcc sub-make (gcc forwards only FLAGS_TO_PASS).
+            sed -i 's/^LIBGCC2_DEBUG_CFLAGS = -g$/LIBGCC2_DEBUG_CFLAGS =/' \
+                libgcc/Makefile.in
+            ;;
         9.5.0|16.1.0)
             # Relocate the flat-unpacked gmp/mpfr/mpc resources into the GCC tree
             # for auto-detection. cwd is the gcc source dir (it sorts first).
@@ -110,9 +117,8 @@ setup_build_environment() {
     esac
     case "$version" in
         4.7-2013.11)
-            # Target libgcc forces -g regardless of CFLAGS_FOR_TARGET, leaking
-            # comp_dir. xgcc is gcc 4.7 (only -fdebug-prefix-map). Env-passed, not
-            # a configure arg, to keep $stage_dir out of gcc 4.7's configargs.
+            # edit() drops libgcc's -g; debug_prefix_map still covers any other
+            # target debug. Env-passed to keep $stage_dir out of gcc 4.7's configargs.
             export CFLAGS_FOR_TARGET="-O2 $debug_prefix_map"
             export CXXFLAGS_FOR_TARGET="-O2 $debug_prefix_map"
             ;;

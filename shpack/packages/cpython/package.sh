@@ -33,6 +33,10 @@ setup_build_environment() {
     export CXX=$(prefix_of compiler-wrapper)/bin/g++
     # PYTHONHASHSEED=0 pins marshal order of set/frozenset literals in .pyc.
     export PYTHONHASHSEED=0
+    # userbase defaults to $HOME/.local, leaking the per-build scratch path into
+    # _sysconfig_vars json; pin it (honored since build() strips -E from
+    # PYTHON_FOR_BUILD). The live interpreter still recomputes it from real $HOME.
+    export PYTHONUSERBASE=/homeless-shelter
 
     # No uname: configure leaves ac_sys_system empty and LDSHARED falls back to
     # bare `ld`, which chokes on the `-Wl,` flags. Forcing cross to dodge uname
