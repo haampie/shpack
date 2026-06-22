@@ -29,13 +29,13 @@ build_system autotools
 depends_on tcc musl@1.1.24 gmake grep@2.4-musl gawk@3.0.4 diffutils m4 when=2.30-musl
 # 2.46.0-musl: gcc 9.5, with 2.30-musl supplying the plain as/ld/ar. Modern
 # sed/tar: 2.46's configure needs sed -E and its tarball is pax.
-depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake grep@2.4-musl gawk@3.0.4 diffutils sed@4.9-musl tar@1.35-musl \
+depends_on gcc-boot@9.5.0 binutils@2.30-musl gmake grep@2.4-musl gawk@5.3.1 diffutils sed@4.9-musl tar@1.35-musl \
     when=2.46.0-musl
 # 2.46.0 (glibc): built by gcc-boot-wrapper against glibc 2.43. linux-headers:
 # autoconf CPP sanity check. libstdcxx-boot1: gprofng is C++ and links libstdc++.a.
 depends_on gcc-boot-wrapper glibc linux-headers libstdcxx-boot1 binutils@2.46.0-musl \
     zlib-ng@2.3.3-boot zstd@1.5.7-boot \
-    bison gmake sed@4.9-musl grep@2.4-musl gawk@3.0.4 diffutils tar@1.35-musl when=2.46.0
+    bison gmake sed@4.9-musl grep@2.4-musl gawk@5.3.1 diffutils tar@1.35-musl when=2.46.0
 
 # Build shell: the bootstrap dash for the musl versions, the clean dash for 2.46.0.
 depends_on dash@0.5.12 when=2.30-musl

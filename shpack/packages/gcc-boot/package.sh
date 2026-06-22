@@ -30,21 +30,21 @@ build_system autotools
 build_directory _build
 
 # Build tools shared by all gcc versions.
-depends_on gmake grep@2.4-musl gawk@3.0.4 diffutils findutils
+depends_on gmake grep@2.4-musl diffutils findutils
 
 # 4.7-2013.11: grown by tcc against musl 1.1.24, external gmp/mpfr/mpc, binutils
 # 2.30.
 depends_on tcc musl@1.1.24 binutils@2.30-musl gmp mpfr mpc \
-    m4 when=4.7-2013.11
+    m4 gawk@3.0.4 when=4.7-2013.11
 
 # 9.5.0: built by the chain's own 4.7 g++; musl 1.2.5 sysroot, kernel headers,
 # binutils 2.30. gmp/mpfr/mpc are in-tree resources (4.3.2/2.4.2 are too old).
 depends_on gcc-boot@4.7-2013.11 musl@1.2.5 linux-headers binutils@2.30-musl m4@1.4.7 tar@1.35-musl \
-    xz@5.2.5-musl when=9.5.0
+    xz@5.2.5-musl gawk@3.0.4 when=9.5.0
 
 # 16.1.0: built by the chain's own 9.5 g++; binutils 2.46 supplies the as/ld it
 # assembles with and bakes into its specs. sed/tar for 16's pax tarball.
-depends_on gcc-boot@9.5.0 binutils@2.46.0-musl sed@4.9-musl tar@1.35-musl xz@5.2.5-musl when=16.1.0
+depends_on gcc-boot@9.5.0 binutils@2.46.0-musl sed@4.9-musl tar@1.35-musl xz@5.2.5-musl gawk@5.3.1 when=16.1.0
 depends_on dash@0.5.12
 
 # GCC 9.5's download_prerequisites set, in-tree as gmp/ mpfr/ mpc/ for

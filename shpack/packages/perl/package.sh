@@ -13,7 +13,7 @@ build_system generic
 
 # Configure leans on awk and grep, neither in the bootstrap base PATH, and probes
 # for `comm` (kit-completeness check) -- coreutils supplies it.
-depends_on compiler-wrapper coreutils gawk@5.3.1 grep@2.4-musl gmake
+depends_on compiler-wrapper coreutils gawk grep@2.4-musl gmake
 depends_on dash
 
 edit() {
