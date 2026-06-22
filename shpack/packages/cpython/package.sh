@@ -101,7 +101,9 @@ install() {
     find . \( -name '_sysconfigdata_*.py' -o -name '_sysconfig_vars_*.json' \) \
         -exec sed -i "s|$stage_dir|/build|g" {} +
 
-    make install
+    # -j1: libainstall races the compileall over the same lib tree, so
+    # config-*/__pycache__ is nondeterministic. cf. cpython#102007.
+    make install -j1 COMPILEALL_OPTS=-j"$JOBS"
     [ -e "$PREFIX/bin/python3" ] || ln -s python3.14 "$PREFIX/bin/python3"
     rm -rf "$PREFIX/lib/python3.14/test"
 
