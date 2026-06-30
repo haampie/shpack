@@ -1,6 +1,8 @@
 #!/kaem --verbose --strict
 # SPDX-License-Identifier: MIT
 #
+# Source: https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
+#
 # bzip2 1.0.8, using its upstream Makefile directly (CC/AR/LDFLAGS
 # overridden for tcc + static musl). One vendored third-party (live-bootstrap,
 # GPL) patch, coreutils.patch, which drops the Makefile's

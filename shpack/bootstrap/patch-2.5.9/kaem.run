@@ -1,6 +1,8 @@
 #!/kaem --verbose --strict
 # SPDX-License-Identifier: MIT
 #
+# Source: https://mirrors.kernel.org/gnu/patch/patch-2.5.9.tar.gz
+#
 # GNU patch 2.5.9. From here on packages can apply real unified diffs
 # (before this, fixes go through simple-patch). 2.5.9 is the newest patch
 # that compiles under tcc+musl without autoconf output: an empty config.h

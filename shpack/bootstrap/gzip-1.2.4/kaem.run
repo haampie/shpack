@@ -1,6 +1,8 @@
 #!/kaem --verbose --strict
 # SPDX-License-Identifier: MIT
 #
+# Source: https://mirrors.kernel.org/gnu/gzip/gzip-1.2.4.tar.gz
+#
 # gzip 1.2.4. Old enough to be plain K&R-ish C that tcc compiles directly.
 # Three vendored third-party (live-bootstrap, GPL) inputs under ${PKG}:
 # - mk/main.mk: the makefile;

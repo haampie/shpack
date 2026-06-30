@@ -1,6 +1,8 @@
 #!/kaem --verbose --strict
 # SPDX-License-Identifier: MIT
 #
+# Source: https://mirrors.kernel.org/gnu/sed/sed-4.0.9.tar.gz
+#
 # GNU sed 4.0.9, built from the vendored third-party (live-bootstrap, GPL)
 # makefile with an empty config.h. LIBC=musl selects the makefile's
 # non-mes branch: musl already has getline (the bundled gnulib getline.c's

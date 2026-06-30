@@ -1,6 +1,8 @@
 #!/kaem --verbose --strict
 # SPDX-License-Identifier: MIT
 #
+# Source: https://mirrors.kernel.org/gnu/coreutils/coreutils-5.0.tar.bz2
+#
 # GNU coreutils 5.0: the bootstrap userland (~60 tools; see the makefile's
 # install list). 5.0 predates the gnulib explosion, so it builds under
 # tcc+musl from a hand-maintained third-party (live-bootstrap, GPL) makefile plus

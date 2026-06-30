@@ -1,6 +1,8 @@
 #!/kaem --verbose --strict
 # SPDX-License-Identifier: MIT
 #
+# Source: https://mirrors.kernel.org/gnu/make/make-3.82.tar.bz2
+#
 # make 3.82, the first build tool, hand-compiled with tcc (no make exists to
 # build make). Object list and per-file feature macros derived from the
 # tarball's Makefile.in/configure.in against what musl provides; the shared

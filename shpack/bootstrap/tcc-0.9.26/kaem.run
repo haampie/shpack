@@ -1,6 +1,8 @@
 #!/kaem --verbose --strict
 # SPDX-License-Identifier: MIT
 #
+# Source: https://lilypond.org/janneke/tcc/tcc-0.9.26-1147-gee75a10c.tar.gz tcc-0.9.26.tar.gz
+#
 # tcc 0.9.26 (mob snapshot tcc-0.9.26-1147-gee75a10c): the seed-grown C
 # compiler. Stage 1 (tcc_s) is built from tcc.c by our tcc_cc -> stack_c ->
 # M1/hex2 seed chain; it then compiles a bring-up SUBSET of musl 1.1.24 into

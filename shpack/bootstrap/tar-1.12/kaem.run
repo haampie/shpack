@@ -1,6 +1,8 @@
 #!/kaem --verbose --strict
 # SPDX-License-Identifier: MIT
 #
+# Source: https://mirrors.kernel.org/gnu/tar/tar-1.12.tar.gz
+#
 # GNU tar 1.12, the last tar that builds without autoconf output under
 # tcc+musl. Replaces the seed `untar` for every later package. Vendored
 # third-party (live-bootstrap, GPL) inputs under ${PKG}:
